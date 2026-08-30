@@ -1,3 +1,3 @@
 packages:
   - "packages/*"
-  - "vendor/ionet-ts/*"
+  - "vendor/ionet-ts/packages/*"
