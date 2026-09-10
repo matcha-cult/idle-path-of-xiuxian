@@ -1,3 +1,4 @@
 [submodule "vendor/ionet-ts"]
 path = vendor/ionet-ts
 url = git@github.com:matcha-cult/ionet-ts.git
+branch = dev
