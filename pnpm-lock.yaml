@@ -37,6 +37,9 @@ importers:
       dotenv:
         specifier: ^16.3.1
         version: 16.6.1
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
@@ -236,6 +239,25 @@ importers:
       ws:
         specifier: ^8.21.0
         version: 8.21.3
+
+  vendor/ionet-ts/packages/extension-preset-logic:
+    dependencies:
+      '@nbb-ionet/core-framework':
+        specifier: workspace:*
+        version: link:../core-framework
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(@swc/core@1.16.1)(postcss@8.5.26)(tsx@4.23.13)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)
 
   vendor/ionet-ts/packages/external-server:
     dependencies:

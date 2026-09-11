@@ -1,0 +1,76 @@
+{
+  "groups": [
+    {
+      "group": "weapon",
+      "categories": [
+        "weapon"
+      ],
+      "prefix": [
+        "aff_atk",
+        "aff_spirit",
+        "aff_speed",
+        "aff_move"
+      ],
+      "suffix": [
+        "aff_crit",
+        "aff_spiritpct",
+        "aff_focus"
+      ]
+    },
+    {
+      "group": "armor",
+      "categories": [
+        "body",
+        "helmet",
+        "gloves",
+        "boots",
+        "shield",
+        "belt"
+      ],
+      "prefix": [
+        "aff_def",
+        "aff_hp",
+        "aff_spirit"
+      ],
+      "suffix": [
+        "aff_regen",
+        "aff_allstats",
+        "aff_focus"
+      ]
+    },
+    {
+      "group": "jewelry",
+      "categories": [
+        "ring",
+        "amulet"
+      ],
+      "prefix": [
+        "aff_spirit",
+        "aff_move",
+        "aff_atk"
+      ],
+      "suffix": [
+        "aff_spiritpct",
+        "aff_lingyun",
+        "aff_focus"
+      ]
+    }
+  ],
+  "extra": [
+    {
+      "baseCode": "t14_hedaoshenbing",
+      "familyCodes": [
+        "leg_hedao_chenda",
+        "leg_hedao_pomo"
+      ],
+      "polarity": "prefix"
+    },
+    {
+      "baseCode": "t14_hedaoshenbing",
+      "familyCodes": [
+        "leg_hedao_woming"
+      ],
+      "polarity": "suffix"
+    }
+  ]
+}

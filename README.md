@@ -23,8 +23,15 @@ idle-path-of-xiuxian/
 ```bash
 pnpm install --store-dir /tmp/pnpm-store
 
-# 初始化用户系统数据库
+# 复制环境变量并配置两个数据库连接串（.env → .env.example）
+cp packages/server/.env.example packages/server/.env
+
+# 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
+
+# 初始化 Game 系统表与种子（物品基底/词缀/底材词缀池/拾取规则，P1）
+# 用户系统与 Game 游戏系统共用统一库（DATABASE_URL → idle_game）
+pnpm --filter idle-path-server db:init:game
 
 # 启动 Server
 pnpm --filter idle-path-server dev

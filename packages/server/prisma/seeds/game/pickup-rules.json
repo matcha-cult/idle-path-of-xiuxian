@@ -1,0 +1,12 @@
+[
+  {
+    "characterId": 0,
+    "name": "默认辨宝",
+    "rarityMin": 2,
+    "tierMin": 1,
+    "affixCodes": [],
+    "action": "keep",
+    "enabled": true,
+    "priority": 100
+  }
+]

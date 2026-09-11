@@ -7,8 +7,8 @@ import 'dotenv/config';
 import pg from 'pg';
 
 const connectionString =
-  process.env.USER_SERVICE_DATABASE_URL ??
-  'postgresql://postgres:postgres@localhost:5432/idle_path_of_xiuxian_user?schema=public';
+  process.env.DATABASE_URL ??
+  `postgresql://${process.env.DB_USER ?? 'postgres'}:${process.env.DB_PASSWORD ?? 'postgres'}@${process.env.DB_HOST ?? 'localhost'}:${process.env.DB_PORT ?? '5432'}/${process.env.DB_NAME ?? 'idle_game'}?schema=public`;
 
 const client = new pg.Client({ connectionString });
 
@@ -30,12 +30,18 @@ CREATE TABLE IF NOT EXISTS characters (
   gender        VARCHAR(10) NOT NULL,
   title         VARCHAR(50) DEFAULT '散修',
   spirit_stones BIGINT NOT NULL DEFAULT 10000,
-  silver        BIGINT NOT NULL DEFAULT 0,
+  silver        BIGINT NOT NULL DEFAULT 0, -- （弃用）银两，不再使用
+  realm         SMALLINT NOT NULL DEFAULT 1, -- 当前境界序号 1~14
+  lingyun       BIGINT NOT NULL DEFAULT 0, -- 灵韵（角色绑定成长资源）
   created_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_characters_user_id ON characters(user_id);
+
+-- 兼容已有库：增量补列（幂等）
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS realm SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS lingyun BIGINT NOT NULL DEFAULT 0;
 `;
 
 try {

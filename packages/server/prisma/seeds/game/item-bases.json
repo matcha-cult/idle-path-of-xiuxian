@@ -1,0 +1,686 @@
+[
+  {
+    "code": "t1_taomujian",
+    "name": "桃木剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 1,
+    "baseStats": {
+      "atk": 14,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t1_cumadaopao",
+    "name": "粗麻道袍",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 1,
+    "baseStats": {
+      "hp": 45,
+      "def": 6
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t1_shantaohuchuan",
+    "name": "山桃核串",
+    "category": "ring",
+    "slot": "ring",
+    "subType": "木串",
+    "tier": 1,
+    "baseStats": {
+      "atk": 3,
+      "spirit_power": 3
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t2_qingfengjian",
+    "name": "青锋剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 2,
+    "baseStats": {
+      "atk": 20,
+      "atk_speed": 100
+    },
+    "implicitAffixes": [
+      "base_fengmang"
+    ],
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t2_tengjia",
+    "name": "藤甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 2,
+    "baseStats": {
+      "hp": 60,
+      "def": 8
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t2_tongqianhufu",
+    "name": "铜钱护符",
+    "category": "amulet",
+    "slot": "amulet",
+    "subType": "护符",
+    "tier": 2,
+    "baseStats": {
+      "hp": 29,
+      "spirit_power": 6
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t3_jingtiejian",
+    "name": "精铁剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 3,
+    "baseStats": {
+      "atk": 26,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t3_tieyeneijia",
+    "name": "铁叶内甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 3,
+    "baseStats": {
+      "hp": 75,
+      "def": 10
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t3_qingyuhuan",
+    "name": "青玉环",
+    "category": "ring",
+    "slot": "ring",
+    "subType": "戒指",
+    "tier": 3,
+    "baseStats": {
+      "atk": 5,
+      "spirit_power": 5
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t4_liuyedao",
+    "name": "柳叶刀",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手刀",
+    "tier": 4,
+    "baseStats": {
+      "atk": 32,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t4_huxinyi",
+    "name": "护心衣",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 4,
+    "baseStats": {
+      "hp": 90,
+      "def": 12
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t4_nuanyupei",
+    "name": "暖玉佩",
+    "category": "amulet",
+    "slot": "amulet",
+    "subType": "玉佩",
+    "tier": 4,
+    "baseStats": {
+      "hp": 43,
+      "spirit_power": 10
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t5_zhanyaodao",
+    "name": "斩妖刀",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手刀",
+    "tier": 5,
+    "baseStats": {
+      "atk": 38,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t5_suozijia",
+    "name": "锁子甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 5,
+    "baseStats": {
+      "hp": 105,
+      "def": 14
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t5_xuantieyaopai",
+    "name": "玄铁腰牌",
+    "category": "belt",
+    "slot": "belt",
+    "subType": "腰牌",
+    "tier": 5,
+    "baseStats": {
+      "hp": 42,
+      "def": 7
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t6_zhuifenggun",
+    "name": "追风棍",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "双手棍",
+    "tier": 6,
+    "baseStats": {
+      "atk": 74,
+      "atk_speed": 70
+    },
+    "implicitAffixes": [
+      "base_xunfeng"
+    ],
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t6_dongfufayi",
+    "name": "洞府法衣",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 6,
+    "baseStats": {
+      "hp": 120,
+      "def": 16
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t6_guanhaizhulian",
+    "name": "观海珠链",
+    "category": "amulet",
+    "slot": "amulet",
+    "subType": "项链",
+    "tier": 6,
+    "baseStats": {
+      "hp": 57,
+      "spirit_power": 14
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t7_yunwenqiang",
+    "name": "云纹枪",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "双手长枪",
+    "tier": 7,
+    "baseStats": {
+      "atk": 84,
+      "atk_speed": 70
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t7_jinsineijia",
+    "name": "金丝内甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 7,
+    "baseStats": {
+      "hp": 135,
+      "def": 18
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t7_longmenruiyu",
+    "name": "龙门瑞玉",
+    "category": "ring",
+    "slot": "ring",
+    "subType": "戒指",
+    "tier": 7,
+    "baseStats": {
+      "atk": 9,
+      "spirit_power": 9
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t8_polangdao",
+    "name": "破浪刀",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手刀",
+    "tier": 8,
+    "baseStats": {
+      "atk": 56,
+      "atk_speed": 100
+    },
+    "implicitAffixes": [
+      "base_shuiling"
+    ],
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t8_xuanwuzhongjia",
+    "name": "玄武重甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 8,
+    "baseStats": {
+      "hp": 150,
+      "def": 20
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t8_jindanhulu",
+    "name": "金丹葫芦",
+    "category": "amulet",
+    "slot": "amulet",
+    "subType": "葫芦",
+    "tier": 8,
+    "baseStats": {
+      "hp": 71,
+      "spirit_power": 18
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t9_yuanyangqiang",
+    "name": "元阳枪",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "双手长枪",
+    "tier": 9,
+    "baseStats": {
+      "atk": 104,
+      "atk_speed": 70
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t9_yuanyingfapao",
+    "name": "元婴法袍",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 9,
+    "baseStats": {
+      "hp": 165,
+      "def": 22
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t9_xingchenjie",
+    "name": "星辰戒",
+    "category": "ring",
+    "slot": "ring",
+    "subType": "戒指",
+    "tier": 9,
+    "baseStats": {
+      "atk": 11,
+      "spirit_power": 11
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t10_liekongjian",
+    "name": "裂空剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 10,
+    "baseStats": {
+      "atk": 68,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t10_yupuguan",
+    "name": "玉璞冠",
+    "category": "helmet",
+    "slot": "helmet",
+    "subType": "道冠",
+    "tier": 10,
+    "baseStats": {
+      "hp": 72,
+      "def": 18
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t10_xianfengyaodai",
+    "name": "仙风腰带",
+    "category": "belt",
+    "slot": "belt",
+    "subType": "束带",
+    "tier": 10,
+    "baseStats": {
+      "hp": 72,
+      "def": 12
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t11_xianrenchi",
+    "name": "仙人尺",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手尺",
+    "tier": 11,
+    "baseStats": {
+      "atk": 74,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t11_tianjifayi",
+    "name": "天机法衣",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 11,
+    "baseStats": {
+      "hp": 195,
+      "def": 26
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t11_yunwenlingxue",
+    "name": "云纹灵靴",
+    "category": "boots",
+    "slot": "boots",
+    "subType": "云靴",
+    "tier": 11,
+    "baseStats": {
+      "hp": 65,
+      "def": 13
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t12_dujiejian",
+    "name": "渡劫剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 12,
+    "baseStats": {
+      "atk": 80,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t12_leijiezhanjia",
+    "name": "雷劫战甲",
+    "category": "body",
+    "slot": "body",
+    "subType": "内甲",
+    "tier": 12,
+    "baseStats": {
+      "hp": 210,
+      "def": 28
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t12_tianleihuwu",
+    "name": "天雷护腕",
+    "category": "gloves",
+    "slot": "gloves",
+    "subType": "护腕",
+    "tier": 12,
+    "baseStats": {
+      "hp": 70,
+      "def": 14
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t13_feishengxianjian",
+    "name": "飞升仙剑",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "单手剑",
+    "tier": 13,
+    "baseStats": {
+      "atk": 86,
+      "atk_speed": 100
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t13_jiuxiaofayi",
+    "name": "九霄法衣",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 13,
+    "baseStats": {
+      "hp": 225,
+      "def": 30
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t13_feishengyuzhuo",
+    "name": "飞升玉镯",
+    "category": "ring",
+    "slot": "ring",
+    "subType": "手镯",
+    "tier": 13,
+    "baseStats": {
+      "atk": 15,
+      "spirit_power": 15
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t14_hedaoshenbing",
+    "name": "合道神兵",
+    "category": "weapon",
+    "slot": "weapon",
+    "subType": "双手重剑",
+    "tier": 14,
+    "baseStats": {
+      "atk": 154,
+      "atk_speed": 70
+    },
+    "implicitAffixes": [
+      "base_hedao"
+    ],
+    "uniqueAffixes": [
+      "leg_hedao_chenda",
+      "leg_hedao_pomo",
+      "leg_hedao_woming"
+    ],
+    "rarityLimit": 3,
+    "dropWeight": 100
+  },
+  {
+    "code": "t14_hundundaopao",
+    "name": "混沌道袍",
+    "category": "body",
+    "slot": "body",
+    "subType": "道袍",
+    "tier": 14,
+    "baseStats": {
+      "hp": 240,
+      "def": 32
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  },
+  {
+    "code": "t14_hedaotianyin",
+    "name": "合道天印",
+    "category": "amulet",
+    "slot": "amulet",
+    "subType": "天印",
+    "tier": 14,
+    "baseStats": {
+      "hp": 113,
+      "spirit_power": 30
+    },
+    "implicitAffixes": null,
+    "uniqueAffixes": null,
+    "rarityLimit": 2,
+    "dropWeight": 100
+  }
+]

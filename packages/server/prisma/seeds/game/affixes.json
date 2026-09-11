@@ -1,0 +1,2936 @@
+[
+  {
+    "code": "aff_atk_1",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_2",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_3",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_4",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_5",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_6",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_7",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_8",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_9",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_10",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_11",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_12",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_13",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_atk_14",
+    "name": "锋锐",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "atk": 0
+    },
+    "valueFunc": {
+      "key": "atk",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_1",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_2",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_3",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_4",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_5",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_6",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_7",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_8",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_9",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_10",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_11",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_12",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_13",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spirit_14",
+    "name": "蕴灵",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "spirit_power": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power",
+      "minPerTier": 2,
+      "maxPerTier": 3,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_1",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_2",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_3",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_4",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_5",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_6",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_7",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_8",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_9",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_10",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_11",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_12",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_13",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_def_14",
+    "name": "御土",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "def": 0
+    },
+    "valueFunc": {
+      "key": "def",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_1",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_2",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_3",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_4",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_5",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_6",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_7",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_8",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_9",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_10",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_11",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_12",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_13",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_hp_14",
+    "name": "太一",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "hp": 0
+    },
+    "valueFunc": {
+      "key": "hp",
+      "minPerTier": 8,
+      "maxPerTier": 12,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_1",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_2",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_3",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_4",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_5",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_6",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_7",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_8",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_9",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_10",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_11",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_12",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_13",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_speed_14",
+    "name": "迅影",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "atk_speed": 0
+    },
+    "valueFunc": {
+      "key": "atk_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_1",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 1,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_2",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 2,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_3",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 3,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_4",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 4,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_5",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 5,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_6",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 6,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_7",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 7,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_8",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 8,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_9",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 9,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_10",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 10,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_11",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 11,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_12",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 12,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_13",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 13,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_move_14",
+    "name": "神行",
+    "polarity": "prefix",
+    "tier": 14,
+    "effects": {
+      "move_speed": 0
+    },
+    "valueFunc": {
+      "key": "move_speed",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_1",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_2",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_3",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_4",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_5",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_6",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_7",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_8",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_9",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_10",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_11",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_12",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_13",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_regen_14",
+    "name": "回春",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "hp_regen": 0
+    },
+    "valueFunc": {
+      "key": "hp_regen",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_1",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_2",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_3",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_4",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_5",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_6",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_7",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_8",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_9",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_10",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_11",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_12",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_13",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_lingyun_14",
+    "name": "悟性",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "lingyun_gain": 0
+    },
+    "valueFunc": {
+      "key": "lingyun_gain",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_1",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_2",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_3",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_4",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_5",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_6",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_7",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_8",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_9",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_10",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_11",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_12",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_13",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_focus_14",
+    "name": "凝神",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "focus": 0
+    },
+    "valueFunc": {
+      "key": "focus",
+      "minPerTier": 1,
+      "maxPerTier": 2,
+      "decimals": 0
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_1",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_2",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_3",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_4",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_5",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_6",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_7",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_8",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_9",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_10",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_11",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_12",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_13",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_crit_14",
+    "name": "破甲",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "crit": 0
+    },
+    "valueFunc": {
+      "key": "crit",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_1",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_2",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_3",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_4",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_5",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_6",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_7",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_8",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_9",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_10",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_11",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_12",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_13",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_spiritpct_14",
+    "name": "盈灵",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "spirit_power_pct": 0
+    },
+    "valueFunc": {
+      "key": "spirit_power_pct",
+      "minPerTier": 0.5,
+      "maxPerTier": 1,
+      "decimals": 1
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_1",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 1,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 120,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_2",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 2,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 60,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_3",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 3,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 40,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_4",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 4,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 30,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_5",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 5,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 24,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_6",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 6,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 20,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_7",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 7,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 18,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_8",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 8,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 15,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_9",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 9,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 14,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_10",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 10,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 12,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_11",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 11,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 11,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_12",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 12,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_13",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 13,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 10,
+    "isFractured": false
+  },
+  {
+    "code": "aff_allstats_14",
+    "name": "均衡",
+    "polarity": "suffix",
+    "tier": 14,
+    "effects": {
+      "all_stats": 0
+    },
+    "valueFunc": {
+      "key": "all_stats",
+      "minPerTier": 0.25,
+      "maxPerTier": 0.5,
+      "decimals": 1
+    },
+    "weight": 9,
+    "isFractured": false
+  },
+  {
+    "code": "base_fengmang",
+    "name": "锋芒",
+    "polarity": "base",
+    "tier": 0,
+    "effects": {
+      "atk_pct": 5
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "base_xunfeng",
+    "name": "迅风",
+    "polarity": "base",
+    "tier": 0,
+    "effects": {
+      "atk_speed_pct": 8
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "base_shuiling",
+    "name": "水灵",
+    "polarity": "base",
+    "tier": 0,
+    "effects": {
+      "spirit_power": 15
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "base_hedao",
+    "name": "合道",
+    "polarity": "base",
+    "tier": 0,
+    "effects": {
+      "all_stats_pct": 5
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "leg_hedao_chenda",
+    "name": "沉大道",
+    "polarity": "prefix",
+    "tier": 0,
+    "effects": {
+      "atk": 60
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "leg_hedao_pomo",
+    "name": "破魔",
+    "polarity": "prefix",
+    "tier": 0,
+    "effects": {
+      "vs_demon_pct": 50
+    },
+    "weight": 0,
+    "isFractured": false
+  },
+  {
+    "code": "leg_hedao_woming",
+    "name": "我命",
+    "polarity": "suffix",
+    "tier": 0,
+    "effects": {
+      "hp": 300,
+      "hp_regen": 20
+    },
+    "weight": 0,
+    "isFractured": false
+  }
+]

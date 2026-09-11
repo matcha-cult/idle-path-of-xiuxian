@@ -22,7 +22,12 @@ export interface Character {
   gender: string;
   title: string | null;
   spiritStones: number;
+  /** （弃用）银两，不再使用 */
   silver: number;
+  /** 当前境界序号 1~14 */
+  realm: number;
+  /** 灵韵（角色绑定成长资源） */
+  lingyun: number;
 }
 
 export interface CharacterResult {
@@ -33,6 +38,19 @@ export interface CharacterResult {
     hasCharacter: boolean;
   };
 }
+
+/** characters 表行（BIGINT 由 pg 以字符串返回） */
+type CharacterRow = {
+  id: number;
+  user_id: number;
+  nickname: string;
+  gender: string;
+  title: string | null;
+  spirit_stones: string | number;
+  silver: string | number;
+  realm: number;
+  lingyun: string | number;
+};
 
 @Injectable()
 export class CharacterService {
@@ -67,18 +85,10 @@ export class CharacterService {
       return { success: false, message: '角色昵称最长50字符' };
     }
 
-    const result = await this.database.query<{
-      id: number;
-      user_id: number;
-      nickname: string;
-      gender: string;
-      title: string | null;
-      spirit_stones: string;
-      silver: string;
-    }>(
+    const result = await this.database.query<CharacterRow>(
       `INSERT INTO characters (user_id, nickname, gender, title, spirit_stones, silver, created_at, updated_at)
        VALUES ($1, $2, $3, '散修', $4, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       RETURNING id, user_id, nickname, gender, title, spirit_stones, silver`,
+       RETURNING id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun`,
       [userId, normalizedNickname, gender, DEFAULT_REGISTRATION_SPIRIT_STONES],
     );
 
@@ -108,17 +118,13 @@ export class CharacterService {
     };
   }
 
-  private async findByUserId(userId: number): Promise<Character | null> {
-    const result = await this.database.query<{
-      id: number;
-      user_id: number;
-      nickname: string;
-      gender: string;
-      title: string | null;
-      spirit_stones: string;
-      silver: string;
-    }>(
-      `SELECT id, user_id, nickname, gender, title, spirit_stones, silver
+  /**
+   * 按 userId 查询角色。
+   * public：供物品服务（game 库）跨库解析角色归属与境界校验使用。
+   */
+  async findByUserId(userId: number): Promise<Character | null> {
+    const result = await this.database.query<CharacterRow>(
+      `SELECT id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun
        FROM characters WHERE user_id = $1`,
       [userId],
     );
@@ -126,15 +132,7 @@ export class CharacterService {
     return row ? this.toCharacter(row) : null;
   }
 
-  private toCharacter(row: {
-    id: number;
-    user_id: number;
-    nickname: string;
-    gender: string;
-    title: string | null;
-    spirit_stones: string;
-    silver: string;
-  }): Character {
+  private toCharacter(row: CharacterRow): Character {
     return {
       id: Number(row.id),
       userId: Number(row.user_id),
@@ -143,6 +141,8 @@ export class CharacterService {
       title: row.title ? String(row.title) : null,
       spiritStones: Number(row.spirit_stones),
       silver: Number(row.silver),
+      realm: Number(row.realm),
+      lingyun: Number(row.lingyun),
     };
   }
 }

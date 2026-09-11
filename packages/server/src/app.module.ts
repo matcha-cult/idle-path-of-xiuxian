@@ -12,6 +12,8 @@ import { IonetModule } from '@nbb-ionet/extension-nestjs';
 import { DatabaseModule } from './modules/database/database.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CharacterModule } from './modules/character/character.module.js';
+import { GameModule } from './modules/game/game.module.js';
+import { HealthModule } from './modules/health/health.module.js';
 import { UserWsModule } from './modules/ws/user-ws.module.js';
 import { HealthAction } from './ionet/health.action.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
@@ -29,6 +31,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
     DatabaseModule,
     AuthModule,
     CharacterModule,
+    GameModule,
+    HealthModule,
     UserWsModule,
   ],
   providers: [

@@ -1,9 +1,11 @@
-// 放置·修仙之路 — 用户系统独立数据库 Schema
+// 放置·修仙之路 — 统一数据库 Schema（合并用户系统 + Game 游戏系统）
 //
-// 注意：
-// - 本数据库为新建数据库，不继承任何参考项目/废案数据库。
-// - 当前角色系统与 idle-matcha / stock-market-service 等参考废案不兼容。
-// - 本 Schema 仅包含用户系统所需表：users、characters。
+// 说明（2025-09-11 合并决策）：
+// - 用户系统表与游戏系统表合并到同一数据库 idle_game
+// - 连接串走 env：DATABASE_URL（由 DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME 组成）
+// - 运行时访问采用原生 pg（DatabaseService / GameDatabaseService），
+//   本文件为数据设计工件；实际 DDL 由 scripts/init-db.mjs 与 scripts/init-game-db.mjs 执行。
+// - 约定：JSON 结构在数据库列中一律以字符串（Text）存储，应用层负责序列化/反序列化。
 
 generator client {
   provider = "prisma-client-js"
@@ -11,8 +13,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("USER_SERVICE_DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
+// ============ 用户系统 ============
 
 model users {
   id         Int         @id @default(autoincrement())
@@ -32,11 +36,106 @@ model characters {
   gender        String   @db.VarChar(10)
   title         String?  @default("散修") @db.VarChar(50)
   spirit_stones BigInt   @default(10000)
-  silver        BigInt   @default(0)
+  silver        BigInt   @default(0) // （弃用）银两，不再使用
+  realm         Int      @default(1) @db.SmallInt // 当前境界序号 1~14
+  lingyun       BigInt   @default(0) // 灵韵（角色绑定成长资源）
   created_at    DateTime @default(now()) @db.Timestamp(6)
   updated_at    DateTime @updatedAt @db.Timestamp(6)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
+}
+
+// ============ Game 游戏系统（P1：物品与词缀） ============
+
+// 物品基底（底材模板）
+model game_item_bases {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique @db.VarChar(50) // 如 t2_qingfengjian
+  name             String   @db.VarChar(50)        // 青锋剑
+  category         String   @db.VarChar(30)        // weapon/body/helmet/gloves/boots/shield/ring/amulet/belt
+  slot             String?  @db.VarChar(20)        // 装备槽位 key
+  sub_type         String?  @db.VarChar(30)        // 单手剑/道袍…
+  tier             Int      @db.SmallInt           // 底材 T 阶 1~14
+  base_stats       String?  @db.Text               // JSON 字符串：基础属性
+  implicit_affixes String?  @db.Text               // JSON 字符串：基底词缀 code 列表
+  unique_affixes   String?  @db.Text               // JSON 字符串：传奇固定词缀 code 列表
+  rarity_limit     Int      @default(2) @db.SmallInt // 最高可达稀有度 0凡/1灵/2宝/3传奇
+  drop_weight      Int      @default(100)
+  icon             String?  @db.VarChar(100)
+  created_at       DateTime @default(now()) @db.Timestamp(6)
+  updated_at       DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([category])
+}
+
+// 词缀池
+model game_affixes {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique @db.VarChar(50) // aff_atk_1 等；tier=0 表示无 T 阶（基底/传奇固定）
+  name         String   @db.VarChar(50)         // 锋锐
+  polarity     String   @db.VarChar(10)         // prefix 前缀 / suffix 后缀 / base 基底
+  tier         Int      @db.SmallInt            // 词缀 T 阶 1~14；0=无 T 阶
+  effects      String   @db.Text                // JSON 字符串：属性效果
+  value_func   String?  @db.Text                // JSON 字符串：{minPerTier, maxPerTier}（可 roll 词缀）
+  weight       Int      @default(100)           // 生成权重
+  is_fractured Boolean  @default(false)         // 天定词缀（P1 无此类数据，字段预留）
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([polarity, tier])
+}
+
+// 底材-词缀池挂载（每种底材独立前后缀池）
+model game_base_affix_pools {
+  id        Int    @id @default(autoincrement())
+  base_id   Int                                    // → game_item_bases.id
+  affix_id  Int                                    // → game_affixes.id
+  polarity  String @db.VarChar(10)                 // prefix / suffix
+
+  @@unique([base_id, affix_id])
+  @@index([base_id, polarity])
+}
+
+// 物品实例
+model game_items {
+  id           BigInt   @id @default(autoincrement())
+  character_id Int?                                // 归属角色；null=无主
+  base_id      Int
+  rarity       Int      @default(0) @db.SmallInt   // 0凡/1灵/2宝/3传奇
+  tier         Int      @db.SmallInt               // 底材 T 阶（冗余自基底）
+  quality      Int      @default(0) @db.SmallInt   // 品质 0~20（P3 启用）
+  affixes      String?  @db.Text                   // JSON 字符串：[{affixId, value, polarity, key}]
+  status       String   @default("bag") @db.VarChar(20) // bag/equipped/warehouse/selling
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([character_id, status])
+  @@index([base_id])
+}
+
+// 装备栏（角色当前穿戴）
+model game_equipment {
+  id           Int      @id @default(autoincrement())
+  character_id Int      @unique
+  slots        String   @db.Text                   // JSON 字符串：{"weapon": itemId, "ring1": …}
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+}
+
+// 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
+model game_pickup_rules {
+  id            Int      @id @default(autoincrement())
+  character_id  Int                                 // 0 = 系统预置模板
+  name          String   @db.VarChar(50)
+  rarity_min    Int      @default(0) @db.SmallInt
+  tier_min      Int      @default(1) @db.SmallInt
+  affix_codes   String?  @db.Text                   // JSON 字符串：目标词缀 code 列表
+  action        String   @default("keep") @db.VarChar(20) // keep/salvage/discard
+  enabled       Boolean  @default(true)
+  priority      Int      @default(100)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([character_id])
 }

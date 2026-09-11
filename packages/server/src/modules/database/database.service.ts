@@ -21,8 +21,8 @@ export class DatabaseService implements OnModuleDestroy {
 
   constructor() {
     const connectionString =
-      process.env.USER_SERVICE_DATABASE_URL ??
-      'postgresql://postgres:postgres@localhost:5432/idle_path_of_xiuxian_user?schema=public';
+      process.env.DATABASE_URL ??
+      `postgresql://${process.env.DB_USER ?? 'postgres'}:${process.env.DB_PASSWORD ?? 'postgres'}@${process.env.DB_HOST ?? 'localhost'}:${process.env.DB_PORT ?? '5432'}/${process.env.DB_NAME ?? 'idle_game'}?schema=public`;
 
     this.pool = new Pool({ connectionString });
   }

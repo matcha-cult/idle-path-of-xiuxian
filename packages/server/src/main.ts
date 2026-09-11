@@ -8,6 +8,7 @@
  * - NestJS 侧预留 /ws-user 作为 WS 连接入口，仅负责连接接入/握手。
  */
 import 'reflect-metadata';
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module.js';
