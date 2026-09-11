@@ -9,6 +9,7 @@
  * 角色系统为当前项目独立设计，不与任何参考废案直接合并。
  */
 import { Injectable } from '@nestjs/common';
+import { APP_CONFIG } from '../../common/config/app-config.js';
 import { DatabaseService } from '../database/database.service.js';
 
 const DEFAULT_REGISTRATION_SPIRIT_STONES = Number(
@@ -69,11 +70,16 @@ export class CharacterService {
   }
 
   async create(userId: number, nickname: string, gender: 'male' | 'female'): Promise<CharacterResult> {
-    const exist = await this.database.query<{ id: number }>(
-      'SELECT id FROM characters WHERE user_id = $1',
+    const maxCharacters = APP_CONFIG.maxCharactersPerAccount;
+    const countResult = await this.database.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM characters WHERE user_id = $1',
       [userId],
     );
-    if (exist.rows.length > 0) {
+    const current = Number(countResult.rows[0]?.count ?? 0);
+    if (current >= maxCharacters) {
+      return { success: false, message: `角色数量已达上限（${maxCharacters}）` };
+    }
+    if (current > 0) {
       return { success: false, message: '已存在角色，无法重复创建' };
     }
 

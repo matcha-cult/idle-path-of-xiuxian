@@ -1,0 +1,4 @@
+{
+  "maxCharactersPerAccount": 1,
+  "generateRateLimitPerMinute": 5
+}

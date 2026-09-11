@@ -105,6 +105,31 @@
 
 ---
 
+## 7. 审阅修正记录（响应 p1-code-review.md，2025-09-12）
+
+| 编号 | 修正 | 落点 |
+| --- | --- | --- |
+| H1 | 族去重正则 `/_d+$/` → `/_(\\d)+$/`（模板串写入吞反斜杠的根因已规避） | `item.affix.service.ts` familyOf |
+| H2 | generate 改回仅 POST；生产环境禁用；characterId 仅限本人角色或省略；单账户限流（配置） | `item.controller.ts`、`item.service.ts` generateItemForUser |
+| H2 附加 | `config/app.config.json`：maxCharactersPerAccount=1、generateRateLimitPerMinute=5；CharacterService.create 执行上限 | `common/config/app-config.ts`、`character.service.ts` |
+| M1 | rarity 白名单 0~3（先于 rarity_limit） | `item.affix.service.ts` |
+| M2 | toFiniteInt + 受控 INVALID_PARAM，消除 NaN→500 | `item.controller.ts` |
+| M3 | pickup_rules 只重建 character_id=0 模板；基底/词缀种子显式 id + 序列 setval + 漂移告警 | `init-game-db.mjs`、两个 seed JSON |
+| M4 | 装备栏首次创建 ON CONFLICT + 锁行重读 | `item.service.ts` equip |
+| L1 | unequip slots JSON.parse 容错对齐 | `item.service.ts` |
+| L3 | AFFIX_TIER_WINDOW 启动校验（非法回退 4 + 告警） | `item.affix.service.ts` |
+| L2① | 对外 affixes 输出补 code/name/tier（AffixView） | `item.types.ts`、renderItem |
+| L2② | equip 成功 message 带物品名 | `item.service.ts` |
+| L2③ | 计划文档 §5.2 补 value_func 字段 | `p1-implementation-plan.md` |
+| L2④ | seed 规格 code 示例 aff_atk_01 → aff_atk_1（+ 显式 id） | `p1-seed-spec.md` |
+| L2⑤ | packages/server/README.md 统一库文案 + 接口表 + 配置表 | `packages/server/README.md` |
+| O3 | 契约补「预置模板不返回用户」注记 | `p1-api-contract.md` |
+
+登记技术债（未阻塞 P1）：M5 N+1 → P4 前处理；L4 BIGINT 精度 → P2 前处理；L5 随机源统一 → 可选；O1 双 Pool 合并在 P2 领域设计时定；O2 已按两段提交落地（本地提交，未推送）。
+
+
+---
+
 ## 6. 增补（2025-09-11 晚）：数据库形态变更 — 单库合并
 
 用户决策：**不再使用「用户库 + game 库」双库形态**，合并为单库。

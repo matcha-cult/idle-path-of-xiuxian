@@ -109,10 +109,13 @@ Query：`category`、`rarity`（0~3）、`tierMin`、`tierMax`、`page`、`pageS
 Query：`category`、`tier`、`page`、`pageSize`
 data：基底行（不含池详情）+ `affixPoolSummary`（可选参数 `withPool=1` 时输出前缀/后缀 code 列表）。
 
-### 3.8 POST /item/generate（开发/测试）
+### 3.8 POST /item/generate（开发/测试，仅 POST）
 
-请求：`{ "baseId": 2, "rarity": 2, "characterId": 3 }`
-charactersId 缺省时落库为无主物品（character_id=null，状态 bag）。
+> 2025-09-12 审阅修正后修订：仅 POST（GET 变体已移除）；生产环境禁用（`FORBIDDEN`）；
+> `characterId` 只允许当前登录用户本人的角色 id，或省略（无主物品，character_id=null）；
+> 单账户限流（默认 5 次/分钟，超限 `RATE_LIMITED`）。
+
+请求：`{ "baseId": 2, "rarity": 2, "characterId": 3 }`（characterId 省略时落库为无主物品）。
 
 成功响应示例：
 
@@ -125,7 +128,7 @@ charactersId 缺省时落库为无主物品（character_id=null，状态 bag）�
                      "破甲 T1：暴击 +0.7%", "盈灵 T2：灵力加成 +1.3%"] } } }
 ```
 
-失败：`BASE_NOT_FOUND` / `RARITY_EXCEEDS_LIMIT`（目标稀有度 > 基底 rarityLimit）。
+失败：`BASE_NOT_FOUND` / `RARITY_EXCEEDS_LIMIT`（目标稀有度 > 基底 rarityLimit）/ `INVALID_PARAM`（baseId/rarity 缺失或非法）/ `FORBIDDEN`（生产环境或越权角色）/ `RATE_LIMITED`（超限流）。
 
 ### 3.9 pickup-rules CRUD
 
@@ -134,6 +137,7 @@ charactersId 缺省时落库为无主物品（character_id=null，状态 bag）�
 - PUT：同 POST，可部分字段
 - DELETE：物理删除
 - 失败码：`PICKUP_RULE_NOT_FOUND`
+- 注：系统预置模板（character_id=0）不返回给用户；复制到角色的时机在 P4（掉落结算）。当前新角色规则列表为空属预期行为。
 
 ---
 
@@ -160,6 +164,9 @@ charactersId 缺省时落库为无主物品（character_id=null，状态 bag）�
 | TIER_TOO_HIGH | 409 | 物品 tier 超过角色境界 |
 | BASE_NOT_FOUND | 404 | 基底不存在 |
 | RARITY_EXCEEDS_LIMIT | 409 | 超出基底稀有度上限 |
+| FORBIDDEN | 403 | 越权角色/生产环境禁用（generate） |
+| RATE_LIMITED | 429 | 超出限流（generate，默认 5 次/分钟） |
+| INVALID_PARAM | 400 | 参数缺失或非法（含 NaN 防御） |
 | PICKUP_RULE_NOT_FOUND | 404 | 规则不存在 |
 
 ---

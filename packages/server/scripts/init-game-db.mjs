@@ -121,30 +121,29 @@ try {
   await client.query(ddl);
   console.log('[放置·修仙之路] game tables ok (6 张表)');
 
-  // ===== 重灌配置种子（幂等：先清配置表） =====
+  // ===== 重灌配置种子（幂等） =====
+  // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
+  // 拾取规则仅重建系统预置模板（character_id=0），保留玩家自建行。
   await client.query('DELETE FROM game_base_affix_pools');
   await client.query('DELETE FROM game_affixes');
   await client.query('DELETE FROM game_item_bases');
-  await client.query('DELETE FROM game_pickup_rules');
-  // 重置自增序列
-  await client.query("ALTER SEQUENCE IF EXISTS game_item_bases_id_seq RESTART WITH 1");
-  await client.query("ALTER SEQUENCE IF EXISTS game_affixes_id_seq RESTART WITH 1");
-  await client.query("ALTER SEQUENCE IF EXISTS game_base_affix_pools_id_seq RESTART WITH 1");
-  await client.query("ALTER SEQUENCE IF EXISTS game_pickup_rules_id_seq RESTART WITH 1");
+  await client.query('DELETE FROM game_pickup_rules WHERE character_id = 0');
 
   // ===== 物品基底 =====
   const bases = await loadJson('item-bases.json');
   const baseIdByCode = new Map();
   for (const b of bases) {
     const r = await client.query(
-      `INSERT INTO game_item_bases (code, name, category, slot, sub_type, tier, base_stats, implicit_affixes, unique_affixes, rarity_limit, drop_weight)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `INSERT INTO game_item_bases (id, code, name, category, slot, sub_type, tier, base_stats, implicit_affixes, unique_affixes, rarity_limit, drop_weight)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
-      [b.code, b.name, b.category, b.slot ?? null, b.subType ?? null, b.tier,
+      [b.id, b.code, b.name, b.category, b.slot ?? null, b.subType ?? null, b.tier,
        jstr(b.baseStats), jstr(b.implicitAffixes), jstr(b.uniqueAffixes), b.rarityLimit ?? 2, b.dropWeight ?? 100],
     );
     baseIdByCode.set(b.code, Number(r.rows[0].id));
   }
+  // 校准自增序列（显式 id 之后继续递增）
+  await client.query("SELECT setval('game_item_bases_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_item_bases));");
   console.log(`[放置·修仙之路] item bases: ${bases.length}`);
 
   // ===== 词缀 =====
@@ -152,13 +151,14 @@ try {
   const affixIdByCode = new Map();
   for (const a of affixes) {
     const r = await client.query(
-      `INSERT INTO game_affixes (code, name, polarity, tier, effects, value_func, weight, is_fractured)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO game_affixes (id, code, name, polarity, tier, effects, value_func, weight, is_fractured)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
-      [a.code, a.name, a.polarity, a.tier, jstr(a.effects ?? {}), jstr(a.valueFunc ?? null), a.weight ?? 0, Boolean(a.isFractured)],
+      [a.id, a.code, a.name, a.polarity, a.tier, jstr(a.effects ?? {}), jstr(a.valueFunc ?? null), a.weight ?? 0, Boolean(a.isFractured)],
     );
     affixIdByCode.set(a.code, Number(r.rows[0].id));
   }
+  await client.query("SELECT setval('game_affixes_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_affixes));");
   console.log(`[放置·修仙之路] affixes: ${affixes.length}`);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
@@ -195,18 +195,33 @@ try {
     }
   }
   console.log(`[放置·修仙之路] base-affix pools: ${poolCount}`);
+  await client.query("SELECT setval('game_base_affix_pools_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_base_affix_pools));");
 
-  // ===== 拾取规则（系统预置模板） =====
+  // ===== 拾取规则（仅重建系统预置模板 character_id=0） =====
   const rules = await loadJson('pickup-rules.json');
   for (const r0 of rules) {
     await client.query(
       `INSERT INTO game_pickup_rules (character_id, name, rarity_min, tier_min, affix_codes, action, enabled, priority)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT DO NOTHING`,
       [r0.characterId ?? 0, r0.name, r0.rarityMin ?? 0, r0.tierMin ?? 1,
        jstr(r0.affixCodes ?? []), r0.action ?? 'keep', Boolean(r0.enabled), r0.priority ?? 100],
     );
   }
-  console.log(`[放置·修仙之路] pickup rules: ${rules.length}`);
+  console.log(`[放置·修仙之路] pickup rules: ${rules.length} 预置模板`);
+
+  // ===== 一致性校验：存量物品引用的基底是否存在（防种子 id 漂移） =====
+  const orphanBases = await client.query(
+    `SELECT COUNT(*)::int AS c FROM game_items i
+     LEFT JOIN game_item_bases b ON b.id = i.base_id
+     WHERE b.id IS NULL`,
+  );
+  const orphanItems = Number(orphanBases.rows[0].c);
+  if (orphanItems > 0) {
+    console.warn(
+      `[放置·修仙之路] 警告：${orphanItems} 件存量物品的 base_id 与种子失配（种子 id 可能漂移，请检查）`,
+    );
+  }
 
   console.log('[放置·修仙之路] game database initialized');
 } finally {

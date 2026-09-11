@@ -6,6 +6,7 @@
  * - P1 丢弃为物理删除；出售/分解属 P3+
  */
 import { Injectable } from '@nestjs/common';
+import { APP_CONFIG } from '../../../common/config/app-config.js';
 import { CharacterService } from '../../character/character.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
 import { ItemAffixService } from './item.affix.service.js';
@@ -56,6 +57,57 @@ export class ItemService {
       return { error: fail('CHARACTER_NOT_FOUND', '尚未创建角色') };
     }
     return { character };
+  }
+
+  // ===== 开发/测试生成接口门禁（内存滑动窗口限流） =====
+
+  private readonly generateCalls = new Map<number, number[]>();
+
+  private checkGenerateRateLimit(userId: number): boolean {
+    const now = Date.now();
+    const limit = APP_CONFIG.generateRateLimitPerMinute;
+    const history = this.generateCalls.get(userId) ?? [];
+    const fresh = history.filter((t) => now - t < 60_000);
+    if (fresh.length >= limit) {
+      this.generateCalls.set(userId, fresh);
+      return false;
+    }
+    fresh.push(now);
+    this.generateCalls.set(userId, fresh);
+    return true;
+  }
+
+  /**
+   * 生成物品（开发/测试用）门禁：
+   * 1. 生产环境禁用（NODE_ENV=production → FORBIDDEN）
+   * 2. 单账户每分钟限次（app.config.json: generateRateLimitPerMinute）
+   * 3. characterId 只允许本人角色 id 或 null（无主）；越权 → FORBIDDEN
+   */
+  async generateItemForUser(
+    userId: number,
+    baseId: number,
+    rarity: number,
+    characterId: number | null,
+  ): Promise<{ success: boolean; message: string; data?: unknown }> {
+    if ((process.env.NODE_ENV ?? 'development') === 'production') {
+      return fail('FORBIDDEN', '开发接口在生产环境不可用');
+    }
+    const { character, error } = await this.resolveCharacter(userId);
+    if (error) return error as FailResult;
+    if (!this.checkGenerateRateLimit(userId)) {
+      return fail(
+        'RATE_LIMITED',
+        `生成接口每分钟最多调用 ${APP_CONFIG.generateRateLimitPerMinute} 次`,
+      );
+    }
+    let target: number | null = null;
+    if (characterId != null) {
+      if (characterId !== character.id) {
+        return fail('FORBIDDEN', '只能为本人角色生成物品');
+      }
+      target = character.id;
+    }
+    return this.affixService.generateItem(baseId, rarity, target);
   }
 
   /** 背包列表（筛选 + 分页） */
@@ -155,27 +207,23 @@ export class ItemService {
         };
       }
 
-      // 读装备栏（不存在则创建）
+      // 装备栏首次创建走 ON CONFLICT（并发首装竞态安全），随后锁行读取
+      await tx.query(
+        `INSERT INTO game_equipment (character_id, slots)
+         VALUES ($1, $2) ON CONFLICT (character_id) DO NOTHING`,
+        [character.id, JSON.stringify(this.emptySlots())],
+      );
       const equipRows = await tx.query<{ id: number; slots: string }>(
         'SELECT id, slots FROM game_equipment WHERE character_id = $1 FOR UPDATE',
         [character.id],
       );
-      let equipId: number;
+      const equipRow = equipRows.rows[0];
+      if (!equipRow) return { ok: false, result: fail('ITEM_NOT_IN_BAG', '装备栏初始化失败') };
+      const equipId = Number(equipRow.id);
       let slots: Record<string, number | null>;
-      if (equipRows.rows[0]) {
-        equipId = Number(equipRows.rows[0].id);
-        try {
-          slots = JSON.parse(equipRows.rows[0].slots) as Record<string, number | null>;
-        } catch {
-          slots = this.emptySlots();
-        }
-      } else {
-        const created = await tx.query<{ id: number }>(
-          `INSERT INTO game_equipment (character_id, slots)
-           VALUES ($1, $2) RETURNING id`,
-          [character.id, JSON.stringify(this.emptySlots())],
-        );
-        equipId = Number(created.rows[0].id);
+      try {
+        slots = JSON.parse(equipRow.slots) as Record<string, number | null>;
+      } catch {
         slots = this.emptySlots();
       }
 
@@ -202,14 +250,18 @@ export class ItemService {
         "UPDATE game_items SET status = 'equipped', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [row.id],
       );
-      return { ok: true, result: { slot: slotKey, slots } };
+      return { ok: true, result: { slot: slotKey, slots, name: row.base_name } };
     });
 
     if (!result.ok) return result.result as FailResult;
-    const okResult = result.result as { slot: string; slots: Record<string, number | null> };
+    const okResult = result.result as {
+      slot: string;
+      slots: Record<string, number | null>;
+      name: string;
+    };
     return {
       success: true,
-      message: `装备成功：已佩戴至 ${okResult.slot}`,
+      message: `装备成功：${okResult.name} 已佩戴至 ${okResult.slot}`,
       data: { slot: okResult.slot, slots: okResult.slots },
     };
   }
@@ -238,7 +290,13 @@ export class ItemService {
         [character.id],
       );
       if (!equipRows.rows[0]) return fail('ITEM_NOT_EQUIPPED', '角色未拥有装备栏记录');
-      const slots = JSON.parse(equipRows.rows[0].slots) as Record<string, number | null>;
+      let slots: Record<string, number | null>;
+      try {
+        slots = JSON.parse(equipRows.rows[0].slots) as Record<string, number | null>;
+      } catch {
+        // 与 equip/equipment 视图对齐：slots 损坏按空栏处理 → 受控失败
+        slots = this.emptySlots();
+      }
       const slotKey = Object.keys(slots).find((k) => slots[k] === Number(row.id));
       if (!slotKey) return fail('ITEM_NOT_EQUIPPED', '物品未被装备');
 

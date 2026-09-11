@@ -98,7 +98,8 @@ packages/server/prisma/seeds/game/
 
 ```
 {
-  "code": "aff_atk_01",             // 唯一；01 为词缀族序号
+  "id": 1,                           // 显式 id（防种子重灌 id 漂移）
+  "code": "aff_atk_1",               // 唯一；族_T阶，T 阶不补零
   "name": "锋锐",
   "polarity": "prefix",             // prefix / suffix / base
   "tier": 1,                        // 1~14；base 与传奇固定词缀 tier=0

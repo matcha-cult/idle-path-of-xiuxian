@@ -81,7 +81,7 @@
 | 表 | 用途 | 说明 |
 | --- | --- | --- |
 | `game_item_bases` | 物品基底 | tier、base_stats、implicit_affixes、unique_affixes、rarity_limit |
-| `game_affixes` | 词缀池 | polarity(prefix/suffix/base)、tier、effects、weight、is_fractured |
+| `game_affixes` | 词缀池 | polarity(prefix/suffix/base)、tier、effects、value_func、weight、is_fractured |
 | `game_base_affix_pools` | 底材词缀池 | 每种底材的前缀/后缀池挂载 |
 | `game_items` | 物品实例 | **affixes 为字符串列（Text），存 JSON 字符串** |
 | `game_equipment` | 装备栏 | character_id 唯一，slots 为字符串列存 JSON 字符串 |

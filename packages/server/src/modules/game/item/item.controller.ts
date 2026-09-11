@@ -8,7 +8,7 @@
  * - POST   /api/game/item/discard
  * - GET    /api/game/equipment
  * - GET    /api/game/item/bases
- * - POST   /api/game/item/generate（开发/测试）
+ * - POST   /api/game/item/generate（开发/测试；生产禁用；仅限本人角色或 null；限流）
  * - GET/POST/PUT/DELETE /api/game/pickup-rules
  *
  * 全部需要 JWT 认证（全局 Guard 默认拦截）。
@@ -16,19 +16,21 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { UserId } from '../../../common/decorators/user-id.decorator.js';
 import { ItemService } from './item.service.js';
-import { ItemAffixService } from './item.affix.service.js';
 
-function toInt(value: unknown, fallback: number): number {
+/** 字符串/数字转有限整数；非法/缺失 → undefined */
+function toFiniteInt(value: unknown): number | undefined {
+  if (typeof value === 'string' && value.trim() === '') return undefined;
   const n = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : NaN;
-  return Number.isFinite(n) ? Math.floor(n) : fallback;
+  return Number.isFinite(n) ? Math.floor(n) : undefined;
+}
+
+function invalidParam(message = '参数不合法') {
+  return { success: false, message, data: { code: 'INVALID_PARAM' } };
 }
 
 @Controller('game')
 export class ItemController {
-  constructor(
-    private readonly itemService: ItemService,
-    private readonly affixService: ItemAffixService,
-  ) {}
+  constructor(private readonly itemService: ItemService) {}
 
   @Get('inventory')
   async inventory(
@@ -37,32 +39,40 @@ export class ItemController {
   ) {
     return this.itemService.inventory(userId, {
       category: query.category || undefined,
-      rarity: query.rarity != null ? toInt(query.rarity, NaN) : undefined,
-      tierMin: query.tierMin != null ? toInt(query.tierMin, NaN) : undefined,
-      tierMax: query.tierMax != null ? toInt(query.tierMax, NaN) : undefined,
-      page: query.page != null ? toInt(query.page, 1) : undefined,
-      pageSize: query.pageSize != null ? toInt(query.pageSize, 20) : undefined,
+      rarity: query.rarity != null ? toFiniteInt(query.rarity) : undefined,
+      tierMin: query.tierMin != null ? toFiniteInt(query.tierMin) : undefined,
+      tierMax: query.tierMax != null ? toFiniteInt(query.tierMax) : undefined,
+      page: toFiniteInt(query.page) ?? 1,
+      pageSize: toFiniteInt(query.pageSize) ?? 20,
     });
   }
 
   @Get('inventory/:id')
   async detail(@UserId() userId: number, @Param('id') id: string) {
-    return this.itemService.detail(userId, toInt(id, NaN));
+    const itemId = toFiniteInt(id);
+    if (itemId == null) return invalidParam('物品 id 不合法');
+    return this.itemService.detail(userId, itemId);
   }
 
   @Post('item/equip')
   async equip(@UserId() userId: number, @Body() body: { itemId?: unknown }) {
-    return this.itemService.equip(userId, toInt(body.itemId, NaN));
+    const itemId = toFiniteInt(body.itemId);
+    if (itemId == null) return invalidParam('itemId 不合法');
+    return this.itemService.equip(userId, itemId);
   }
 
   @Post('item/unequip')
   async unequip(@UserId() userId: number, @Body() body: { itemId?: unknown }) {
-    return this.itemService.unequip(userId, toInt(body.itemId, NaN));
+    const itemId = toFiniteInt(body.itemId);
+    if (itemId == null) return invalidParam('itemId 不合法');
+    return this.itemService.unequip(userId, itemId);
   }
 
   @Post('item/discard')
   async discard(@UserId() userId: number, @Body() body: { itemId?: unknown }) {
-    return this.itemService.discard(userId, toInt(body.itemId, NaN));
+    const itemId = toFiniteInt(body.itemId);
+    if (itemId == null) return invalidParam('itemId 不合法');
+    return this.itemService.discard(userId, itemId);
   }
 
   @Get('equipment')
@@ -74,41 +84,26 @@ export class ItemController {
   async bases(@Query() query: Record<string, string | undefined>) {
     return this.itemService.bases({
       category: query.category || undefined,
-      tier: query.tier != null ? toInt(query.tier, NaN) : undefined,
-      page: query.page != null ? toInt(query.page, 1) : undefined,
-      pageSize: query.pageSize != null ? toInt(query.pageSize, 20) : undefined,
+      tier: query.tier != null ? toFiniteInt(query.tier) : undefined,
+      page: toFiniteInt(query.page) ?? 1,
+      pageSize: toFiniteInt(query.pageSize) ?? 20,
       withPool: query.withPool === '1' ? 1 : 0,
     });
   }
 
-  // 开发/测试接口：GET（浏览器直访）+ POST 均可
-  @Get('item/generate')
-  async generateByGet(
-    @Query() query: Record<string, string | undefined>,
-  ): Promise<unknown> {
-    return this.generateInner(query.baseId, query.rarity, query.characterId);
-  }
-
+  /**
+   * 开发/测试生成物品（仅 POST）。
+   * 门禁见 ItemService.generateItemForUser：生产禁用 + 归属校验 + 单账户限流。
+   */
   @Post('item/generate')
-  async generate(@Body() body: { baseId?: unknown; rarity?: unknown; characterId?: unknown }) {
-    return this.generateInner(body.baseId, body.rarity, body.characterId);
-  }
-
-  private async generateInner(
-    baseIdRaw: unknown,
-    rarityRaw: unknown,
-    characterIdRaw: unknown,
-  ): Promise<unknown> {
-    const baseId = toInt(baseIdRaw, NaN);
-    const rarity = toInt(rarityRaw, NaN);
-    if (!Number.isFinite(baseId) || !Number.isFinite(rarity)) {
-      return { success: false, message: 'baseId 与 rarity 必填', data: { code: 'INVALID_PARAM' } };
+  async generate(@UserId() userId: number, @Body() body: { baseId?: unknown; rarity?: unknown; characterId?: unknown }) {
+    const baseId = toFiniteInt(body.baseId);
+    const rarity = toFiniteInt(body.rarity);
+    if (baseId == null || rarity == null) {
+      return invalidParam('baseId 与 rarity 必填且为整数');
     }
-    const characterId =
-      characterIdRaw != null && Number.isFinite(toInt(characterIdRaw, NaN))
-        ? toInt(characterIdRaw, NaN)
-        : null;
-    return this.affixService.generateItem(baseId, rarity, characterId);
+    const characterId = body.characterId != null ? (toFiniteInt(body.characterId) ?? null) : null;
+    return this.itemService.generateItemForUser(userId, baseId, rarity, characterId);
   }
 
   @Get('pickup-rules')
@@ -135,7 +130,9 @@ export class ItemController {
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.itemService.updatePickupRule(userId, toInt(id, NaN), {
+    const ruleId = toFiniteInt(id);
+    if (ruleId == null) return invalidParam('规则 id 不合法');
+    return this.itemService.updatePickupRule(userId, ruleId, {
       name: body.name,
       rarityMin: body.rarityMin,
       tierMin: body.tierMin,
@@ -148,6 +145,8 @@ export class ItemController {
 
   @Delete('pickup-rules/:id')
   async deletePickupRule(@UserId() userId: number, @Param('id') id: string) {
-    return this.itemService.deletePickupRule(userId, toInt(id, NaN));
+    const ruleId = toFiniteInt(id);
+    if (ruleId == null) return invalidParam('规则 id 不合法');
+    return this.itemService.deletePickupRule(userId, ruleId);
   }
 }

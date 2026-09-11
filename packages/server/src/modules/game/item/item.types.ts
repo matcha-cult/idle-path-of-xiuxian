@@ -119,6 +119,13 @@ export interface ItemRow {
   created_at: Date | string;
 }
 
+/** 对外词缀视图：标签条目 + 定义侧冗余字段（code/name/tier，契约要求） */
+export interface AffixView extends AffixEntry {
+  code: string;
+  name: string;
+  tier: number;
+}
+
 /** 对外物品摘要（含渲染文本） */
 export interface ItemView {
   id: number;
@@ -133,7 +140,7 @@ export interface ItemView {
   quality: number;
   status: string;
   affixTexts: string[];
-  affixes: AffixEntry[];
+  affixes: AffixView[];
   createdAt?: string | Date;
 }
 

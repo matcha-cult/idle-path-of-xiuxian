@@ -1,5 +1,6 @@
 [
   {
+    "id": 1,
     "code": "t1_taomujian",
     "name": "桃木剑",
     "category": "weapon",
@@ -16,6 +17,7 @@
     "dropWeight": 100
   },
   {
+    "id": 2,
     "code": "t1_cumadaopao",
     "name": "粗麻道袍",
     "category": "body",
@@ -32,6 +34,7 @@
     "dropWeight": 100
   },
   {
+    "id": 3,
     "code": "t1_shantaohuchuan",
     "name": "山桃核串",
     "category": "ring",
@@ -48,6 +51,7 @@
     "dropWeight": 100
   },
   {
+    "id": 4,
     "code": "t2_qingfengjian",
     "name": "青锋剑",
     "category": "weapon",
@@ -66,6 +70,7 @@
     "dropWeight": 100
   },
   {
+    "id": 5,
     "code": "t2_tengjia",
     "name": "藤甲",
     "category": "body",
@@ -82,6 +87,7 @@
     "dropWeight": 100
   },
   {
+    "id": 6,
     "code": "t2_tongqianhufu",
     "name": "铜钱护符",
     "category": "amulet",
@@ -98,6 +104,7 @@
     "dropWeight": 100
   },
   {
+    "id": 7,
     "code": "t3_jingtiejian",
     "name": "精铁剑",
     "category": "weapon",
@@ -114,6 +121,7 @@
     "dropWeight": 100
   },
   {
+    "id": 8,
     "code": "t3_tieyeneijia",
     "name": "铁叶内甲",
     "category": "body",
@@ -130,6 +138,7 @@
     "dropWeight": 100
   },
   {
+    "id": 9,
     "code": "t3_qingyuhuan",
     "name": "青玉环",
     "category": "ring",
@@ -146,6 +155,7 @@
     "dropWeight": 100
   },
   {
+    "id": 10,
     "code": "t4_liuyedao",
     "name": "柳叶刀",
     "category": "weapon",
@@ -162,6 +172,7 @@
     "dropWeight": 100
   },
   {
+    "id": 11,
     "code": "t4_huxinyi",
     "name": "护心衣",
     "category": "body",
@@ -178,6 +189,7 @@
     "dropWeight": 100
   },
   {
+    "id": 12,
     "code": "t4_nuanyupei",
     "name": "暖玉佩",
     "category": "amulet",
@@ -194,6 +206,7 @@
     "dropWeight": 100
   },
   {
+    "id": 13,
     "code": "t5_zhanyaodao",
     "name": "斩妖刀",
     "category": "weapon",
@@ -210,6 +223,7 @@
     "dropWeight": 100
   },
   {
+    "id": 14,
     "code": "t5_suozijia",
     "name": "锁子甲",
     "category": "body",
@@ -226,6 +240,7 @@
     "dropWeight": 100
   },
   {
+    "id": 15,
     "code": "t5_xuantieyaopai",
     "name": "玄铁腰牌",
     "category": "belt",
@@ -242,6 +257,7 @@
     "dropWeight": 100
   },
   {
+    "id": 16,
     "code": "t6_zhuifenggun",
     "name": "追风棍",
     "category": "weapon",
@@ -260,6 +276,7 @@
     "dropWeight": 100
   },
   {
+    "id": 17,
     "code": "t6_dongfufayi",
     "name": "洞府法衣",
     "category": "body",
@@ -276,6 +293,7 @@
     "dropWeight": 100
   },
   {
+    "id": 18,
     "code": "t6_guanhaizhulian",
     "name": "观海珠链",
     "category": "amulet",
@@ -292,6 +310,7 @@
     "dropWeight": 100
   },
   {
+    "id": 19,
     "code": "t7_yunwenqiang",
     "name": "云纹枪",
     "category": "weapon",
@@ -308,6 +327,7 @@
     "dropWeight": 100
   },
   {
+    "id": 20,
     "code": "t7_jinsineijia",
     "name": "金丝内甲",
     "category": "body",
@@ -324,6 +344,7 @@
     "dropWeight": 100
   },
   {
+    "id": 21,
     "code": "t7_longmenruiyu",
     "name": "龙门瑞玉",
     "category": "ring",
@@ -340,6 +361,7 @@
     "dropWeight": 100
   },
   {
+    "id": 22,
     "code": "t8_polangdao",
     "name": "破浪刀",
     "category": "weapon",
@@ -358,6 +380,7 @@
     "dropWeight": 100
   },
   {
+    "id": 23,
     "code": "t8_xuanwuzhongjia",
     "name": "玄武重甲",
     "category": "body",
@@ -374,6 +397,7 @@
     "dropWeight": 100
   },
   {
+    "id": 24,
     "code": "t8_jindanhulu",
     "name": "金丹葫芦",
     "category": "amulet",
@@ -390,6 +414,7 @@
     "dropWeight": 100
   },
   {
+    "id": 25,
     "code": "t9_yuanyangqiang",
     "name": "元阳枪",
     "category": "weapon",
@@ -406,6 +431,7 @@
     "dropWeight": 100
   },
   {
+    "id": 26,
     "code": "t9_yuanyingfapao",
     "name": "元婴法袍",
     "category": "body",
@@ -422,6 +448,7 @@
     "dropWeight": 100
   },
   {
+    "id": 27,
     "code": "t9_xingchenjie",
     "name": "星辰戒",
     "category": "ring",
@@ -438,6 +465,7 @@
     "dropWeight": 100
   },
   {
+    "id": 28,
     "code": "t10_liekongjian",
     "name": "裂空剑",
     "category": "weapon",
@@ -454,6 +482,7 @@
     "dropWeight": 100
   },
   {
+    "id": 29,
     "code": "t10_yupuguan",
     "name": "玉璞冠",
     "category": "helmet",
@@ -470,6 +499,7 @@
     "dropWeight": 100
   },
   {
+    "id": 30,
     "code": "t10_xianfengyaodai",
     "name": "仙风腰带",
     "category": "belt",
@@ -486,6 +516,7 @@
     "dropWeight": 100
   },
   {
+    "id": 31,
     "code": "t11_xianrenchi",
     "name": "仙人尺",
     "category": "weapon",
@@ -502,6 +533,7 @@
     "dropWeight": 100
   },
   {
+    "id": 32,
     "code": "t11_tianjifayi",
     "name": "天机法衣",
     "category": "body",
@@ -518,6 +550,7 @@
     "dropWeight": 100
   },
   {
+    "id": 33,
     "code": "t11_yunwenlingxue",
     "name": "云纹灵靴",
     "category": "boots",
@@ -534,6 +567,7 @@
     "dropWeight": 100
   },
   {
+    "id": 34,
     "code": "t12_dujiejian",
     "name": "渡劫剑",
     "category": "weapon",
@@ -550,6 +584,7 @@
     "dropWeight": 100
   },
   {
+    "id": 35,
     "code": "t12_leijiezhanjia",
     "name": "雷劫战甲",
     "category": "body",
@@ -566,6 +601,7 @@
     "dropWeight": 100
   },
   {
+    "id": 36,
     "code": "t12_tianleihuwu",
     "name": "天雷护腕",
     "category": "gloves",
@@ -582,6 +618,7 @@
     "dropWeight": 100
   },
   {
+    "id": 37,
     "code": "t13_feishengxianjian",
     "name": "飞升仙剑",
     "category": "weapon",
@@ -598,6 +635,7 @@
     "dropWeight": 100
   },
   {
+    "id": 38,
     "code": "t13_jiuxiaofayi",
     "name": "九霄法衣",
     "category": "body",
@@ -614,6 +652,7 @@
     "dropWeight": 100
   },
   {
+    "id": 39,
     "code": "t13_feishengyuzhuo",
     "name": "飞升玉镯",
     "category": "ring",
@@ -630,6 +669,7 @@
     "dropWeight": 100
   },
   {
+    "id": 40,
     "code": "t14_hedaoshenbing",
     "name": "合道神兵",
     "category": "weapon",
@@ -652,6 +692,7 @@
     "dropWeight": 100
   },
   {
+    "id": 41,
     "code": "t14_hundundaopao",
     "name": "混沌道袍",
     "category": "body",
@@ -668,6 +709,7 @@
     "dropWeight": 100
   },
   {
+    "id": 42,
     "code": "t14_hedaotianyin",
     "name": "合道天印",
     "category": "amulet",

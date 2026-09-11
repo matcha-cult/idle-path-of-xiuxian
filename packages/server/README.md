@@ -6,7 +6,8 @@
 
 - NestJS（HTTP API 全部 NestJS 风格）
 - ionet-ts（官方示例集成，仅注册 HealthAction，不启用 ionet-ts HTTP/WS 外部服务）
-- PostgreSQL（用户系统独立新建数据库）
+- PostgreSQL（用户系统 + Game 游戏系统共用统一库，连接串见 .env 的 DATABASE_URL）
+- Redis（健康检测探测用，REDIS_URL）
 
 ## 快速开始
 
@@ -14,18 +15,30 @@
 # 安装依赖（仓库根目录）
 pnpm install --store-dir /tmp/pnpm-store
 
-# 初始化数据库（需先创建数据库并配置 USER_SERVICE_DATABASE_URL）
+# 复制环境变量并按需修改（DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME）
+cp .env.example .env
+
+# 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
+
+# 初始化 Game 系统表与种子（物品基底/词缀/底材词缀池/拾取规则，P1）
+# 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
+pnpm --filter idle-path-server db:init:game
 
 # 开发
 pnpm --filter idle-path-server dev
 
-# 构建
+# 构建 / 类型检查
 pnpm --filter idle-path-server build
-
-# 类型检查
 pnpm --filter idle-path-server typecheck
 ```
+
+## 配置文件（config/app.config.json）
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| maxCharactersPerAccount | 1 | 单账户最大角色数 |
+| generateRateLimitPerMinute | 5 | 物品生成接口（开发/测试）单账户每分钟调用上限 |
 
 ## HTTP 接口
 
@@ -34,8 +47,19 @@ pnpm --filter idle-path-server typecheck
 | POST | /api/auth/register | 注册 | 公开 |
 | POST | /api/auth/login | 登录 | 公开 |
 | GET | /api/character/check | 检查角色 | JWT |
-| POST | /api/character/create | 创建角色 | JWT |
+| POST | /api/character/create | 创建角色（数量上限见配置） | JWT |
 | GET | /api/character/info | 获取角色信息 | JWT |
+| GET | /api/game/inventory | 背包列表（筛选+分页） | JWT |
+| GET | /api/game/inventory/:id | 物品详情 | JWT |
+| POST | /api/game/item/equip | 装备 | JWT |
+| POST | /api/game/item/unequip | 卸下 | JWT |
+| POST | /api/game/item/discard | 丢弃 | JWT |
+| GET | /api/game/equipment | 当前装备栏 | JWT |
+| GET | /api/game/item/bases | 物品基底库 | JWT |
+| POST | /api/game/item/generate | 生成物品（开发/测试：生产禁用、仅限本人角色、限流） | JWT |
+| GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
+
+详细的 Game 接口契约见仓库 `ai-docs/v2/p1/p1-api-contract.md`。
 
 ## WS 入口
 

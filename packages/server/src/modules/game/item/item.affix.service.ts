@@ -21,7 +21,15 @@ import {
   RARITY_NAMES,
 } from './item.types.js';
 
-const AFFIX_TIER_WINDOW = Number(process.env.AFFIX_TIER_WINDOW ?? 4);
+// 词缀 roll 窗口 N：非法值回退 4 并告警（启动期校验，防 NaN 进 SQL）
+const rawWindow = Number(process.env.AFFIX_TIER_WINDOW);
+const AFFIX_TIER_WINDOW =
+  Number.isInteger(rawWindow) && rawWindow >= 0 && Number.isFinite(rawWindow) ? rawWindow : 4;
+if (process.env.AFFIX_TIER_WINDOW != null && AFFIX_TIER_WINDOW !== rawWindow) {
+  console.warn(
+    `[item] AFFIX_TIER_WINDOW 非法（${process.env.AFFIX_TIER_WINDOW}），已回退为 ${AFFIX_TIER_WINDOW}`,
+  );
+}
 
 interface ValueFunc {
   key: string;
@@ -50,7 +58,7 @@ export class ItemAffixService {
 
   /** 词缀族：code 去掉尾部 _数字 */
   private familyOf(code: string): string {
-    return code.replace(/_d+$/, '');
+    return code.replace(/_\d+$/, '');
   }
 
   private formatValue(value: number, percent: boolean): string {
@@ -135,6 +143,9 @@ export class ItemAffixService {
     const base = baseResult.rows[0];
     if (!base) {
       return fail('BASE_NOT_FOUND', '物品基底不存在');
+    }
+    if (!Number.isInteger(rarity) || rarity < 0 || rarity > 3) {
+      return fail('INVALID_PARAM', 'rarity 必须在 0~3 之间');
     }
     if (Number(rarity) > base.rarity_limit) {
       return fail('RARITY_EXCEEDS_LIMIT', `超出基底稀有度上限（最高${RARITY_NAMES[base.rarity_limit]}）`);
@@ -314,7 +325,10 @@ export class ItemAffixService {
       quality,
       status,
       affixTexts: this.renderAffixTexts(entries, affixById),
-      affixes: entries,
+      affixes: entries.map((e) => {
+        const row = affixById.get(e.affixId);
+        return { ...e, code: row?.code ?? '', name: row?.name ?? '', tier: row?.tier ?? 0 };
+      }),
       ...(createdAt != null ? { createdAt } : {}),
     };
   }
