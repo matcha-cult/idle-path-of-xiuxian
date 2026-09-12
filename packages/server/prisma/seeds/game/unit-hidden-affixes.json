@@ -1,0 +1,101 @@
+[
+  {
+    "id": 1,
+    "code": "hid_hp",
+    "name": "厚甲",
+    "effects": {
+      "hp_pct": 30
+    },
+    "weight": 100
+  },
+  {
+    "id": 2,
+    "code": "hid_atk",
+    "name": "凶戾",
+    "effects": {
+      "atk_pct": 30
+    },
+    "weight": 100
+  },
+  {
+    "id": 3,
+    "code": "hid_def",
+    "name": "铁鳞",
+    "effects": {
+      "def_pct": 35
+    },
+    "weight": 100
+  },
+  {
+    "id": 4,
+    "code": "hid_spirit",
+    "name": "灵犀",
+    "effects": {
+      "spirit_power_pct": 30
+    },
+    "weight": 90
+  },
+  {
+    "id": 5,
+    "code": "hid_speed",
+    "name": "疾风",
+    "effects": {
+      "atk_speed_pct": 25
+    },
+    "weight": 80
+  },
+  {
+    "id": 6,
+    "code": "hid_crit",
+    "name": "致命",
+    "effects": {
+      "crit": 15
+    },
+    "weight": 70
+  },
+  {
+    "id": 7,
+    "code": "hid_extra",
+    "name": "暴虐",
+    "effects": {
+      "extra_damage_pct": 25
+    },
+    "weight": 70
+  },
+  {
+    "id": 8,
+    "code": "hid_resist",
+    "name": "抗法",
+    "effects": {
+      "resist_pct": 20
+    },
+    "weight": 70
+  },
+  {
+    "id": 9,
+    "code": "hid_regen",
+    "name": "再生",
+    "effects": {
+      "hp_regen": 8
+    },
+    "weight": 60
+  },
+  {
+    "id": 10,
+    "code": "hid_all",
+    "name": "混元",
+    "effects": {
+      "all_stats_pct": 15
+    },
+    "weight": 40
+  },
+  {
+    "id": 11,
+    "code": "hid_lingyun",
+    "name": "聚灵",
+    "effects": {
+      "lingyun_gain": 50
+    },
+    "weight": 50
+  }
+]

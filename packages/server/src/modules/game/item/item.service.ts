@@ -627,7 +627,9 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 }
 
 function normalizeAction(value: unknown): string {
-  return value === 'salvage' || value === 'discard' || value === 'keep' ? value : 'keep';
+  return value === 'salvage' || value === 'sell' || value === 'discard' || value === 'keep'
+    ? value
+    : 'keep';
 }
 
 function normalizeCodes(value: unknown): string[] {

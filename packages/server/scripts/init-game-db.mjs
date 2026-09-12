@@ -170,6 +170,64 @@ CREATE TABLE IF NOT EXISTS game_essence_inventory (
 );
 CREATE INDEX IF NOT EXISTS idx_game_essence_inventory_character ON game_essence_inventory(character_id);
 
+CREATE TABLE IF NOT EXISTS game_unit_hidden_affixes (
+  id         SERIAL PRIMARY KEY,
+  code       VARCHAR(50) NOT NULL UNIQUE,
+  name       VARCHAR(50) NOT NULL,
+  effects    TEXT NOT NULL,
+  weight     INTEGER NOT NULL DEFAULT 100,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS game_unit_templates (
+  id             SERIAL PRIMARY KEY,
+  code           VARCHAR(50) NOT NULL UNIQUE,
+  name           VARCHAR(50) NOT NULL,
+  realm          SMALLINT NOT NULL,
+  camp           VARCHAR(10) NOT NULL,
+  gives_lingyun  BOOLEAN NOT NULL DEFAULT TRUE,
+  base_stats     TEXT,
+  drop_table_ref INTEGER,
+  created_at     TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_unit_templates_realm ON game_unit_templates(realm);
+CREATE INDEX IF NOT EXISTS idx_game_unit_templates_camp ON game_unit_templates(camp);
+
+CREATE TABLE IF NOT EXISTS game_unit_hidden_pools (
+  id               SERIAL PRIMARY KEY,
+  unit_template_id INTEGER NOT NULL,
+  hidden_affix_id  INTEGER NOT NULL,
+  UNIQUE (unit_template_id, hidden_affix_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_unit_hidden_pools_unit ON game_unit_hidden_pools(unit_template_id);
+
+CREATE TABLE IF NOT EXISTS game_drop_tables (
+  id             SERIAL PRIMARY KEY,
+  code           VARCHAR(50) NOT NULL UNIQUE,
+  name           VARCHAR(50) NOT NULL,
+  drops_per_kill SMALLINT NOT NULL DEFAULT 1,
+  tier_offset    SMALLINT NOT NULL DEFAULT 0,
+  created_at     TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS game_drop_entries (
+  id            SERIAL PRIMARY KEY,
+  drop_table_id INTEGER NOT NULL,
+  kind          VARCHAR(20) NOT NULL,
+  base_id       INTEGER,
+  base_tier     SMALLINT,
+  rarity        SMALLINT,
+  currency_code VARCHAR(20),
+  essence_code  VARCHAR(20),
+  min_count     INTEGER NOT NULL DEFAULT 1,
+  max_count     INTEGER NOT NULL DEFAULT 1,
+  weight        INTEGER NOT NULL DEFAULT 100
+);
+CREATE INDEX IF NOT EXISTS idx_game_drop_entries_table ON game_drop_entries(drop_table_id);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -198,7 +256,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (13 张表)');
+  console.log('[放置·修仙之路] game tables ok (18 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -307,6 +365,83 @@ try {
     console.warn(`[放置·修仙之路] 警告：${orphanEss.rows[0].c} 条精华存量引用不存在的精华`);
   }
   console.log(`[放置·修仙之路] essences: ${essences.length}`);
+
+  // ===== P4 单位与掉落（隐藏词条 / 掉落表 / 单位模板） =====
+  const hiddenAffixes = await loadJson('unit-hidden-affixes.json');
+  await client.query('DELETE FROM game_unit_hidden_pools');
+  await client.query('DELETE FROM game_unit_hidden_affixes');
+  const hiddenIdByCode = new Map();
+  for (const h of hiddenAffixes) {
+    const r = await client.query(
+      'INSERT INTO game_unit_hidden_affixes (id, code, name, effects, weight) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [h.id, h.code, h.name, jstr(h.effects ?? {}), h.weight ?? 100],
+    );
+    hiddenIdByCode.set(h.code, Number(r.rows[0].id));
+  }
+  await client.query("SELECT setval('game_unit_hidden_affixes_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_unit_hidden_affixes));");
+  console.log('[放置·修仙之路] unit hidden affixes: ' + hiddenAffixes.length);
+
+  const dropTables = await loadJson('drop-tables.json');
+  await client.query('DELETE FROM game_drop_entries');
+  await client.query('DELETE FROM game_drop_tables');
+  const dropTableIdByCode = new Map();
+  for (const t of dropTables) {
+    const r = await client.query(
+      'INSERT INTO game_drop_tables (id, code, name, drops_per_kill, tier_offset) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [t.id, t.code, t.name, t.dropsPerKill ?? 1, t.tierOffset ?? 0],
+    );
+    const tableId = Number(r.rows[0].id);
+    dropTableIdByCode.set(t.code, tableId);
+    for (const e of t.entries ?? []) {
+      await client.query(
+        'INSERT INTO game_drop_entries (drop_table_id, kind, base_id, base_tier, rarity, currency_code, essence_code, min_count, max_count, weight) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+        [tableId, e.kind, e.baseId ?? null, e.baseTier ?? null, e.rarity ?? null, e.currencyCode ?? null, e.essenceCode ?? null, e.minCount ?? 1, e.maxCount ?? 1, e.weight ?? 100],
+      );
+    }
+  }
+  await client.query("SELECT setval('game_drop_tables_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_drop_tables));");
+  await client.query("SELECT setval('game_drop_entries_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_drop_entries));");
+  const dropEntryCount = dropTables.reduce((sum, t) => sum + (t.entries ? t.entries.length : 0), 0);
+  console.log('[放置·修仙之路] drop tables: ' + dropTables.length + ' / entries ' + dropEntryCount);
+
+  const units = await loadJson('unit-templates.json');
+  await client.query('DELETE FROM game_unit_hidden_pools');
+  await client.query('DELETE FROM game_unit_templates');
+  const unitIdByCode = new Map();
+  let poolLinks = 0;
+  for (const u of units) {
+    let dropRef = null;
+    if (u.dropTable) {
+      dropRef = dropTableIdByCode.get(u.dropTable) ?? null;
+      if (dropRef == null) console.warn('[放置·修仙之路] 警告：单位 ' + u.code + ' 引用未知掉落表 ' + u.dropTable);
+    }
+    const r = await client.query(
+      'INSERT INTO game_unit_templates (id, code, name, realm, camp, gives_lingyun, base_stats, drop_table_ref) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [u.id, u.code, u.name, u.realm, u.camp, Boolean(u.givesLingyun), jstr(u.baseStats), dropRef],
+    );
+    const unitId = Number(r.rows[0].id);
+    unitIdByCode.set(u.code, unitId);
+    for (const code of u.hiddenPool ?? []) {
+      const hid = hiddenIdByCode.get(code);
+      if (!hid) {
+        console.warn('[放置·修仙之路] 警告：单位 ' + u.code + ' 引用未知隐藏词条 ' + code);
+        continue;
+      }
+      await client.query(
+        'INSERT INTO game_unit_hidden_pools (unit_template_id, hidden_affix_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [unitId, hid],
+      );
+      poolLinks++;
+    }
+  }
+  await client.query("SELECT setval('game_unit_templates_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_unit_templates));");
+  const orphanUnits = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_unit_templates t LEFT JOIN game_drop_tables d ON d.id = t.drop_table_ref WHERE t.drop_table_ref IS NOT NULL AND d.id IS NULL',
+  );
+  if (Number(orphanUnits.rows[0].c) > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanUnits.rows[0].c + ' 个单位引用不存在的掉落表');
+  }
+  console.log('[放置·修仙之路] unit templates: ' + units.length + ' / hidden pool links ' + poolLinks);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

@@ -1,0 +1,885 @@
+[
+  {
+    "id": 1,
+    "code": "dt_band1",
+    "name": "第一章·初入仙途",
+    "dropsPerKill": 1,
+    "tierOffset": 0,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 1,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 1,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 2,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 2,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "transmute",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_atk",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_hp",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "code": "dt_band2",
+    "name": "第二章·下山历练",
+    "dropsPerKill": 1,
+    "tierOffset": 0,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 5,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 5,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "transmute",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 5
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_def",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_spirit",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "code": "dt_band3",
+    "name": "第三章·秘境夺宝",
+    "dropsPerKill": 1,
+    "tierOffset": 0,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 8,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 8,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 1
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_regen",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_lingyun",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "code": "dt_band4",
+    "name": "第四章·大劫将临",
+    "dropsPerKill": 1,
+    "tierOffset": 0,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 11,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 11,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 5
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "divine",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 1
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_atk",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_lingyun",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "code": "dt_band5",
+    "name": "第五章·飞升前夜",
+    "dropsPerKill": 1,
+    "tierOffset": 0,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 14,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 14,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "divine",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_atk",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_spirit",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_def",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 2
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "code": "dt_boss1",
+    "name": "妖王掉落",
+    "dropsPerKill": 3,
+    "tierOffset": 1,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 1,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 1,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 1,
+        "rarity": 2,
+        "weight": 10
+      },
+      {
+        "kind": "base",
+        "baseTier": 2,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 2,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 2,
+        "rarity": 2,
+        "weight": 8
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 3,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 0,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 1,
+        "weight": 16
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 2,
+        "weight": 4
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_atk",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_def",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "code": "dt_boss2",
+    "name": "洞府主掉落",
+    "dropsPerKill": 3,
+    "tierOffset": 1,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 2,
+        "weight": 10
+      },
+      {
+        "kind": "base",
+        "baseTier": 5,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 5,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 5,
+        "rarity": 2,
+        "weight": 8
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 6,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 0,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 1,
+        "weight": 16
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 2,
+        "weight": 4
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "alchemy",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 5
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 1
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_spirit",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_regen",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "code": "dt_boss3",
+    "name": "魔王掉落",
+    "dropsPerKill": 3,
+    "tierOffset": 2,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 2,
+        "weight": 10
+      },
+      {
+        "kind": "base",
+        "baseTier": 8,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 8,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 8,
+        "rarity": 2,
+        "weight": 8
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 9,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 0,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 1,
+        "weight": 16
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 2,
+        "weight": 4
+      },
+      {
+        "kind": "base",
+        "baseTier": 11,
+        "rarity": 0,
+        "weight": 20
+      },
+      {
+        "kind": "base",
+        "baseTier": 11,
+        "rarity": 1,
+        "weight": 8
+      },
+      {
+        "kind": "base",
+        "baseTier": 11,
+        "rarity": 2,
+        "weight": 3
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "divine",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 1
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_lingyun",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_hp",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "code": "dt_boss4",
+    "name": "混沌异兽掉落",
+    "dropsPerKill": 3,
+    "tierOffset": 2,
+    "entries": [
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 0,
+        "weight": 100
+      },
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 1,
+        "weight": 40
+      },
+      {
+        "kind": "base",
+        "baseTier": 12,
+        "rarity": 2,
+        "weight": 10
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 0,
+        "weight": 80
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 1,
+        "weight": 32
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 2,
+        "weight": 8
+      },
+      {
+        "kind": "base",
+        "baseTier": 14,
+        "rarity": 0,
+        "weight": 60
+      },
+      {
+        "kind": "base",
+        "baseTier": 14,
+        "rarity": 1,
+        "weight": 24
+      },
+      {
+        "kind": "base",
+        "baseTier": 14,
+        "rarity": 2,
+        "weight": 6
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "chaos",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 8
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "exalt",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 5
+      },
+      {
+        "kind": "currency",
+        "currencyCode": "divine",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_atk",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_spirit",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "essence",
+        "essenceCode": "ess_def",
+        "minCount": 1,
+        "maxCount": 1,
+        "weight": 4
+      }
+    ]
+  }
+]

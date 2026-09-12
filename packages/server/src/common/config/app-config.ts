@@ -9,6 +9,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+export interface UnitRealmBaseEntry {
+  base: number;
+  growth: number;
+}
+
+export type LootFallbackAction = 'keep' | 'salvage' | 'sell' | 'discard';
+
 export interface AppConfig {
   /** 单账户最大角色数 */
   maxCharactersPerAccount: number;
@@ -24,6 +31,18 @@ export interface AppConfig {
   synergyBonusPct: number;
   /** 境界突破消耗表：index = 当前境界 → 升下一境消耗（0 占位，14 封顶无下一境） */
   realmBreakthroughCosts: number[];
+  /** 境界模板基础属性：value = round(base × growth^(realm−1))（P4 单位系统） */
+  unitRealmBase: Record<'hp' | 'atk' | 'def' | 'spiritPower' | 'lingyun', UnitRealmBaseEntry>;
+  /** 单位实例化 roll 的隐藏词条条数区间 [min, max]（P4） */
+  unitHiddenAffixCount: [number, number];
+  /** 辨宝法阵无规则命中时的回退动作（P4） */
+  lootFallbackAction: LootFallbackAction;
+  /** 分解返还灵韵：tier × perTier × (rarity+1)（P4） */
+  lootSalvageLingyunPerTier: number;
+  /** 出售返还灵石：tier × perTier × (rarity+1)（P4） */
+  lootSellSpiritStonesPerTier: number;
+  /** 单次击杀结算的最大击杀数（P4 dev 接口） */
+  maxKillsPerRequest: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -34,6 +53,18 @@ const DEFAULT_CONFIG: AppConfig = {
   enlightenBaseCost: 100,
   synergyBonusPct: 20,
   realmBreakthroughCosts: [0, 200, 800, 1800, 3200, 5000, 7200, 9800, 12800, 16200, 20000, 24200, 28800, 33800],
+  unitRealmBase: {
+    hp: { base: 60, growth: 1.45 },
+    atk: { base: 8, growth: 1.38 },
+    def: { base: 4, growth: 1.38 },
+    spiritPower: { base: 5, growth: 1.38 },
+    lingyun: { base: 5, growth: 1.5 },
+  },
+  unitHiddenAffixCount: [1, 3],
+  lootFallbackAction: 'salvage',
+  lootSalvageLingyunPerTier: 2,
+  lootSellSpiritStonesPerTier: 10,
+  maxKillsPerRequest: 50,
 };
 
 function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
@@ -48,6 +79,41 @@ function sanitizeCosts(value: unknown): number[] {
   const nums = value.map((v) => Math.floor(Number(v)));
   if (nums.some((n) => !Number.isInteger(n) || n < 0)) return DEFAULT_CONFIG.realmBreakthroughCosts;
   return nums.slice(0, 15);
+}
+
+const REALM_BASE_KEYS = ['hp', 'atk', 'def', 'spiritPower', 'lingyun'] as const;
+
+/** 境界模板：5 个属性各自 {base>0, growth>=1}，任一非法 → 整体回退 */
+function sanitizeRealmBase(value: unknown): AppConfig['unitRealmBase'] {
+  if (value == null || typeof value !== 'object') return DEFAULT_CONFIG.unitRealmBase;
+  const out = {} as AppConfig['unitRealmBase'];
+  const src = value as Record<string, unknown>;
+  for (const key of REALM_BASE_KEYS) {
+    const raw = src[key];
+    if (raw == null || typeof raw !== 'object') return DEFAULT_CONFIG.unitRealmBase;
+    const base = Number((raw as Record<string, unknown>).base);
+    const growth = Number((raw as Record<string, unknown>).growth);
+    if (!Number.isFinite(base) || base <= 0) return DEFAULT_CONFIG.unitRealmBase;
+    if (!Number.isFinite(growth) || growth < 1) return DEFAULT_CONFIG.unitRealmBase;
+    out[key] = { base, growth };
+  }
+  return out;
+}
+
+/** 隐藏词条条数区间：[min,max]，0<=min<=max<=6 */
+function sanitizeCountRange(value: unknown): [number, number] {
+  if (!Array.isArray(value) || value.length < 2) return DEFAULT_CONFIG.unitHiddenAffixCount;
+  const lo = Math.floor(Number(value[0]));
+  const hi = Math.floor(Number(value[1]));
+  if (!Number.isInteger(lo) || !Number.isInteger(hi)) return DEFAULT_CONFIG.unitHiddenAffixCount;
+  if (lo < 0 || hi > 6 || lo > hi) return DEFAULT_CONFIG.unitHiddenAffixCount;
+  return [lo, hi];
+}
+
+function sanitizeAction(value: unknown): AppConfig['lootFallbackAction'] {
+  return value === 'keep' || value === 'salvage' || value === 'sell' || value === 'discard'
+    ? value
+    : DEFAULT_CONFIG.lootFallbackAction;
 }
 
 function load(): AppConfig {
@@ -68,6 +134,12 @@ function load(): AppConfig {
       enlightenBaseCost: sanitizeInt(parsed.enlightenBaseCost, DEFAULT_CONFIG.enlightenBaseCost, 1, 10_000_000),
       synergyBonusPct: sanitizeInt(parsed.synergyBonusPct, DEFAULT_CONFIG.synergyBonusPct, 0, 1000),
       realmBreakthroughCosts: sanitizeCosts(parsed.realmBreakthroughCosts),
+      unitRealmBase: sanitizeRealmBase(parsed.unitRealmBase),
+      unitHiddenAffixCount: sanitizeCountRange(parsed.unitHiddenAffixCount),
+      lootFallbackAction: sanitizeAction(parsed.lootFallbackAction),
+      lootSalvageLingyunPerTier: sanitizeInt(parsed.lootSalvageLingyunPerTier, DEFAULT_CONFIG.lootSalvageLingyunPerTier, 0, 1_000_000),
+      lootSellSpiritStonesPerTier: sanitizeInt(parsed.lootSellSpiritStonesPerTier, DEFAULT_CONFIG.lootSellSpiritStonesPerTier, 0, 1_000_000),
+      maxKillsPerRequest: sanitizeInt(parsed.maxKillsPerRequest, DEFAULT_CONFIG.maxKillsPerRequest, 1, 1000),
     };
   } catch (error) {
     console.warn('[config] 读取 app.config.json 失败，使用默认配置:', (error as Error).message);

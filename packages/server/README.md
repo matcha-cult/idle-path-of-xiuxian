@@ -21,7 +21,7 @@ cp .env.example .env
 # 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
 
-# 初始化 Game 系统表与种子（物品基底/词缀/底材词缀池/拾取规则，P1）
+# 初始化 Game 系统表与种子（18 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、拾取规则）
 # 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
 pnpm --filter idle-path-server db:init:game
 
@@ -38,12 +38,18 @@ pnpm --filter idle-path-server typecheck
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
 | maxCharactersPerAccount | 1 | 单账户最大角色数 |
-| devToolRateLimitPerMinute | 5 | 开发工具（物品生成/灵韵注入/玉简发放）共享的单账户每分钟调用上限 |
+| devToolRateLimitPerMinute | 5 | 开发工具（物品生成/单位 spawn 与 kill/灵韵与玉简/通货与精华注入）共享的单账户每分钟调用上限 |
 | spiritBudget | 100 | 辅心法共享神识总预算 |
 | maxSkillLevel | 20 | 功法参悟等级上限 |
 | enlightenBaseCost | 100 | 参悟基础消耗（总消耗 = enlightenBaseCost × 当前等级） |
 | synergyBonusPct | 20 | 主心法道基一致术法的协同加成（占位展示） |
 | realmBreakthroughCosts | 200×n² 表 | 境界突破消耗：index=当前境界→升下一境消耗（0 占位，14 封顶） |
+| unitRealmBase | 5 属性 growth 表 | 境界模板基础属性：value = round(base × growth^(realm−1))（P4 单位） |
+| unitHiddenAffixCount | [1,3] | 单位实例化 roll 的隐藏词条条数区间（P4） |
+| lootFallbackAction | salvage | 辨宝法阵无规则命中时的回退动作（keep/salvage/sell/discard，P4） |
+| lootSalvageLingyunPerTier | 2 | 分解返还灵韵 = tier × perTier × (rarity+1)（P4） |
+| lootSellSpiritStonesPerTier | 10 | 出售返还灵石 = tier × perTier × (rarity+1)（P4） |
+| maxKillsPerRequest | 50 | 单次击杀结算的最大击杀数（P4） |
 
 ## HTTP 接口
 
@@ -76,9 +82,13 @@ pnpm --filter idle-path-server typecheck
 | POST | /api/game/breakthrough | 突破（消耗灵韵必定成功，14 境封顶） | JWT |
 | POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
 | POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
+| GET | /api/game/units | 单位图鉴（境界/阵营/灵韵/掉落表/隐藏词条池） | JWT |
+| GET | /api/game/drop-tables | 掉落表图鉴（9 表 / 126 条目） | JWT |
+| POST | /api/game/unit/spawn | 单位即时实例化（开发：生产禁用、限流） | JWT |
+| POST | /api/game/unit/kill | 击杀结算 + 辨宝法阵执行（开发：生产禁用、限流） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/p1/p1-api-contract.md`。
+详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`。
 
 ## WS 入口
 

@@ -4,7 +4,8 @@
  * - 连接串走 env：DATABASE_URL（由 DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME 拼装）
  * - 基于 pg.Pool 提供 query 与事务能力
  * - 仅承载 game 库表：game_item_bases / game_affixes / game_base_affix_pools /
- *   game_items / game_equipment / game_pickup_rules
+ *   game_items / game_equipment / game_pickup_rules / game_wallets / game_essences /
+ *   game_unit_templates / game_drop_tables 等（共 18 张表）
  */
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import pg from 'pg';

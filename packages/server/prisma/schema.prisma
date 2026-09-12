@@ -182,7 +182,7 @@ model game_pickup_rules {
   rarity_min    Int      @default(0) @db.SmallInt
   tier_min      Int      @default(1) @db.SmallInt
   affix_codes   String?  @db.Text                   // JSON 字符串：目标词缀 code 列表
-  action        String   @default("keep") @db.VarChar(20) // keep/salvage/discard
+  action        String   @default("keep") @db.VarChar(20) // keep/salvage/sell/discard
   enabled       Boolean  @default(true)
   priority      Int      @default(100)
   created_at    DateTime @default(now()) @db.Timestamp(6)
@@ -190,3 +190,70 @@ model game_pickup_rules {
 
   @@index([character_id])
 }
+
+// ===== P4 单位系统：隐藏词条定义 =====
+model game_unit_hidden_affixes {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique @db.VarChar(50)
+  name       String   @db.VarChar(50)
+  effects    String   @db.Text                      // JSON 字符串：隐藏词条效果
+  weight     Int      @default(100)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+}
+
+// ===== P4 单位模板 =====
+model game_unit_templates {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique @db.VarChar(50)
+  name           String   @db.VarChar(50)
+  realm          Int      @db.SmallInt              // 境界序号 1~14
+  camp           String   @db.VarChar(10)           // hostile/neutral/friendly
+  gives_lingyun  Boolean  @default(true)
+  base_stats     String?  @db.Text                  // JSON 字符串：境界模板基础属性覆盖
+  drop_table_ref Int?                               // → game_drop_tables.id
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+  updated_at     DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([realm])
+  @@index([camp])
+}
+
+// ===== P4 单位 ↔ 隐藏词条池 =====
+model game_unit_hidden_pools {
+  id               Int @id @default(autoincrement())
+  unit_template_id Int
+  hidden_affix_id  Int
+
+  @@unique([unit_template_id, hidden_affix_id])
+  @@index([unit_template_id])
+}
+
+// ===== P4 掉落表 =====
+model game_drop_tables {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique @db.VarChar(50)
+  name           String   @db.VarChar(50)
+  drops_per_kill Int      @default(1) @db.SmallInt
+  tier_offset    Int      @default(0) @db.SmallInt // Boss 跨阶加成
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+  updated_at     DateTime @updatedAt @db.Timestamp(6)
+}
+
+// ===== P4 掉落条目 =====
+model game_drop_entries {
+  id            Int     @id @default(autoincrement())
+  drop_table_id Int
+  kind          String  @db.VarChar(20)             // base/currency/essence
+  base_id       Int?
+  base_tier     Int?    @db.SmallInt
+  rarity        Int?    @db.SmallInt
+  currency_code String? @db.VarChar(20)
+  essence_code  String? @db.VarChar(20)
+  min_count     Int     @default(1)
+  max_count     Int     @default(1)
+  weight        Int     @default(100)
+
+  @@index([drop_table_id])
+}
+
