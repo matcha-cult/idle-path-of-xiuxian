@@ -131,8 +131,9 @@
 ### 4.4 依赖约束的强制手段
 1. **物理边界**：每服目录 `src/modules/logic/<server>/`，只导出 1 个门面 `XxxLogicService` + Action 类；`internal/` 私有。
 2. **只走门面**：跨服调用只允许调用对方门面；**禁止跨服直接读写对方表**。
-3. **静态检查**：`.dependency-cruiser.cjs`（或 ESLint `no-restricted-imports` zones）按 §3 层级配置——低层禁止 import 高层。
-4. **环检测**：CI 跑 `depcruise --validate` 或 `madge --circular src`，**任何环即失败**。
+3. **静态检查（已落地）**：`scripts/lib/dep-rules.ts` + `pnpm run check:deps` 按 §3 层级检查——
+   低层 import 高层即失败；同时检查「跨服直连对方 `internal/`」泄漏（迁移期警告，现为零）。
+4. **环检测（已落地）**：`check:deps` 内三色 DFS 检测环，**任何环即失败**；并有单元测试覆盖规则本身（`test/deps/check-deps.test.ts`）。
 5. **契约测试**：每个新依赖必须更新 §3.2 的「允许依赖」列，评审时对照。
 
 ## 5. 里程碑与任务
@@ -170,7 +171,10 @@
 - [x] 修正现存越层依赖（见 R4）：`skill→item`、`combat→realm` 已上提 `common/kernel`
 - [x] 启动期重复路由断言（`GameActionBridgeModule.assertNoDuplicateRoutes`）
 - [x] 端到端：`pnpm run e2e:all`（16 只读 + 生成/穿戴/卸下/丢弃写入链路 + 鉴权拦截）
-- 备注：本层各服 Action 委托既有 `modules/game/<domain>` 服务实现；服务实现按服物理搬迁（`modules/game/*` → `modules/logic/*/internal`）留待 M4 一并处理。
+- 备注：**物理搬迁已完成**——11 个业务逻辑服的实现全部位于 `modules/logic/<server>/internal/`；
+  跨服只允许引用对方**门面**（`<server>.logic.service.ts`）与**公开类型出口**（`<server>.api.ts`），
+  由 `check:deps` 的「跨服直连 internal」检查强制。`modules/game/` 仅剩基础设施（`game-database.service.ts`、`stat/`、`game.module.ts`）。
+  搬迁过程中为消除跨服类型边，另将 `fail/FailResult` 上提 `src/common/kernel/result.ts`。
 
 ### M4 · 下线 REST 游戏接口 ✅ 已完成
 - [x] 删除 `modules/game/**/*.controller.ts`（10 个）并从各模块移除 `controllers` 登记；保留 Service/DB/配置

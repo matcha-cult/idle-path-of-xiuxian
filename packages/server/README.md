@@ -61,6 +61,23 @@ pnpm --filter idle-path-server e2e:journey
 WS 参考客户端实现见 `scripts/sdk/ws-client.ts`（串行队列 + 应用层心跳 + 自动重连重新取 token），
 前端可直接复用该实现接入 `/ws`。
 
+## 逻辑服目录结构
+
+每个逻辑服的实现都在自己的目录内，跨服只能经**门面**与**公开类型出口**：
+
+```
+src/modules/logic/<server>/
+  <server>.action.ts          # @ActionController(cmd) + @ActionMethod，只做鉴权/参数解析/转交
+  <server>.logic.service.ts   # 门面：本服唯一出口，上层只允许调用它
+  <server>.api.ts             # 公开类型/常量（跨服引用类型的唯一入口，部分服适用）
+  <server>-logic.module.ts    # Nest 模块：组装内部实现 + 导出 Action
+  internal/                   # 实现细节（服务/类型/内部模块），跨服禁止直接 import
+```
+
+`modules/game/` 仅保留基础设施：`game-database.service.ts`、`stat/`、`game.module.ts`（GameDatabaseService + RateLimiterService）。
+
+依赖约束由 `pnpm run check:deps` 静态强制：全图无环、低层不依赖高层、禁止跨服直连 `internal/`。
+
 ## 配置文件（config/app.config.json）
 
 | 字段 | 默认 | 说明 |
