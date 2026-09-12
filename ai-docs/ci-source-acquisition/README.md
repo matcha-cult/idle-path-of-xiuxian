@@ -283,3 +283,95 @@ C 是最有价值的一条：它证明"构建机算哈希 → 部署机复算"�
 > 复现方式：把 `README.md` 里假设的父仓库 URL 换成本地裸克隆路径，并设置
 > `url.<本地框架仓库>.insteadOf = git@github.com:matcha-cult/ionet-ts.git` 与
 > `protocol.file.allow=always` 即可离线跑通同一套流程。
+
+---
+
+## 11. 故障修复：主仓库已检出，但 `vendor/ionet-ts` 是空的
+
+典型症状：CI 的检出步骤没带 `--recurse-submodules`（或自定义检出工具不处理子模块）。主仓库在位，`vendor/ionet-ts` 是**空目录**。此时 `pnpm install` 无法把 `workspace:*` 依赖解析到具体包（`pnpm-workspace.yaml` 里的 `vendor/ionet-ts/packages/*` 匹配不到任何工作区包），构建必然失败。
+
+### 先诊断
+
+```bash
+cd <repo>
+git submodule status          # 看前缀，不要只看目录"存不存在"
+ls -A vendor/ionet-ts | wc -l # 未初始化时为 0
+```
+
+| `git submodule status` 前缀 | 含义 | 处理 |
+|---|---|---|
+| `-` | **未初始化**（空目录） | 执行下面的修复命令 |
+| 空格 | 已就绪且对齐 pin | 无需处理 |
+| `+` | 已初始化，但**提交不对** | `git submodule update --init --recursive --force`，**不要删目录** |
+
+### 修复（幂等，可反复执行）
+
+```bash
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+`sync` 会把 `.gitmodules` 里的 URL 重新写入 `.git/config`，避免上一次失败留下的配置继续生效。
+
+### 修复后必须做
+
+```bash
+bash verify-source.sh .            # 确认对齐 pin、内容非空
+pnpm install --frozen-lockfile     # 必须在子模块就位之后重跑
+```
+
+在子模块初始化**之前**跑过的 `pnpm install` 结果是无效的（工作区里少了 9 个包），必须重跑。
+
+### 两个实测陷阱
+
+**陷阱 1 —— ssh 配置**（详见 §6.1）。若报 `Bad owner or permissions on .../ssh_config.d/...`，实测该错误会让 `submodule update` 直接失败：
+
+```bash
+GIT_SSH_COMMAND="ssh -F /dev/null" git submodule update --init --recursive
+```
+
+**陷阱 2 —— 目录非空残留**。若 `vendor/ionet-ts` 里已有上次失败尝试留下的文件，git 会拒绝克隆进非空目录：
+
+```
+fatal: destination path 'vendor/ionet-ts' already exists and is not an empty directory.
+```
+
+清空后重试（该目录本就只应容纳子模块内容）：
+
+```bash
+rm -rf vendor/ionet-ts
+git submodule update --init --recursive
+```
+
+### 根治：让 CI 在检出时就带上子模块
+
+```bash
+git clone --recurse-submodules <parent-url> <dir>
+```
+
+若检出由 CI 平台工具完成、加不了参数，则在检出后**无条件**执行一次 `git submodule update --init --recursive`——幂等，已就绪时开销极小。
+
+### 实测记录（模拟"漏检子模块"的检出）
+
+```
+$ git submodule status
+-62ab3f2138dbc81be38ee4747362336fac089390 vendor/ionet-ts   ← 前缀 '-'，未初始化
+$ ls -A vendor/ionet-ts | wc -l
+0
+
+$ GIT_SSH_COMMAND="ssh -o BatchMode=yes" git submodule update --init --recursive
+Bad owner or permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf
+fatal: Could not read from remote repository.                    ← 陷阱 1 复现
+
+$ GIT_SSH_COMMAND="ssh -F /dev/null ..." git submodule sync --recursive
+$ GIT_SSH_COMMAND="ssh -F /dev/null ..." git submodule update --init --recursive
+Submodule path 'vendor/ionet-ts': checked out '62ab3f2138db...'
+$ git submodule status
+ 62ab3f2138dbc81be38ee4747362336fac089390 vendor/ionet-ts (remotes/origin/dev)   ← 前缀空格
+
+$ bash verify-source.sh .
+  [ OK ] vendor/ionet-ts 对齐 pin 62ab3f2138db
+  [ OK ] vendor/ionet-ts 工作树干净
+  [ OK ] vendor/ionet-ts 含 15 个 package.json
+[verify] 源码树校验通过
+```
