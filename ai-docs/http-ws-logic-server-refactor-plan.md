@@ -205,7 +205,8 @@
 - [ ] headers/traceId 透传 + 标准握手鉴权（替代 `data.__token`）
 - [ ] 连接注册表 + Broadcaster 接线 + 定向推送（为 `ClientConnection.userId` 提供赋值点）
 - [ ] reqId + `kind` 判别（支持并行请求配对，替代客户端串行队列）
-- [ ] `NODE_ENV=production` 守卫可配置（打通生产部署路径，见 R7）
+- [x] `NODE_ENV=production` 守卫可配置：框架仓库 `d57cada` 新增 `IonetModuleOptions.allowProduction`（默认 false 保持禁用；`forRootAsync` 守卫延后到 `onModuleInit`；`forFeature` 不再自行断言），框架侧 6 个新用例通过
+      → 本工作区经 submodule 版本升级后即可在生产编排中显式放行（当前 submodule 仍为 `62ab3f2`，未升级）
 - 回归验证点（框架新版本合入本工作区后）：`smoke:ws` / `e2e:all` / `e2e:journey` 全绿
 
 ## 6. 验收标准
