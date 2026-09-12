@@ -21,9 +21,9 @@ import { RateLimiterService } from '../../src/common/services/rate-limiter.servi
 import { CurrencyModule } from '../../src/modules/logic/economy/internal/economy-internal.module.js';
 import { CraftService } from '../../src/modules/logic/economy/internal/craft.service.js';
 import { CurrencyService } from '../../src/modules/logic/economy/internal/currency.service.js';
-import { ItemModule } from '../../src/modules/game/item/item.module.js';
-import { ItemService } from '../../src/modules/game/item/item.service.js';
-import { ItemAffixService } from '../../src/modules/game/item/item.affix.service.js';
+import { ItemModule } from '../../src/modules/logic/item/internal/item-internal.module.js';
+import { ItemService } from '../../src/modules/logic/item/internal/item.service.js';
+import { ItemAffixService } from '../../src/modules/logic/item/internal/item.affix.service.js';
 import { QuestModule } from '../../src/modules/logic/quest/internal/quest-internal.module.js';
 import { QuestService } from '../../src/modules/logic/quest/internal/quest.service.js';
 import { ChapterService } from '../../src/modules/logic/quest/internal/chapter.service.js';

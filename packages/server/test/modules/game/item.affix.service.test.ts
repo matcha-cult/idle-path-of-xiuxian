@@ -5,7 +5,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { ItemAffixService } from '../../../src/modules/game/item/item.affix.service.js';
+import { ItemAffixService } from '../../../src/modules/logic/item/internal/item.affix.service.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 
 type Result = { success: boolean; message: string; data?: unknown };

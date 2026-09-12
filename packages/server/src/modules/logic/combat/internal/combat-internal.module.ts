@@ -6,11 +6,11 @@
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../../character/character.module.js';
-import { ItemModule } from '../../../game/item/item.module.js';
+import { ItemLogicModule } from '../../item/item-logic.module.js';
 import { UnitService } from './unit.service.js';
 
 @Module({
-  imports: [CharacterModule, ItemModule],
+  imports: [CharacterModule, ItemLogicModule],
   providers: [UnitService],
   exports: [UnitService],
 })

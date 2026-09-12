@@ -6,10 +6,10 @@
  * - P1 丢弃为物理删除；出售/分解属 P3+
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { RateLimiterService } from '../../../common/services/rate-limiter.service.js';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { ItemAffixService } from './item.affix.service.js';
 import {
   EQUIP_SLOT_KEYS,

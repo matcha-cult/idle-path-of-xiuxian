@@ -12,9 +12,9 @@ import { RateLimiterService } from '../../../../common/services/rate-limiter.ser
 import { CharacterService } from '../../../character/character.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import { ItemAffixService } from '../../../game/item/item.affix.service.js';
+import { ItemLogicService } from '../../item/item.logic.service.js';
 import { StatService } from '../../../game/stat/stat.service.js';
-import type { BaseRow, ItemView } from '../../../game/item/item.types.js';
+import type { BaseRow, ItemView } from '../../item/item.api.js';
 import { realmName } from '../../../../common/kernel/realm.js';
 import {
   type DropEntryRow,
@@ -80,7 +80,7 @@ export class UnitService {
   constructor(
     private readonly gameDb: GameDatabaseService,
     private readonly userDb: DatabaseService,
-    private readonly affixService: ItemAffixService,
+    private readonly itemLogic: ItemLogicService,
     private readonly characterService: CharacterService,
     private readonly rateLimiter: RateLimiterService,
     private readonly statService: StatService,
@@ -491,7 +491,7 @@ export class UnitService {
         }
         if (itemBudget != null && itemsProduced >= itemBudget) continue;
         const rarity = entry.rarity == null ? 0 : Number(entry.rarity);
-        const gen = await this.affixService.generateItem(Number(base.id), rarity, characterId);
+        const gen = await this.itemLogic.generateItem(Number(base.id), rarity, characterId);
         if (!gen.success) continue;
         const item = (gen.data as { item: ItemView }).item;
         const action = this.decideLoot(item, rules);

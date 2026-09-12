@@ -4,7 +4,7 @@ import { UnitService } from '../../../src/modules/logic/combat/internal/unit.ser
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
-import type { ItemView } from '../../../src/modules/game/item/item.types.js';
+import type { ItemView } from '../../../src/modules/logic/item/item.api.js';
 import type { Character } from '../../../src/modules/character/character.service.js';
 
 function makeChar(overrides: Partial<Character> = {}): Character {

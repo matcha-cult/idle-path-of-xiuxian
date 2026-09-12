@@ -9,9 +9,9 @@ import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import { ItemAffixService } from '../../../game/item/item.affix.service.js';
+import { ItemLogicService } from '../../item/item.logic.service.js';
 import { StatService } from '../../../game/stat/stat.service.js';
-import type { AffixEntry, BaseRow } from '../../../game/item/item.types.js';
+import type { AffixEntry, BaseRow } from '../../item/item.api.js';
 import { type CraftOp, type FailResult, fail, CRAFT_OPS } from './currency.types.js';
 
 interface ItemWithBase {
@@ -38,7 +38,7 @@ export class CraftService {
   constructor(
     private readonly gameDb: GameDatabaseService,
     private readonly characterService: CharacterService,
-    private readonly affixService: ItemAffixService,
+    private readonly itemLogic: ItemLogicService,
     private readonly statService: StatService,
   ) {}
 
@@ -117,7 +117,7 @@ export class CraftService {
       const baseEntries = entries.filter((e) => e.polarity === 'base' && e.key == null);
       const nonBaseEntries = entries.filter((e) => !(e.polarity === 'base' && e.key == null));
       const rolled = entries.filter((e) => e.key != null && e.value != null);
-      const rolledRows = await this.affixService.findAffixesByIds(rolled.map((e) => e.affixId));
+      const rolledRows = await this.itemLogic.findAffixesByIds(rolled.map((e) => e.affixId));
       const fracturedIdSet = new Set(rolledRows.filter((r) => r.is_fractured).map((r) => r.id));
       const fracturedEntries = rolled.filter((e) => e.fractured || fracturedIdSet.has(e.affixId));
       const normalRolled = rolled.filter((e) => !e.fractured && !fracturedIdSet.has(e.affixId));
@@ -133,24 +133,24 @@ export class CraftService {
         case 'transmute': {
           if (rarity !== 0) return { verdict: 'fail' as const, result: fail('RARITY_MISMATCH', '蜕变石仅限凡品') };
           const total = this.randInt(1, 2);
-          const { prefixCount, suffixCount } = this.affixService.allocCountsFor(total, 1, 1);
-          newRolled = await this.affixService.rollRollableEntries(base, prefixCount, suffixCount);
+          const { prefixCount, suffixCount } = this.itemLogic.allocCountsFor(total, 1, 1);
+          newRolled = await this.itemLogic.rollRollableEntries(base, prefixCount, suffixCount);
           newRarity = 1;
           break;
         }
         case 'alchemy': {
           if (rarity !== 0) return { verdict: 'fail' as const, result: fail('RARITY_MISMATCH', '点金石仅限凡品') };
           const total = this.randInt(3, 6);
-          const { prefixCount, suffixCount } = this.affixService.allocCountsFor(total, 3, 3);
-          newRolled = await this.affixService.rollRollableEntries(base, prefixCount, suffixCount);
+          const { prefixCount, suffixCount } = this.itemLogic.allocCountsFor(total, 3, 3);
+          newRolled = await this.itemLogic.rollRollableEntries(base, prefixCount, suffixCount);
           newRarity = 2;
           break;
         }
         case 'chaos': {
           if (rarity !== 1 && rarity !== 2) return { verdict: 'fail' as const, result: fail('RARITY_MISMATCH', '混沌石仅限灵品/宝品') };
           const total = rarity === 1 ? this.randInt(1, 2) : this.randInt(3, 6);
-          const { prefixCount, suffixCount } = this.affixService.allocCountsFor(total, rarity === 1 ? 1 : 3, rarity === 1 ? 1 : 3);
-          newRolled = await this.affixService.rollRollableEntries(base, prefixCount, suffixCount);
+          const { prefixCount, suffixCount } = this.itemLogic.allocCountsFor(total, rarity === 1 ? 1 : 3, rarity === 1 ? 1 : 3);
+          newRolled = await this.itemLogic.rollRollableEntries(base, prefixCount, suffixCount);
           break;
         }
         case 'exalt': {
@@ -161,14 +161,14 @@ export class CraftService {
             if (prefixCount + suffixCount >= 2) newRarity = 2;
             const side: 'prefix' | 'suffix' = prefixCount === 1 && suffixCount === 0 ? 'suffix' : 'prefix';
             newRolled = normalRolled.concat(
-              await this.affixService.rollRollableEntries(base, side === 'prefix' ? 1 : 0, side === 'suffix' ? 1 : 0),
+              await this.itemLogic.rollRollableEntries(base, side === 'prefix' ? 1 : 0, side === 'suffix' ? 1 : 0),
             );
             break;
           }
           if (prefixCount + suffixCount >= 6) return { verdict: 'fail' as const, result: fail('MAX_AFFIXES', '宝品词缀已达 6 条上限') };
           const pick: 'prefix' | 'suffix' = prefixCount >= 3 ? 'suffix' : suffixCount >= 3 ? 'prefix' : Math.random() < 0.5 ? 'prefix' : 'suffix';
           newRolled = normalRolled.concat(
-            await this.affixService.rollRollableEntries(base, pick === 'prefix' ? 1 : 0, pick === 'suffix' ? 1 : 0),
+            await this.itemLogic.rollRollableEntries(base, pick === 'prefix' ? 1 : 0, pick === 'suffix' ? 1 : 0),
           );
           break;
         }
@@ -187,7 +187,7 @@ export class CraftService {
         case 'divine': {
           if (rarity !== 1 && rarity !== 2) return { verdict: 'fail' as const, result: fail('RARITY_MISMATCH', '神圣石仅限灵品/宝品') };
           if (normalRolled.length === 0) return { verdict: 'fail' as const, result: fail('AFFIX_LIMIT', '没有可重roll数值的词缀') };
-          newRolled = await this.affixService.rerollEntryValues(normalRolled);
+          newRolled = await this.itemLogic.rerollEntryValues(normalRolled);
           break;
         }
         case 'blessed': {
@@ -273,29 +273,29 @@ export class CraftService {
           const essence = ess.rows[0];
           if (!essence) return { verdict: 'fail' as const, result: fail('ESSENCE_NOT_FOUND', `精华不存在：${extraCode}`) };
           const targetPolarity: 'prefix' | 'suffix' = essence.polarity === 'prefix' ? 'prefix' : 'suffix';
-          const pool = await this.affixService.queryRollPoolFor(base, targetPolarity);
+          const pool = await this.itemLogic.queryRollPoolFor(base, targetPolarity);
           const familyRows = pool.filter((r) => this.familyOf(r.code) === essence.target_family);
           if (familyRows.length === 0) {
             return { verdict: 'fail' as const, result: fail('NOT_AVAILABLE', `该底材无「${essence.name}」可定向的词缀`) };
           }
           const total = rarity === 1 ? this.randInt(1, 2) : this.randInt(3, 6);
           const maxSide = rarity === 1 ? 1 : 3;
-          const alloc = this.affixService.allocCountsFor(total, maxSide, maxSide);
+          const alloc = this.itemLogic.allocCountsFor(total, maxSide, maxSide);
           let pc = alloc.prefixCount;
           let sc = alloc.suffixCount;
           if (targetPolarity === 'prefix' && pc === 0) { pc = 1; sc = total - 1; }
           if (targetPolarity === 'suffix' && sc === 0) { sc = 1; pc = total - 1; }
-          const forced = this.affixService.rollOneFromRows(familyRows) as AffixEntry;
+          const forced = this.itemLogic.rollOneFromRows(familyRows) as AffixEntry;
           const restPool = pool.filter((r) => this.familyOf(r.code) !== essence.target_family);
           const restCount = (targetPolarity === 'prefix' ? pc : sc) - 1;
-          const restRows = this.affixService.samplePoolRows(restPool, restCount);
-          const targetSide = [forced, ...restRows.map((r) => this.affixService.rollRow(r))];
+          const restRows = this.itemLogic.samplePoolRows(restPool, restCount);
+          const targetSide = [forced, ...restRows.map((r) => this.itemLogic.rollRow(r))];
           const otherPolarity: 'prefix' | 'suffix' = targetPolarity === 'prefix' ? 'suffix' : 'prefix';
-          const otherPool = await this.affixService.queryRollPoolFor(base, otherPolarity);
+          const otherPool = await this.itemLogic.queryRollPoolFor(base, otherPolarity);
           const otherCount = targetPolarity === 'prefix' ? sc : pc;
-          const otherSide = this.affixService
+          const otherSide = this.itemLogic
             .samplePoolRows(otherPool, otherCount)
-            .map((r) => this.affixService.rollRow(r));
+            .map((r) => this.itemLogic.rollRow(r));
           newRolled = targetPolarity === 'prefix' ? [...targetSide, ...otherSide] : [...otherSide, ...targetSide];
           essenceId = Number(essence.id);
           extra = { essence: extraCode, guaranteedFamily: essence.target_family };
@@ -381,7 +381,7 @@ export class CraftService {
     if (destroyed) {
       return { success: true, message: `瓦尔变异失败：${item.name} 已被摧毁`, data: { destroyed: true, itemId: Number(item.id) } };
     }
-    const view = await this.affixService.renderItem(
+    const view = await this.itemLogic.renderItem(
       Number(item.id),
       Number(item.base_id),
       item.code,

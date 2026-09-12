@@ -10,7 +10,7 @@
  */
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { GameDatabaseService } from '../game-database.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
 import {
   EFFECT_LABELS,
   PERCENT_KEYS,

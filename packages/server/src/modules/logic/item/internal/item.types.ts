@@ -35,7 +35,7 @@ export const ITEM_SLOT_BASE = {
 } as const;
 
 /** 效果词表已上提到共享内核（common/kernel/effect.ts），此处再导出保持既有引用 */
-export { EFFECT_LABELS, PERCENT_KEYS } from '../../../common/kernel/effect.js';
+export { EFFECT_LABELS, PERCENT_KEYS } from '../../../../common/kernel/effect.js';
 
 /** 词缀极性 */
 export type AffixPolarity = 'prefix' | 'suffix' | 'base';
@@ -123,4 +123,4 @@ export interface ItemView {
 }
 
 /** 业务错误结果（通过 success:false + data.code 表达）——已上提共享内核 */
-export { type FailResult, fail } from '../../../common/kernel/result.js';
+export { type FailResult, fail } from '../../../../common/kernel/result.js';

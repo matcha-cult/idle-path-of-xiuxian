@@ -22,7 +22,19 @@ describe('ItemLogicService 转发边界', () => {
       discard: stub(() => 'h'), generateItemForUser: stub(() => 'i'), equip: stub(() => 'j'),
       unequip: stub(() => 'k'), equipment: stub(() => 'l'),
     };
-    const svc = new ItemLogicService(item as never);
+    const affix = {
+      generateItem: stub(() => 'affix-gen'),
+      findAffixesByIds: stub(() => []),
+      allocCountsFor: stub(() => ({ prefixCount: 0, suffixCount: 0 })),
+      rollRollableEntries: stub(() => []),
+      rerollEntryValues: stub(() => []),
+      queryRollPoolFor: stub(() => []),
+      rollOneFromRows: stub(() => null),
+      samplePoolRows: stub(() => []),
+      rollRow: stub(() => ({ affixId: 1, value: null, polarity: 'prefix', key: null })),
+      renderItem: stub(() => ({ id: 1 })),
+    };
+    const svc = new ItemLogicService(item as never, affix as never);
     assert.equal(await svc.inventory(1, { page: 2 }), 'a');
     assert.equal(await svc.detail(1, 2), 'b');
     assert.equal(await svc.bases({ page: 1 }), 'c');
@@ -37,6 +49,26 @@ describe('ItemLogicService 转发边界', () => {
     assert.equal(await svc.equipment(1), 'l');
     assert.deepEqual(item.generateItemForUser.last, [1, 2, 3, 4]);
     assert.deepEqual(item.equipment.last, [1]);
+
+    // 新增：供 economy / combat 复用的词缀原语
+    assert.equal(await svc.generateItem(5, 2, 9), 'affix-gen');
+    assert.deepEqual(affix.generateItem.last, [5, 2, 9]);
+    await svc.findAffixesByIds([1, 2]);
+    assert.deepEqual(affix.findAffixesByIds.last, [[1, 2]]);
+    await svc.allocCountsFor(6, 3, 3);
+    assert.deepEqual(affix.allocCountsFor.last, [6, 3, 3]);
+    await svc.rollRollableEntries({ id: 1 } as never, 1, 2);
+    assert.deepEqual(affix.rollRollableEntries.last, [{ id: 1 }, 1, 2]);
+    await svc.rerollEntryValues([]);
+    assert.equal(affix.rerollEntryValues.callCount, 1);
+    await svc.queryRollPoolFor({ id: 1 } as never, 'suffix');
+    assert.deepEqual(affix.queryRollPoolFor.last, [{ id: 1 }, 'suffix']);
+    await svc.rollOneFromRows([]);
+    await svc.samplePoolRows([], 0);
+    await svc.rollRow({ id: 1 } as never);
+    await svc.renderItem(1, 2, 'c', 'n', 'cat', null, 0, 1, 0, 'bag', []);
+    assert.equal(affix.renderItem.callCount, 1);
+    assert.equal(affix.renderItem.last?.[0], 1);
   });
 });
 

@@ -33,7 +33,8 @@ for (const match of testText.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
 
 const isWiring = (f: string): boolean =>
   /\.module\.ts$/.test(f) || /(^|\/)main\.ts$/.test(f) || /(^|\/)app\.module\.ts$/.test(f);
-const isTypesOnly = (f: string): boolean => /\.types\.ts$/.test(f) || /(^|\/)notification\.port\.ts$/.test(f);
+const isTypesOnly = (f: string): boolean =>
+  /\.types\.ts$/.test(f) || /\.api\.ts$/.test(f) || /(^|\/)notification\.port\.ts$/.test(f);
 
 const covered = (f: string): boolean => referenced.has(f);
 const business = srcFiles.filter((f) => !covered(f) && !isWiring(f) && !isTypesOnly(f));

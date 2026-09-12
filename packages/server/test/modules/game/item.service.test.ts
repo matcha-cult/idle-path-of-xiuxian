@@ -6,7 +6,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { ItemService } from '../../../src/modules/game/item/item.service.js';
+import { ItemService } from '../../../src/modules/logic/item/internal/item.service.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';

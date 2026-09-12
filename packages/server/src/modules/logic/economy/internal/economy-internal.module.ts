@@ -3,12 +3,12 @@
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../../character/character.module.js';
-import { ItemModule } from '../../../game/item/item.module.js';
+import { ItemLogicModule } from '../../item/item-logic.module.js';
 import { CraftService } from './craft.service.js';
 import { CurrencyService } from './currency.service.js';
 
 @Module({
-  imports: [CharacterModule, ItemModule],
+  imports: [CharacterModule, ItemLogicModule],
   providers: [CurrencyService, CraftService],
   exports: [CurrencyService, CraftService],
 })

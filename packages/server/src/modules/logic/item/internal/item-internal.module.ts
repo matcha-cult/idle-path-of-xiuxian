@@ -4,7 +4,7 @@
  * 依赖：GameDatabaseService（game 库）、CharacterService（用户库，角色归属解析）
  */
 import { Module } from '@nestjs/common';
-import { CharacterModule } from '../../character/character.module.js';
+import { CharacterModule } from '../../../character/character.module.js';
 import { ItemAffixService } from './item.affix.service.js';
 import { ItemService } from './item.service.js';
 

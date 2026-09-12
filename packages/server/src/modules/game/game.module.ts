@@ -1,19 +1,20 @@
 /**
- * Game 系统根模块
+ * Game 系统基础设施模块
  *
- * - GameDatabaseService：统一库连接（env: DATABASE_URL，与用户系统同库 idle_game）
- * - ItemModule：物品与词缀（P1）
- * - UnitModule：单位系统与掉落结算（P4）
+ * 领域实现已迁到 `modules/logic/<server>/internal/`，由各逻辑服模块自行组装；
+ * 本模块只提供全局基础设施：
+ * - GameDatabaseService：统一 game 库连接（env: DATABASE_URL）
+ * - RateLimiterService：开发接口共享限流
+ * - StatModule：事件计数（@Global，供 economy/realm/combat/quest 等注入）
  */
 import { Global, Module } from '@nestjs/common';
 import { RateLimiterService } from '../../common/services/rate-limiter.service.js';
 import { GameDatabaseService } from './game-database.service.js';
-import { ItemModule } from './item/item.module.js';
 import { StatModule } from './stat/stat.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, StatModule],
+  imports: [StatModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

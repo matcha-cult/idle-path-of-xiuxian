@@ -19,7 +19,7 @@ import {
   ITEM_SLOT_BASE,
   EFFECT_LABELS as ITEM_EFFECT_LABELS,
   PERCENT_KEYS as ITEM_PERCENT_KEYS,
-} from '../../../src/modules/game/item/item.types.js';
+} from '../../../src/modules/logic/item/item.api.js';
 import { EFFECT_LABELS, PERCENT_KEYS } from '../../../src/common/kernel/effect.js';
 
 import {
