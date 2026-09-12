@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS characters (
   silver        BIGINT NOT NULL DEFAULT 0, -- （弃用）银两，不再使用
   realm         SMALLINT NOT NULL DEFAULT 1, -- 当前境界序号 1~14
   lingyun       BIGINT NOT NULL DEFAULT 0, -- 灵韵（角色绑定成长资源）
+  jade_slips    BIGINT NOT NULL DEFAULT 0, -- 未开光玉简计数（P2 占位，P4 物品化）
   created_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -42,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_characters_user_id ON characters(user_id);
 -- 兼容已有库：增量补列（幂等）
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS realm SMALLINT NOT NULL DEFAULT 1;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS lingyun BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS jade_slips BIGINT NOT NULL DEFAULT 0;
 `;
 
 try {

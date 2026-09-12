@@ -29,6 +29,8 @@ export interface Character {
   realm: number;
   /** 灵韵（角色绑定成长资源） */
   lingyun: number;
+  /** 未开光玉简计数（P2 占位，P4 物品化） */
+  jadeSlips: number;
 }
 
 export interface CharacterResult {
@@ -51,6 +53,7 @@ type CharacterRow = {
   silver: string | number;
   realm: number;
   lingyun: string | number;
+  jade_slips: string | number;
 };
 
 @Injectable()
@@ -94,7 +97,7 @@ export class CharacterService {
     const result = await this.database.query<CharacterRow>(
       `INSERT INTO characters (user_id, nickname, gender, title, spirit_stones, silver, created_at, updated_at)
        VALUES ($1, $2, $3, '散修', $4, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       RETURNING id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun`,
+       RETURNING id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun, jade_slips`,
       [userId, normalizedNickname, gender, DEFAULT_REGISTRATION_SPIRIT_STONES],
     );
 
@@ -130,7 +133,7 @@ export class CharacterService {
    */
   async findByUserId(userId: number): Promise<Character | null> {
     const result = await this.database.query<CharacterRow>(
-      `SELECT id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun
+      `SELECT id, user_id, nickname, gender, title, spirit_stones, silver, realm, lingyun, jade_slips
        FROM characters WHERE user_id = $1`,
       [userId],
     );
@@ -149,6 +152,7 @@ export class CharacterService {
       silver: Number(row.silver),
       realm: Number(row.realm),
       lingyun: Number(row.lingyun),
+      jadeSlips: Number(row.jade_slips),
     };
   }
 }

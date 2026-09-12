@@ -1,0 +1,128 @@
+[
+  {
+    "id": 1,
+    "code": "xinfa_qingyun",
+    "name": "青云心法",
+    "skillType": "xinfa",
+    "daoji": "剑",
+    "school": "nei",
+    "spiritCost": 10,
+    "effects": {
+      "atk_pct": 4
+    },
+    "growthRate": 0.05,
+    "description": "剑修入门心法，气随剑走。"
+  },
+  {
+    "id": 2,
+    "code": "xinfa_lihuo",
+    "name": "离火心经",
+    "skillType": "xinfa",
+    "daoji": "火",
+    "school": "nei",
+    "spiritCost": 20,
+    "effects": {
+      "atk_pct": 8
+    },
+    "growthRate": 0.05,
+    "description": "心火熊熊，攻伐如焚。"
+  },
+  {
+    "id": 3,
+    "code": "xinfa_tianlei",
+    "name": "天雷锻体诀",
+    "skillType": "xinfa",
+    "daoji": "雷",
+    "school": "nei",
+    "spiritCost": 40,
+    "effects": {
+      "hp_pct": 10
+    },
+    "growthRate": 0.05,
+    "description": "引雷淬体，筋骨如铁。"
+  },
+  {
+    "id": 4,
+    "code": "xinfa_jiuzhuan",
+    "name": "九转玄功",
+    "skillType": "xinfa",
+    "daoji": "体",
+    "school": "nei",
+    "spiritCost": 80,
+    "effects": {
+      "all_stats_pct": 5
+    },
+    "growthRate": 0.05,
+    "description": "九转归一，肉身成圣。"
+  },
+  {
+    "id": 5,
+    "code": "shufa_jianqi",
+    "name": "剑气纵横",
+    "skillType": "shufa",
+    "daoji": "剑",
+    "school": "wai",
+    "spiritCost": 0,
+    "effects": {
+      "skill_damage": 100
+    },
+    "growthRate": 0.05,
+    "description": "外功剑诀，剑气纵横三万里。"
+  },
+  {
+    "id": 6,
+    "code": "shufa_leigong",
+    "name": "五雷轰顶",
+    "skillType": "shufa",
+    "daoji": "雷",
+    "school": "nei",
+    "spiritCost": 0,
+    "effects": {
+      "skill_damage": 120
+    },
+    "growthRate": 0.05,
+    "description": "御雷成法，代天行罚。"
+  },
+  {
+    "id": 7,
+    "code": "shufa_liaoyuan",
+    "name": "燎原之火",
+    "skillType": "shufa",
+    "daoji": "火",
+    "school": "nei",
+    "spiritCost": 0,
+    "effects": {
+      "skill_damage": 110
+    },
+    "growthRate": 0.05,
+    "description": "星星之火，可以燎原。"
+  },
+  {
+    "id": 8,
+    "code": "shufa_bingfeng",
+    "name": "霜天冰狱",
+    "skillType": "shufa",
+    "daoji": "冰",
+    "school": "nei",
+    "spiritCost": 0,
+    "effects": {
+      "skill_damage": 105
+    },
+    "growthRate": 0.05,
+    "description": "千里霜天，封镇万灵。"
+  },
+  {
+    "id": 9,
+    "code": "shufa_tipo",
+    "name": "破山拳",
+    "skillType": "shufa",
+    "daoji": "体",
+    "school": "wai",
+    "spiritCost": 0,
+    "effects": {
+      "skill_damage": 95
+    },
+    "growthRate": 0.05,
+    "description": "一拳既出，山岳為開。"
+  }
+]

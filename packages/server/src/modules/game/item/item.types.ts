@@ -39,6 +39,8 @@ export const EFFECT_LABELS: Record<string, string> = {
   atk: '攻击',
   def: '防御',
   hp: '生命',
+  hp_pct: '生命加成',
+  skill_damage: '技能伤害',
   spirit_power: '灵力',
   atk_speed: '攻速',
   hp_regen: '生命回复',
@@ -58,6 +60,7 @@ export const EFFECT_LABELS: Record<string, string> = {
 export const PERCENT_KEYS = new Set([
   'crit',
   'spirit_power_pct',
+  'hp_pct',
   'atk_pct',
   'atk_speed_pct',
   'all_stats_pct',

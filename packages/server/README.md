@@ -38,7 +38,11 @@ pnpm --filter idle-path-server typecheck
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
 | maxCharactersPerAccount | 1 | 单账户最大角色数 |
-| generateRateLimitPerMinute | 5 | 物品生成接口（开发/测试）单账户每分钟调用上限 |
+| devToolRateLimitPerMinute | 5 | 开发工具（物品生成/灵韵注入/玉简发放）共享的单账户每分钟调用上限 |
+| spiritBudget | 100 | 辅心法共享神识总预算 |
+| maxSkillLevel | 20 | 功法参悟等级上限 |
+| enlightenBaseCost | 100 | 参悟基础消耗（总消耗 = enlightenBaseCost × 当前等级） |
+| synergyBonusPct | 20 | 主心法道基一致术法的协同加成（占位展示） |
 
 ## HTTP 接口
 
@@ -57,6 +61,13 @@ pnpm --filter idle-path-server typecheck
 | GET | /api/game/equipment | 当前装备栏 | JWT |
 | GET | /api/game/item/bases | 物品基底库 | JWT |
 | POST | /api/game/item/generate | 生成物品（开发/测试：生产禁用、仅限本人角色、限流） | JWT |
+| GET | /api/game/skills | 功法图鉴（修习状态/等级/效果文本） | JWT |
+| POST | /api/game/skill/learn | 修习功法（消耗 1 枚未开光玉简，永久入册） | JWT |
+| GET | /api/game/skill/panel | 功法面板（9 槽 + 神识 + 协同标记） | JWT |
+| PUT | /api/game/skill/panel | 装槽/换装（1 主 3 辅 + 5 术法，免费） | JWT |
+| POST | /api/game/skill/enlighten | 参悟升级（消耗灵韵） | JWT |
+| POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
+| POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
 详细的 Game 接口契约见仓库 `ai-docs/v2/p1/p1-api-contract.md`。

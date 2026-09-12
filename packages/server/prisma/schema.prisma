@@ -39,6 +39,7 @@ model characters {
   silver        BigInt   @default(0) // （弃用）银两，不再使用
   realm         Int      @default(1) @db.SmallInt // 当前境界序号 1~14
   lingyun       BigInt   @default(0) // 灵韵（角色绑定成长资源）
+  jade_slips    BigInt   @default(0) // 未开光玉简计数（P2 占位，P4 物品化）
   created_at    DateTime @default(now()) @db.Timestamp(6)
   updated_at    DateTime @updatedAt @db.Timestamp(6)
 

@@ -7,6 +7,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../common/config/app-config.js';
+import { RateLimiterService } from '../../../common/services/rate-limiter.service.js';
 import { CharacterService } from '../../character/character.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
 import { ItemAffixService } from './item.affix.service.js';
@@ -35,6 +36,7 @@ export class ItemService {
     private readonly gameDb: GameDatabaseService,
     private readonly affixService: ItemAffixService,
     private readonly characterService: CharacterService,
+    private readonly rateLimiter: RateLimiterService,
   ) {}
 
   private emptySlots(): Record<string, number | null> {
@@ -59,23 +61,7 @@ export class ItemService {
     return { character };
   }
 
-  // ===== 开发/测试生成接口门禁（内存滑动窗口限流） =====
-
-  private readonly generateCalls = new Map<number, number[]>();
-
-  private checkGenerateRateLimit(userId: number): boolean {
-    const now = Date.now();
-    const limit = APP_CONFIG.generateRateLimitPerMinute;
-    const history = this.generateCalls.get(userId) ?? [];
-    const fresh = history.filter((t) => now - t < 60_000);
-    if (fresh.length >= limit) {
-      this.generateCalls.set(userId, fresh);
-      return false;
-    }
-    fresh.push(now);
-    this.generateCalls.set(userId, fresh);
-    return true;
-  }
+  // ===== 开发/测试生成接口门禁（共享限流器：generate/lingyun-grant/jade-grant 共用额度） =====
 
   /**
    * 生成物品（开发/测试用）门禁：
@@ -94,18 +80,19 @@ export class ItemService {
     }
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error as FailResult;
-    if (!this.checkGenerateRateLimit(userId)) {
-      return fail(
-        'RATE_LIMITED',
-        `生成接口每分钟最多调用 ${APP_CONFIG.generateRateLimitPerMinute} 次`,
-      );
-    }
     let target: number | null = null;
     if (characterId != null) {
+      // 归属校验先于限流：无效请求不消耗额度
       if (characterId !== character.id) {
         return fail('FORBIDDEN', '只能为本人角色生成物品');
       }
       target = character.id;
+    }
+    if (!this.rateLimiter.allow(userId, APP_CONFIG.devToolRateLimitPerMinute)) {
+      return fail(
+        'RATE_LIMITED',
+        `生成接口每分钟最多调用 ${APP_CONFIG.devToolRateLimitPerMinute} 次`,
+      );
     }
     return this.affixService.generateItem(baseId, rarity, target);
   }

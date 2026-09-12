@@ -1,4 +1,8 @@
 {
   "maxCharactersPerAccount": 1,
-  "generateRateLimitPerMinute": 5
+  "devToolRateLimitPerMinute": 5,
+  "spiritBudget": 100,
+  "maxSkillLevel": 20,
+  "enlightenBaseCost": 100,
+  "synergyBonusPct": 20
 }

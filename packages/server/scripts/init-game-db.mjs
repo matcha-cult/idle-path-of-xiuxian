@@ -91,6 +91,39 @@ CREATE TABLE IF NOT EXISTS game_equipment (
   updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS game_skills (
+  id          SERIAL PRIMARY KEY,
+  code        VARCHAR(50) NOT NULL UNIQUE,
+  name        VARCHAR(50) NOT NULL,
+  skill_type  VARCHAR(10) NOT NULL,
+  daoji       VARCHAR(20) NOT NULL,
+  school      VARCHAR(10) NOT NULL,
+  spirit_cost SMALLINT NOT NULL DEFAULT 0,
+  effects     TEXT NOT NULL,
+  growth_rate DOUBLE PRECISION NOT NULL DEFAULT 0.05,
+  description VARCHAR(255),
+  created_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_skills_type ON game_skills(skill_type);
+
+CREATE TABLE IF NOT EXISTS game_learned_skills (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  skill_id     INTEGER NOT NULL,
+  level        INTEGER NOT NULL DEFAULT 1,
+  learned_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, skill_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_learned_skills_character ON game_learned_skills(character_id);
+
+CREATE TABLE IF NOT EXISTS game_skill_panels (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL UNIQUE,
+  slots        TEXT NOT NULL,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -119,7 +152,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (6 张表)');
+  console.log('[放置·修仙之路] game tables ok (9 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -160,6 +193,30 @@ try {
   }
   await client.query("SELECT setval('game_affixes_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_affixes));");
   console.log(`[放置·修仙之路] affixes: ${affixes.length}`);
+
+  // ===== 功法定义（重灌：learned/panels 为玩家数据，保留） =====
+  const skills = await loadJson('skills.json');
+  await client.query('DELETE FROM game_skills');
+  for (const s of skills) {
+    await client.query(
+      `INSERT INTO game_skills (id, code, name, skill_type, daoji, school, spirit_cost, effects, growth_rate, description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+      [s.id, s.code, s.name, s.skillType, s.daoji, s.school, s.spiritCost ?? 0,
+       jstr(s.effects ?? {}), s.growthRate ?? 0.05, s.description ?? null],
+    );
+  }
+  await client.query("SELECT setval('game_skills_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_skills));");
+  const orphanLearned = await client.query(
+    `SELECT COUNT(*)::int AS c FROM game_learned_skills l
+     LEFT JOIN game_skills s ON s.id = l.skill_id WHERE s.id IS NULL`,
+  );
+  if (Number(orphanLearned.rows[0].c) > 0) {
+    console.warn(
+      `[放置·修仙之路] 警告：${orphanLearned.rows[0].c} 条已修习记录引用不存在的功法（种子 id 漂移）`,
+    );
+  }
+  console.log(`[放置·修仙之路] skills: ${skills.length}`);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');
