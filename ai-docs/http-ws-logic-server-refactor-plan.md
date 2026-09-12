@@ -200,7 +200,7 @@
 
 ### M6 · 框架侧加固（在 `vendor/ionet-ts` 所属框架仓库独立实施）✅ 已完成并验收
 > 政策（D4）：`vendor/ionet-ts` **可以修改**，但**不允许从本工作区直接改**；框架改动在框架仓库提交并推送，经 submodule 升级进入本工作区。
-> 协作方式：**跨会话协作**——中立共享目录 `<collab-dir>/`（按任务命名、只增不删），
+> 协作方式：**跨会话协作**——中立共享目录 `<中立协作目录>/`（按任务命名、只增不删），
 > 框架侧由 SESSION-B 实施、SESSION-A 独立复核；沟通记录见该目录 `protocol.md` 与 `task-1..4`。
 - [x] `ActionFactoryBeanForNest`：Action 走 NestJS DI（框架 `d9a3beb`）
 - [x] headers/traceId 透传 + 可选握手鉴权（框架 `d8a4f71`）
