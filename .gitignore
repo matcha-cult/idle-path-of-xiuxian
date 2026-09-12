@@ -31,3 +31,6 @@ pnpm-debug.log*
 coverage/
 # Local dev database (workspace-local PostgreSQL cluster)
 .devdb/
+
+# 跨会话协作运行时邮箱（真实目录，经软链暴露为 <collab-dir>）
+vendor/session-collaboration/
