@@ -16,6 +16,13 @@ export interface UnitRealmBaseEntry {
 
 export type LootFallbackAction = 'keep' | 'salvage' | 'sell' | 'discard';
 
+/** 秘境战力权重（P5.1） */
+export interface ZonePowerConfig {
+  realmWeight: number;
+  equipWeight: number;
+  skillDivisor: number;
+}
+
 export interface AppConfig {
   /** 单账户最大角色数 */
   maxCharactersPerAccount: number;
@@ -51,6 +58,8 @@ export interface AppConfig {
   idleMaxOfflineHours: number;
   /** 离线收益：每日物品产出上限件数（设计 §9.2 = 200）（P4.2） */
   idleDailyItemCap: number;
+  /** 秘境战力权重：realm×realmWeight + 装备数×equipWeight + floor(功法等级和/skillDivisor)（P5.1） */
+  zonePower: ZonePowerConfig;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -77,6 +86,7 @@ const DEFAULT_CONFIG: AppConfig = {
   idleEfficiencyPct: 60,
   idleMaxOfflineHours: 12,
   idleDailyItemCap: 200,
+  zonePower: { realmWeight: 20, equipWeight: 5, skillDivisor: 2 },
 };
 
 function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
@@ -122,6 +132,19 @@ function sanitizeCountRange(value: unknown): [number, number] {
   return [lo, hi];
 }
 
+function sanitizeZonePower(value: unknown): ZonePowerConfig {
+  const fallback = DEFAULT_CONFIG.zonePower;
+  if (value == null || typeof value !== 'object') return fallback;
+  const src = value as Record<string, unknown>;
+  const realmWeight = Number(src.realmWeight);
+  const equipWeight = Number(src.equipWeight);
+  const skillDivisor = Number(src.skillDivisor);
+  if (!Number.isFinite(realmWeight) || realmWeight <= 0) return fallback;
+  if (!Number.isFinite(equipWeight) || equipWeight < 0) return fallback;
+  if (!Number.isInteger(skillDivisor) || skillDivisor < 1) return fallback;
+  return { realmWeight, equipWeight, skillDivisor };
+}
+
 function sanitizeAction(value: unknown): AppConfig['lootFallbackAction'] {
   return value === 'keep' || value === 'salvage' || value === 'sell' || value === 'discard'
     ? value
@@ -156,6 +179,7 @@ function load(): AppConfig {
       idleEfficiencyPct: sanitizeInt(parsed.idleEfficiencyPct, DEFAULT_CONFIG.idleEfficiencyPct, 1, 100),
       idleMaxOfflineHours: sanitizeInt(parsed.idleMaxOfflineHours, DEFAULT_CONFIG.idleMaxOfflineHours, 1, 48),
       idleDailyItemCap: sanitizeInt(parsed.idleDailyItemCap, DEFAULT_CONFIG.idleDailyItemCap, 0, 100000),
+      zonePower: sanitizeZonePower(parsed.zonePower),
     };
   } catch (error) {
     console.warn('[config] 读取 app.config.json 失败，使用默认配置:', (error as Error).message);

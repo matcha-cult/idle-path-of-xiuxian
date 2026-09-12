@@ -14,10 +14,11 @@ import { RealmModule } from './realm/realm.module.js';
 import { SkillModule } from './skill/skill.module.js';
 import { UnitModule } from './unit/unit.module.js';
 import { IdleModule } from './idle/idle.module.js';
+import { ZoneModule } from './zone/zone.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, SkillModule, RealmModule, CurrencyModule, UnitModule, IdleModule],
+  imports: [ItemModule, SkillModule, RealmModule, CurrencyModule, UnitModule, IdleModule, ZoneModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

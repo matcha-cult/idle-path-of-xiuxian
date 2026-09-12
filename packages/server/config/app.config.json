@@ -54,5 +54,10 @@
   "idleRoundsPerHour": 60,
   "idleEfficiencyPct": 60,
   "idleMaxOfflineHours": 12,
-  "idleDailyItemCap": 200
+  "idleDailyItemCap": 200,
+  "zonePower": {
+    "realmWeight": 20,
+    "equipWeight": 5,
+    "skillDivisor": 2
+  }
 }

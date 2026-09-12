@@ -186,6 +186,49 @@ model game_idle_counters {
   @@unique([character_id, day])
 }
 
+// ===== P5.1 秘境定义 =====
+model game_zones {
+  id                     Int      @id @default(autoincrement())
+  code                   String   @unique @db.VarChar(50)
+  name                   String   @db.VarChar(50)
+  chapter                Int      @db.SmallInt
+  order_index            Int
+  min_realm              Int      @db.SmallInt
+  unit_code              String   @db.VarChar(50)
+  boss_code              String?  @db.VarChar(50)
+  base_power             Int
+  power_step             Int
+  max_floor              Int      @db.SmallInt
+  lingyun_bonus_per_floor Int
+  boss_every_floors      Int      @default(10) @db.SmallInt
+  created_at             DateTime @default(now()) @db.Timestamp(6)
+  updated_at             DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([order_index])
+}
+
+// ===== P5.1 角色×秘境进度 =====
+model game_zone_progress {
+  id           Int      @id @default(autoincrement())
+  character_id Int
+  zone_id      Int
+  floor        Int      @default(1)
+  best_floor   Int      @default(0)
+  cleared      Boolean  @default(false)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, zone_id])
+  @@index([character_id])
+}
+
+// ===== P5.1 角色当前秘境 =====
+model game_zone_state {
+  id              Int      @id @default(autoincrement())
+  character_id    Int      @unique
+  current_zone_id Int
+  updated_at      DateTime @updatedAt @db.Timestamp(6)
+}
+
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
 model game_pickup_rules {
   id            Int      @id @default(autoincrement())

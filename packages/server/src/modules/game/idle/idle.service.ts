@@ -15,6 +15,7 @@ import { DatabaseService } from '../../database/database.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
 import { UnitService } from '../unit/unit.service.js';
 import { type FailResult, fail } from '../unit/unit.types.js';
+import { ZoneService } from '../zone/zone.service.js';
 
 interface SettleAnchorRow {
   last_settle_at: Date | string | null;
@@ -31,6 +32,7 @@ export class IdleService {
     private readonly userDb: DatabaseService,
     private readonly characterService: CharacterService,
     private readonly unitService: UnitService,
+    private readonly zoneService: ZoneService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -106,7 +108,7 @@ export class IdleService {
 
   async settle(
     userId: number,
-    unitCode: string,
+    unitCodeInput?: string,
     hoursOverride?: number,
   ): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
@@ -152,6 +154,21 @@ export class IdleService {
       };
     }
 
+    // unitCode 缺省 → 当前秘境当前层遭遇单位（Boss 层取 bossCode）
+    let unitCode = unitCodeInput && unitCodeInput.trim() ? unitCodeInput.trim() : undefined;
+    let zoneInfo: { code: string; name: string; floor: number; isBoss: boolean } | null = null;
+    if (!unitCode) {
+      const encounter = await this.zoneService.encounterForCharacter(character.id, character.realm);
+      if (!encounter) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
+      unitCode = encounter.unitCode;
+      zoneInfo = {
+        code: encounter.zoneCode,
+        name: encounter.zoneName,
+        floor: encounter.floor,
+        isBoss: encounter.isBoss,
+      };
+    }
+
     const budget = Math.max(0, APP_CONFIG.idleDailyItemCap - produced);
     const settled = await this.unitService.settleKills(character.id, unitCode, plan.kills, { itemBudget: budget });
     if (!settled.ok) return settled.result;
@@ -174,6 +191,7 @@ export class IdleService {
       message: '离线结算完成：' + settled.data.unit.name + ' ×' + plan.kills,
       data: {
         ...settled.data,
+        zone: zoneInfo,
         offlineHours: plan.offlineHours,
         effectiveHours: plan.effectiveHours,
         dailyItemsProduced,

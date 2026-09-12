@@ -6,11 +6,12 @@
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../character/character.module.js';
 import { UnitModule } from '../unit/unit.module.js';
+import { ZoneModule } from '../zone/zone.module.js';
 import { IdleController } from './idle.controller.js';
 import { IdleService } from './idle.service.js';
 
 @Module({
-  imports: [CharacterModule, UnitModule],
+  imports: [CharacterModule, UnitModule, ZoneModule],
   controllers: [IdleController],
   providers: [IdleService],
   exports: [IdleService],

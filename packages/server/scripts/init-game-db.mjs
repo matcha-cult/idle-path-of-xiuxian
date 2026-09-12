@@ -228,6 +228,44 @@ CREATE TABLE IF NOT EXISTS game_drop_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_game_drop_entries_table ON game_drop_entries(drop_table_id);
 
+CREATE TABLE IF NOT EXISTS game_zones (
+  id                      SERIAL PRIMARY KEY,
+  code                    VARCHAR(50) NOT NULL UNIQUE,
+  name                    VARCHAR(50) NOT NULL,
+  chapter                 SMALLINT NOT NULL,
+  order_index             INTEGER NOT NULL,
+  min_realm               SMALLINT NOT NULL,
+  unit_code               VARCHAR(50) NOT NULL,
+  boss_code               VARCHAR(50),
+  base_power              INTEGER NOT NULL,
+  power_step              INTEGER NOT NULL,
+  max_floor               SMALLINT NOT NULL,
+  lingyun_bonus_per_floor INTEGER NOT NULL,
+  boss_every_floors       SMALLINT NOT NULL DEFAULT 10,
+  created_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_zones_order ON game_zones(order_index);
+
+CREATE TABLE IF NOT EXISTS game_zone_progress (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  zone_id      INTEGER NOT NULL,
+  floor        INTEGER NOT NULL DEFAULT 1,
+  best_floor   INTEGER NOT NULL DEFAULT 0,
+  cleared      BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, zone_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_zone_progress_character ON game_zone_progress(character_id);
+
+CREATE TABLE IF NOT EXISTS game_zone_state (
+  id              SERIAL PRIMARY KEY,
+  character_id    INTEGER NOT NULL UNIQUE,
+  current_zone_id INTEGER NOT NULL,
+  updated_at      TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS game_idle_counters (
   id             SERIAL PRIMARY KEY,
   character_id   INTEGER NOT NULL,
@@ -265,7 +303,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (19 张表)');
+  console.log('[放置·修仙之路] game tables ok (22 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -451,6 +489,34 @@ try {
     console.warn('[放置·修仙之路] 警告：' + orphanUnits.rows[0].c + ' 个单位引用不存在的掉落表');
   }
   console.log('[放置·修仙之路] unit templates: ' + units.length + ' / hidden pool links ' + poolLinks);
+
+  // ===== P5.1 秘境定义（重灌：进度 state/progress 为玩家数据，保留） =====
+  const zones = await loadJson('zones.json');
+  await client.query('DELETE FROM game_zones');
+  for (const z of zones) {
+    await client.query(
+      'INSERT INTO game_zones (id, code, name, chapter, order_index, min_realm, unit_code, boss_code, base_power, power_step, max_floor, lingyun_bonus_per_floor, boss_every_floors) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [z.id, z.code, z.name, z.chapter, z.orderIndex, z.minRealm, z.unitCode, z.bossCode ?? null, z.basePower, z.powerStep, z.maxFloor, z.lingyunBonusPerFloor, z.bossEveryFloors ?? 10],
+    );
+  }
+  await client.query("SELECT setval('game_zones_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_zones));");
+  const orphanZoneUnits = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_zones z LEFT JOIN game_unit_templates u ON u.code = z.unit_code WHERE u.code IS NULL',
+  );
+  if (Number(orphanZoneUnits.rows[0].c) > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanZoneUnits.rows[0].c + ' 个秘境引用不存在的单位');
+  }
+  const orphanProgress = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_zone_progress p LEFT JOIN game_zones z ON z.id = p.zone_id WHERE z.id IS NULL',
+  );
+  const orphanState = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_zone_state s LEFT JOIN game_zones z ON z.id = s.current_zone_id WHERE z.id IS NULL',
+  );
+  const orphanZoneRefs = Number(orphanProgress.rows[0].c) + Number(orphanState.rows[0].c);
+  if (orphanZoneRefs > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanZoneRefs + ' 条秘境进度/当前秘境引用不存在的秘境（种子 id 漂移）');
+  }
+  console.log('[放置·修仙之路] zones: ' + zones.length);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

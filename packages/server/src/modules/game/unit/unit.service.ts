@@ -435,7 +435,7 @@ export class UnitService {
     characterId: number,
     code: string,
     count: number,
-    options?: { itemBudget?: number },
+    options?: { itemBudget?: number; lingyunBonusFlat?: number },
   ): Promise<SettleResult> {
     const loaded = await this.loadUnit(code);
     if (!loaded) return { ok: false, result: fail('UNIT_NOT_FOUND', '单位不存在：' + code) };
@@ -443,6 +443,7 @@ export class UnitService {
       return { ok: false, result: fail('NOT_KILLABLE', loaded.unit.name + ' 非敌对单位，无法击杀') };
     }
     const itemBudget = options?.itemBudget;
+    const lingyunBonusFlat = options?.lingyunBonusFlat ?? 0;
 
     const rules = await this.loadPickupRules(characterId);
     const tierOffset = loaded.table ? loaded.table.tier_offset : 0;
@@ -510,6 +511,8 @@ export class UnitService {
         }
       }
     }
+
+    lingyunGained += lingyunBonusFlat;
 
     for (const [currencyCode, amount] of currencies) {
       await this.gameDb.query(

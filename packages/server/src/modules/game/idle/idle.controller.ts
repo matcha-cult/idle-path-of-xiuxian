@@ -23,13 +23,17 @@ export class IdleController {
 
   @Post('idle/settle')
   async settle(@UserId() userId: number, @Body() body: { unitCode?: unknown; hours?: unknown }) {
-    if (typeof body.unitCode !== 'string' || !body.unitCode.trim()) return invalidParam('unitCode 必填');
+    let unitCode: string | undefined;
+    if (body.unitCode != null) {
+      if (typeof body.unitCode !== 'string' || !body.unitCode.trim()) return invalidParam('unitCode 不合法');
+      unitCode = body.unitCode.trim();
+    }
     let hours: number | undefined;
     if (body.hours != null) {
       const n = typeof body.hours === 'string' ? Number(body.hours) : typeof body.hours === 'number' ? body.hours : NaN;
       if (!Number.isFinite(n)) return invalidParam('hours 不合法');
       hours = n;
     }
-    return this.idleService.settle(userId, body.unitCode.trim(), hours);
+    return this.idleService.settle(userId, unitCode, hours);
   }
 }
