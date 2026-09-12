@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../../character/character.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
 import { ItemAffixService } from '../item/item.affix.service.js';
+import { StatService } from '../stat/stat.service.js';
 import type { AffixEntry, BaseRow } from '../item/item.types.js';
 import { type CraftOp, type FailResult, fail, CRAFT_OPS } from './currency.types.js';
 
@@ -38,6 +39,7 @@ export class CraftService {
     private readonly gameDb: GameDatabaseService,
     private readonly characterService: CharacterService,
     private readonly affixService: ItemAffixService,
+    private readonly statService: StatService,
   ) {}
 
   private randInt(min: number, max: number): number {
@@ -368,6 +370,7 @@ export class CraftService {
     });
 
     if (result.verdict === 'fail') return result.result as FailResult;
+    await this.statService.increment(character.id, 'craft_total', 1);
     const { item, newRarity, finalEntries, destroyed, extra } = result.result as {
       item: ItemWithBase;
       newRarity: number;

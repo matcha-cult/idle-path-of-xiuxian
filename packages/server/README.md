@@ -21,7 +21,7 @@ cp .env.example .env
 # 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
 
-# 初始化 Game 系统表与种子（26 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、秘境/进度/状态、离线计数、任务定义/进度、章节定义/进度、拾取规则）
+# 初始化 Game 系统表与种子（28 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、秘境/进度/状态、离线计数、任务定义/进度、章节定义/进度、事件计数、演出已读、拾取规则）
 # 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
 pnpm --filter idle-path-server db:init:game
 
@@ -104,9 +104,12 @@ pnpm --filter idle-path-server typecheck
 | GET | /api/game/chapters | 章节列表（解锁链 + 完成度 + 任务进度） | JWT |
 | GET | /api/game/chapters/:chapter | 章节详情（秘境/任务清单/对话/奖励） | JWT |
 | POST | /api/game/chapter/sync | 章节完成判定与发奖（幂等） | JWT |
+| GET | /api/game/story/chapter/:chapter | 章节剧本节点（intro/outro + 任务 start/done + 已读） | JWT |
+| GET | /api/game/story/quest/:code | 单任务剧本节点 | JWT |
+| POST | /api/game/story/seen | 标记剧本节点已读（幂等） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`、`p6-api-contract.md`、`p7-api-contract.md`。
+详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`、`p6-api-contract.md`、`p7-api-contract.md`、`p6.2-p7.2-api-contract.md`。
 
 ## WS 入口
 

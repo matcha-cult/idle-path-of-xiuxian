@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../common/config/app-config.js';
 import { CharacterService } from '../../character/character.service.js';
 import { DatabaseService } from '../../database/database.service.js';
+import { StatService } from '../stat/stat.service.js';
 import { type FailResult, MAX_REALM, fail, realmName } from './realm.types.js';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class RealmService {
   constructor(
     private readonly userDb: DatabaseService,
     private readonly characterService: CharacterService,
+    private readonly statService: StatService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -66,6 +68,7 @@ export class RealmService {
       return fail('LINGYUN_NOT_ENOUGH', `灵韵不足：突破需 ${cost}，当前 ${character.lingyun}`);
     }
     const nowRealm = Number(upd.rows[0].realm);
+    await this.statService.increment(character.id, 'breakthrough_total', 1);
     return {
       success: true,
       message: `突破成功：${realmName(character.realm)} → ${realmName(nowRealm)}`,

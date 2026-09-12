@@ -71,6 +71,8 @@ export interface QuestContext {
   learnedSkills: number;
   zones: Map<string, ZoneProgressLite>;
   completed: Set<string>;
+  /** P6.2 事件计数（kill_total/kill:<unit>/kill_realm:<r>/breakthrough_total/craft_total） */
+  counters: Map<string, number>;
 }
 
 export const QUEST_STATUSES = ['locked', 'active', 'completed'] as const;

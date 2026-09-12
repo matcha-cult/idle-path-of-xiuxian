@@ -301,6 +301,30 @@ model game_chapter_progress {
   @@index([character_id])
 }
 
+
+// ===== P6.2 通用事件计数 =====
+model game_stat_counters {
+  id           Int      @id @default(autoincrement())
+  character_id Int
+  key          String   @db.VarChar(80)
+  value        BigInt   @default(0)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, key])
+  @@index([character_id])
+}
+
+// ===== P7.2 演出已读 =====
+model game_story_seen {
+  id           Int      @id @default(autoincrement())
+  character_id Int
+  node_key     String   @db.VarChar(120)
+  seen_at      DateTime @default(now()) @db.Timestamp(6)
+
+  @@unique([character_id, node_key])
+  @@index([character_id])
+}
+
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
 model game_pickup_rules {
   id            Int      @id @default(autoincrement())

@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../../character/character.service.js';
 import { DatabaseService } from '../../database/database.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
+import { StatService } from '../stat/stat.service.js';
 import {
   type FailResult,
   type ObjectiveProgress,
@@ -33,6 +34,7 @@ export class QuestService {
     private readonly gameDb: GameDatabaseService,
     private readonly userDb: DatabaseService,
     private readonly characterService: CharacterService,
+    private readonly statService: StatService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -64,7 +66,7 @@ export class QuestService {
   }
 
   private async loadContext(characterId: number, realm: number, lingyun: number, completed: Set<string>): Promise<QuestContext> {
-    const [zoneRows, itemCount, skillCount] = await Promise.all([
+    const [zoneRows, itemCount, skillCount, counters] = await Promise.all([
       this.gameDb.query<{ code: string; best_floor: number; cleared: boolean }>(
         'SELECT z.code, p.best_floor, p.cleared FROM game_zone_progress p JOIN game_zones z ON z.id = p.zone_id WHERE p.character_id = $1',
         [characterId],
@@ -74,6 +76,7 @@ export class QuestService {
         'SELECT COUNT(*)::text AS c FROM game_learned_skills WHERE character_id = $1',
         [characterId],
       ),
+      this.statService.readAll(characterId),
     ]);
     const zones = new Map<string, { bestFloor: number; cleared: boolean }>();
     for (const row of zoneRows.rows) {
@@ -86,6 +89,7 @@ export class QuestService {
       learnedSkills: Number(skillCount.rows[0] ? skillCount.rows[0].c : 0),
       zones,
       completed,
+      counters,
     };
   }
 
@@ -112,6 +116,14 @@ export class QuestService {
         return this.compare(ctx.learnedSkills, objective.value ?? 1);
       case 'lingyun':
         return this.compare(ctx.lingyun, objective.value ?? 1);
+      case 'kill_total':
+        return this.compare(ctx.counters.get('kill_total') ?? 0, objective.value ?? 1);
+      case 'kill_unit':
+        return this.compare(ctx.counters.get('kill:' + (objective.key ?? '')) ?? 0, objective.value ?? 1);
+      case 'breakthrough_total':
+        return this.compare(ctx.counters.get('breakthrough_total') ?? 0, objective.value ?? 1);
+      case 'craft_total':
+        return this.compare(ctx.counters.get('craft_total') ?? 0, objective.value ?? 1);
       default:
         return { current: 0, done: false };
     }

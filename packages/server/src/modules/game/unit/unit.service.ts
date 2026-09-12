@@ -13,6 +13,7 @@ import { CharacterService } from '../../character/character.service.js';
 import { DatabaseService } from '../../database/database.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
 import { ItemAffixService } from '../item/item.affix.service.js';
+import { StatService } from '../stat/stat.service.js';
 import type { BaseRow, ItemView } from '../item/item.types.js';
 import { realmName } from '../realm/realm.types.js';
 import {
@@ -82,6 +83,7 @@ export class UnitService {
     private readonly affixService: ItemAffixService,
     private readonly characterService: CharacterService,
     private readonly rateLimiter: RateLimiterService,
+    private readonly statService: StatService,
   ) {}
 
   // ===== 门禁与工具 =====
@@ -514,6 +516,7 @@ export class UnitService {
       }
     }
 
+    await this.statService.recordKill(characterId, loaded.unit.code, loaded.unit.realm, count);
     lingyunGained += lingyunBonusFlat;
 
     for (const [currencyCode, amount] of currencies) {

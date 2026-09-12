@@ -76,6 +76,11 @@
         "key": "zone_qingyun",
         "value": 3,
         "desc": "青云山脚推进至第 3 层"
+      },
+      {
+        "type": "kill_total",
+        "value": 5,
+        "desc": "累计击杀 5 个敌人"
       }
     ],
     "rewards": {
@@ -177,6 +182,16 @@
         "type": "own_items",
         "value": 5,
         "desc": "持有 5 件物品"
+      },
+      {
+        "type": "kill_total",
+        "value": 30,
+        "desc": "累计击杀 30 个敌人"
+      },
+      {
+        "type": "craft_total",
+        "value": 1,
+        "desc": "完成 1 次炼器"
       }
     ],
     "rewards": {
@@ -209,6 +224,11 @@
         "type": "reach_realm",
         "value": 7,
         "desc": "达到 7 境"
+      },
+      {
+        "type": "breakthrough_total",
+        "value": 6,
+        "desc": "累计突破 6 次"
       }
     ],
     "rewards": {

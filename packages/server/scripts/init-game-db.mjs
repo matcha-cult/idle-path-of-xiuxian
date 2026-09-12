@@ -341,6 +341,25 @@ CREATE TABLE IF NOT EXISTS game_chapter_progress (
 );
 CREATE INDEX IF NOT EXISTS idx_game_chapter_progress_character ON game_chapter_progress(character_id);
 
+CREATE TABLE IF NOT EXISTS game_stat_counters (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  key          VARCHAR(80) NOT NULL,
+  value        BIGINT NOT NULL DEFAULT 0,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, key)
+);
+CREATE INDEX IF NOT EXISTS idx_game_stat_counters_character ON game_stat_counters(character_id);
+
+CREATE TABLE IF NOT EXISTS game_story_seen (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  node_key     VARCHAR(120) NOT NULL,
+  seen_at      TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, node_key)
+);
+CREATE INDEX IF NOT EXISTS idx_game_story_seen_character ON game_story_seen(character_id);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -369,7 +388,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (26 张表)');
+  console.log('[放置·修仙之路] game tables ok (28 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
