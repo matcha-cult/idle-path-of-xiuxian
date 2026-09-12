@@ -7,8 +7,8 @@
 import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import { QuestService } from '../../../game/quest/quest.service.js';
-import { type ChapterRow, type FailResult, type QuestDefRow, fail } from '../../../game/quest/quest.types.js';
+import { QuestLogicService } from '../../quest/quest.logic.service.js';
+import { type ChapterRow, type FailResult, type QuestDefRow, fail } from '../../quest/quest.api.js';
 
 interface StoryNode {
   nodeKey: string;
@@ -24,7 +24,7 @@ export class StoryService {
   constructor(
     private readonly gameDb: GameDatabaseService,
     private readonly characterService: CharacterService,
-    private readonly questService: QuestService,
+    private readonly questLogic: QuestLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -56,7 +56,7 @@ export class StoryService {
   }
 
   private async questStatuses(userId: number): Promise<Map<string, string>> {
-    const result = await this.questService.list(userId);
+    const result = await this.questLogic.list(userId);
     const map = new Map<string, string>();
     const data = result.data as { quests?: { code: string; status: string }[] } | undefined;
     for (const q of data && data.quests ? data.quests : []) map.set(q.code, q.status);

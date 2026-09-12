@@ -4,8 +4,8 @@
  * 同时承载任务与章节（chapter 并入 quest 服）。
  */
 import { Injectable } from '@nestjs/common';
-import { ChapterService } from '../../game/quest/chapter.service.js';
-import { QuestService } from '../../game/quest/quest.service.js';
+import { ChapterService } from './internal/chapter.service.js';
+import { QuestService } from './internal/quest.service.js';
 
 @Injectable()
 export class QuestLogicService {

@@ -6,8 +6,8 @@
  * - 发奖：写 game_chapter_progress（ON CONFLICT DO NOTHING）→ 复用 QuestService.grantRewardBundle → 置 rewards_granted
  */
 import { Injectable } from '@nestjs/common';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { QuestService } from './quest.service.js';
 import {
   type ChapterProgressRow,

@@ -11,12 +11,11 @@ import { GameDatabaseService } from './game-database.service.js';
 import { ItemModule } from './item/item.module.js';
 import { UnitModule } from './unit/unit.module.js';
 import { ZoneModule } from './zone/zone.module.js';
-import { QuestModule } from './quest/quest.module.js';
 import { StatModule } from './stat/stat.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, UnitModule, ZoneModule, QuestModule, StatModule],
+  imports: [ItemModule, UnitModule, ZoneModule, StatModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

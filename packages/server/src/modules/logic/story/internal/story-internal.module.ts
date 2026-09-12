@@ -5,11 +5,11 @@
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../../character/character.module.js';
-import { QuestModule } from '../../../game/quest/quest.module.js';
+import { QuestLogicModule } from '../../quest/quest-logic.module.js';
 import { StoryService } from './story.service.js';
 
 @Module({
-  imports: [CharacterModule, QuestModule],
+  imports: [CharacterModule, QuestLogicModule],
   providers: [StoryService],
   exports: [StoryService],
 })

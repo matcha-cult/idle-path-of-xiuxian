@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { QuestService } from '../../../src/modules/game/quest/quest.service.js';
+import { QuestService } from '../../../src/modules/logic/quest/internal/quest.service.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';

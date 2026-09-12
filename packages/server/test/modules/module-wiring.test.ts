@@ -24,9 +24,9 @@ import { CurrencyService } from '../../src/modules/logic/economy/internal/curren
 import { ItemModule } from '../../src/modules/game/item/item.module.js';
 import { ItemService } from '../../src/modules/game/item/item.service.js';
 import { ItemAffixService } from '../../src/modules/game/item/item.affix.service.js';
-import { QuestModule } from '../../src/modules/game/quest/quest.module.js';
-import { QuestService } from '../../src/modules/game/quest/quest.service.js';
-import { ChapterService } from '../../src/modules/game/quest/chapter.service.js';
+import { QuestModule } from '../../src/modules/logic/quest/internal/quest-internal.module.js';
+import { QuestService } from '../../src/modules/logic/quest/internal/quest.service.js';
+import { ChapterService } from '../../src/modules/logic/quest/internal/chapter.service.js';
 import { StatModule } from '../../src/modules/game/stat/stat.module.js';
 import { StatService } from '../../src/modules/game/stat/stat.service.js';
 import { IdleModule } from '../../src/modules/logic/idle/internal/idle-internal.module.js';

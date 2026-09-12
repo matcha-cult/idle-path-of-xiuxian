@@ -7,10 +7,10 @@
  * - 发奖：completed 且 rewards_granted=false 的行统一领取；发奖成功后置 true（失败可重试，不丢奖）
  */
 import { Injectable } from '@nestjs/common';
-import { CharacterService } from '../../character/character.service.js';
-import { DatabaseService } from '../../database/database.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { StatService } from '../stat/stat.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { StatService } from '../../../game/stat/stat.service.js';
 import {
   type FailResult,
   type ObjectiveProgress,

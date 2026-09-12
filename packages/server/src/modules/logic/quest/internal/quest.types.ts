@@ -1,7 +1,7 @@
 /**
  * 任务域共享类型（P6）
  */
-import { type FailResult, fail } from '../unit/unit.types.js';
+import { type FailResult, fail } from '../../../game/unit/unit.types.js';
 
 export { fail };
 export type { FailResult };
