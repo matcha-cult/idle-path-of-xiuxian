@@ -1,10 +1,10 @@
-# HTTP/WS 双通道与「逻辑服」拆分改造计划（v2）
+# HTTP/WS 双通道与「逻辑服」拆分改造计划（v2 · M0–M5 已落地）
 
 > 目标（对齐原始需求）：
 > 1. 注册、登录、角色列表、角色创建、健康检查等**基础能力走 HTTP**；**其余游戏交互全部走 ionet-ws**。
 > 2. 把不同功能拆成**不同的逻辑服（ionet ActionController）**，**交由 ionet 统一管理**；逻辑服之间**允许依赖、禁止循环依赖**；**对外服**单独承担广播/通知等对外逻辑。
 >
-> 现状：要求 1 的 HTTP 半句已满足；ionet-ws、逻辑服、对外服三条均未落地。
+> 现状（本轮结束）：要求 1、2 均已达成，验收 A1–A8 全绿（见 §6）；`vendor/ionet-ts` 按 D4 硬约束**未做任何改动**。
 
 ---
 
@@ -41,7 +41,7 @@
 | D1.1 | 物品 / 道具划分 | **已定稿（原话「物品、道具一个逻辑服」系笔误）**：拆分为 **物品逻辑服**（基础：定义/词缀/实例化/背包存储）+ **道具逻辑服**（流转：获得/消耗/丢弃/分解），**道具 → 物品** |
 | D2 | WS 传输模式 | attach 到 NestJS http.Server，path=`/ws` |
 | D3 | dev 工具（generate/grant/spawn/kill） | 也迁 WS，Action 内保留生产禁用 + 限流 |
-| D4 | 是否改 `vendor/ionet-ts` | 不作为验收前置（Track A 全在 `packages/server`）；框架加固列 M6 |
+| D4 | 是否改 `vendor/ionet-ts` | **禁止改动（硬约束）**：该仓库牵涉服务端编译/部署流程。全部适配只在 `packages/server` 内完成（Track A）；原 M6 框架加固**取消** |
 | D5 | cmd 分段 | 见 §3，M0 定稿 |
 | **D6** | **依赖约束** | **逻辑服只能依赖「更底层」的逻辑服；禁止循环依赖；跨服只走对方导出的门面服务，禁止直接访问对方数据表。** |
 
@@ -118,15 +118,15 @@
 > `import { type FlowContext }` 会被 tsc 擦除，`emitDecoratorMetadata` 只能退化成 `Function`，
 > 骨架据此把首参误判为 `DATA`（实测表现为 `ctx.getUserId is not a function`）。
 >
-> Track B 可选：框架补 `ActionFactoryBeanForNest`（`05` P1-1）后可去桥接。
+> Track B **取消**：框架补 `ActionFactoryBeanForNest`（`05` P1-1）需改 vendor，受 D4 约束禁止；桥接模块为长期方案。
 
 ### 4.2 WS 鉴权（v1）
-`ws-server` 丢弃 headers、每请求新建 `FlowContext`、无握手鉴权。v1：JWT 放入请求 `data.__token`，自定义 `WsAuthInOut` 校验后 `ctx.bindingUserId(BigInt(id))`；受保护 Action 校验 `getUserId() !== 0n`。M6 转标准握手鉴权。
+`ws-server` 丢弃 headers、每请求新建 `FlowContext`、无握手鉴权。v1：JWT 放入请求 `data.__token`，自定义 `WsAuthInOut` 校验后 `ctx.bindingUserId(BigInt(id))`；受保护 Action 校验 `getUserId() !== 0n`。（`data.__token` 为长期方案：标准握手鉴权需改 vendor，受 D4 约束取消。）
 
 ### 4.3 对外服（EdgeModule）
 - **职责**：WS 连接生命周期、握手/鉴权、响应回写、**广播/通知/推送**、连接↔userId 注册表。
 - **依赖反转**：在 `common/ports` 定义 `NotificationPort { broadcast(msg); sendTo(userId,msg) }`；逻辑服只依赖接口并投递，**对外服实现接口**。这样业务→端口→实现，无环。
-- **框架现状**：`broadcast()` 可用；`sendTo()` 因 `ClientConnection.userId` 无赋值点而失效（`05` P0-4）；Broadcaster 抽象未接线（P0-5）。v1 由 EdgeModule 注入 `IONET_WS_SERVER` 实现广播；定向推送 + 推送信封规范化列入 M6。
+- **框架现状**：`broadcast()` 可用；`sendTo()` 因 `ClientConnection.userId` 无赋值点而失效（`05` P0-4）；Broadcaster 抽象未接线（P0-5）。v1 由 EdgeModule 注入 `IONET_WS_SERVER` 实现广播；定向推送在 vendor 未提供连接注册表前**不可用**（D4 禁止改 vendor），对外能力以「广播」为准。
 
 ### 4.4 依赖约束的强制手段
 1. **物理边界**：每服目录 `src/modules/logic/<server>/`，只导出 1 个门面 `XxxLogicService` + Action 类；`internal/` 私有。
@@ -184,12 +184,14 @@
 - [x] 注册→登录→建角→拉背包→生成/穿戴装备→突破→秘境→任务（`pnpm run e2e:journey`）
 - [x] 断线重连后重新带 token 可继续（脚本内 `simulateDrop` + 重新登录换 token）
 
-### M6 · 可选框架加固（独立仓库，Track A 之外，本轮未做）
-- [ ] `ActionFactoryBeanForNest`（去桥接）
-- [ ] headers/traceId 透传 + 握手鉴权
-- [ ] 连接注册表 + Broadcaster 接线 + 定向推送（对外服正式化）
-- [ ] reqId + `kind` 判别
-- [ ] `NODE_ENV=production` 守卫与生产部署路径
+### M6 · ~~可选框架加固~~ ❌ 已取消（D4 硬约束）
+> `vendor/ionet-ts` 牵涉服务端编译/部署流程，**禁止改动**。以下加固项在 Node 侧无法实现，
+> 一律改为业务侧规避；如未来框架仓库独立排期，再另行评估。
+- ~~`ActionFactoryBeanForNest`（去桥接）~~ → 长期使用 §4.1 桥接
+- ~~headers/traceId 透传 + 握手鉴权~~ → 长期使用 `data.__token`
+- ~~连接注册表 + Broadcaster 接线 + 定向推送~~ → 对外能力仅「广播」
+- ~~reqId + `kind` 判别~~ → 客户端串行队列保证请求-响应配对
+- ~~`NODE_ENV=production` 守卫~~ → 见 R7 部署约束
 
 ## 6. 验收标准
 
@@ -213,13 +215,13 @@
 
 | # | 风险 | 缓解 |
 |---|---|---|
-| R1 | Action 无 DI（框架 P1-1） | §4.1 桥接；M6 修复 |
-| R2 | WS 无 headers/握手鉴权 | v1 token 入 data；M6 握手 |
-| R3 | 无连接 session/定向推送 | 本期不要求推送；对外服先广播；M6 修 `sendTo` |
+| R1 | Action 无 DI（框架 P1-1） | §4.1 桥接（**长期方案**，D4 不改 vendor） |
+| R2 | WS 无 headers/握手鉴权 | token 入 `data.__token`（**长期方案**，D4） |
+| R3 | 无连接 session/定向推送 | 对外能力仅「广播」；`sendTo` 在 vendor 未提供连接注册表前不可用（D4） |
 | R4 | **现存越层依赖**（M0 已复核完毕） | 复核结论：`idle → zone`、`zone → unit`、`craft → stat`、`quest/realm/unit → stat` 均为**向下**边，与 §3 一致；另发现两处**值依赖**越层 `skill → item`（EFFECT_LABELS/PERCENT_KEYS）、`combat → realm`（realmName），已上提共享内核 `src/common/kernel/` 消除。当前 `check:deps` 全绿 |
 | R5 | `story → quest`、`chapter → quest` 同源依赖 | 归入 quest 服或按 §3 层级（quest 在下）排布 |
 | R6 | attach WS 与 Nest 网关冲突 | M1 删 `/ws-user`；必要时改独立端口 |
-| R7 | 生产禁用 `extension-nestjs` | 生产走 Java External Server/独立逻辑服；M6 专项 |
+| R7 | **生产禁用 `extension-nestjs`**：`IonetModule.forRoot()` 在 `NODE_ENV=production` 时直接抛错，而 D4 禁止改 vendor | 生产部署**不得设 `NODE_ENV=production`**：用 `NODE_ENV=staging`/`production-node` 等编排变量运行 Node 进程；或按框架设计改走 Java External Server + 独立逻辑服进程。已实测：dist 产物在非 production 下功能完整 |
 | R8 | 依赖被打破形成环 | §4.4 CI 强制；评审对照 §3.2 |
 | R9 | **开发启动器缺装饰器元数据**：`tsx`/esbuild 不产出 `design:paramtypes`，NestJS 按类型注入全部失效（全 HTTP 500，既有缺陷） | 已修：`scripts/dev.mjs` 改为 `tsc --watch` 产出 dist + `node --watch dist/main.js`；CI/验收一律跑 dist |
 
@@ -233,7 +235,7 @@
 | M3 | 6–9 天（按新服数，比按旧模块更多） |
 | M4 | 1 天 |
 | M5 | 1–2 天 |
-| M6 | 独立排期 |
+| M6 | ❌ 取消（D4 硬约束） |
 
 ---
 
