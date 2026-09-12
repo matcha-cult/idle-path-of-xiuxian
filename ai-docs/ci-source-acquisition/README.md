@@ -250,6 +250,8 @@ pnpm -w run build          # 必须 -r：框架 dist 是 server 编译的前置�
 | `fetch-source.sh` | 构建机侧入口：clone → 子模块 → 校验 → manifest → 打包 → 包校验 |
 | `verify-source.sh` | 校验器。`verify-source.sh <dir>` 校验源码树；`--package <tgz>` 校验构建包；`--hash <dir>` 输出 contentHash |
 
+> **CI 平台是 Spug？** 见 [`02-Spug-接入方案.md`](./02-Spug-接入方案.md)。Spug 的检出步骤无法附加 `--recurse-submodules`，且执行步骤拿不到 SSH key——该文档给出零凭据（HTTPS）的绕开方案。注意 §11 的"就地修复"只适用于**有 `.git` 的检出目录**，Spug 导出的纯文件树用不了。
+
 ---
 
 ## 10. 验证记录
