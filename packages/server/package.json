@@ -19,7 +19,8 @@
     "e2e:all": "tsx scripts/e2e-all.mts",
     "e2e:journey": "tsx scripts/e2e-journey.mts",
     "test:unit": "tsx --test \"test/**/*.test.ts\"",
-    "typecheck:test": "tsc -p tsconfig.test.json --noEmit"
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "coverage:report": "tsx scripts/coverage-report.mts"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",

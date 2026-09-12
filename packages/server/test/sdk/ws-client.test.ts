@@ -12,8 +12,10 @@ function makeClient(overrides: Record<string, unknown> = {}): WarWsClient {
     WebSocketImpl: FakeWebSocket,
     heartbeatMs: 0,
     requestTimeoutMs: 100,
-    reconnectBaseDelayMs: 1,
-    reconnectMaxDelayMs: 2,
+    // 默认把自动重连延迟设得很大：用例只依赖「显式调用触发重连」，避免定时器与调用竞态。
+    // 需要验证自动重连的用例会显式覆盖成很小的延迟。
+    reconnectBaseDelayMs: 60_000,
+    reconnectMaxDelayMs: 60_000,
     ...overrides,
   });
 }
@@ -142,6 +144,16 @@ describe('WarWsClient 超时与重连 边界', () => {
     assert.equal(FakeWebSocket.latest.lastRequest().data.__token, 'new');
     FakeWebSocket.latest.emitMessage({ data: { success: true } });
     assert.deepEqual(await promise, { data: { success: true } });
+    client.close();
+  });
+
+  test('自动重连定时器：掉线后无需调用也会重建连接', async () => {
+    const client = makeClient({ reconnectBaseDelayMs: 1, reconnectMaxDelayMs: 2 });
+    await connected(client);
+    assert.equal(FakeWebSocket.instances.length, 1);
+    client.simulateDrop();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.ok(FakeWebSocket.instances.length >= 2, '掉线后应自动新建连接');
     client.close();
   });
 
