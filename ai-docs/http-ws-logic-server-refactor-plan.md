@@ -191,6 +191,8 @@
       11 个 Action、11 个门面、模块接线、Controller、check-deps 规则（含跨服 internal 泄漏检查）、ws-client SDK
 - [x] 各域 service 边界（item/affix/currency/craft/realm/skill/unit/zone/quest/chapter/story/idle/stat/game-database/auth/edge/database/types）
 - 说明：单元测试不启动 NestJS 容器（esbuild 不产出 `design:paramtypes`）；容器级联调由 `e2e:all` / `e2e:journey` 覆盖
+- **结果**：`test:unit` = 1295 例全绿；`coverage:report` 显示 95 个源码文件中 **94 个被测试直接引用**（唯一例外 `main.ts` 引导入口，由 e2e 覆盖）；
+  `verify` = typecheck + typecheck:test + check:deps（95 文件）+ test:unit 全绿；e2e:all / e2e:journey 回归通过
 
 ### M6 · 框架侧加固（在 `vendor/ionet-ts` 所属框架仓库独立实施）
 > 政策（D4）：`vendor/ionet-ts` **可以修改**，但**不允许从本工作区直接改**。框架改动在框架仓库提交，
@@ -219,7 +221,8 @@
 > **本轮验收状态**：A1 ✅（HTTP health/auth/character 实测）· A2 ✅（`/api/game/*` 全 404）·
 > A3 ✅（12 服各自 `@ActionController(cmd)` 注册进骨架）· A4 ✅（cmd 全量分配 + 启动期重复路由断言）·
 > A5 ✅（无 token 调受保护 Action 返回 UNAUTHORIZED）· A6 ✅（`e2e:all` 16 只读 + 写入链路；`e2e:journey` 全旅程）·
-> A7 ✅（`check:deps`：94 文件，无环、无越层）· A8 ✅（EdgeModule + NotificationPort，逻辑服零业务反向依赖）。
+> A7 ✅（`check:deps`：95 文件，无环、无越层）· A8 ✅（EdgeModule + NotificationPort，逻辑服零业务反向依赖）·
+> **A9 ✅**（1295 个单元边界用例全绿；95 个源码文件中 94 个被测试直接引用，剩 `main.ts` 由 e2e 覆盖）。
 
 ## 7. 风险与缓解
 
@@ -233,6 +236,8 @@
 | R6 | attach WS 与 Nest 网关冲突 | M1 删 `/ws-user`；必要时改独立端口 |
 | R7 | **生产禁用 `extension-nestjs`**：`IonetModule.forRoot()` 在 `NODE_ENV=production` 时直接抛错 | 框架侧 M6 使该守卫可配置；在此之前生产部署**不得设 `NODE_ENV=production`**（用 `staging` 等编排变量），或按框架设计改走 Java External Server + 独立逻辑服进程 |
 | R8 | 依赖被打破形成环 | §4.4 CI 强制；评审对照 §3.2 |
+| R10 | **`StatService.increment` 不跳过负数**：实现只过滤「非有限数 或 0」，负 amount 会落库递减计数（边界测试已按现状锁定） | 低危（内部调用方目前不传负数）；后续若要收紧，改为 `amount <= 0` 直接返回 |
+| R11 | **`ItemService.inventory` 对 NaN 分页未归一**：`Math.max(1, NaN) = NaN` 会透传进 SQL | Action 层已用 `toFiniteInt(...) ?? 1` 兜底，WS 入口不受影响；服务层防御性归一列入后续整理 |
 | R9 | **开发启动器缺装饰器元数据**：`tsx`/esbuild 不产出 `design:paramtypes`，NestJS 按类型注入全部失效（全 HTTP 500，既有缺陷） | 已修：`scripts/dev.mjs` 改为 `tsc --watch` 产出 dist + `node --watch dist/main.js`；CI/验收一律跑 dist |
 
 ## 8. 工作量粗估
