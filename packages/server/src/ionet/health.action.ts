@@ -2,7 +2,7 @@
  * 系统/健康 Action（cmd 段 1，见 cmd.ts）
  *
  * system.ping 是免鉴权白名单里的 Action，用于 WS 通道冒烟与心跳探活。
- * 经 GameActionBridgeModule 以 NestJS 容器实例注册进 BarSkeleton（具备 DI）。
+ * 作为 provider 由各 LogicModule 提供；框架在 onModuleInit 经 resolveAction 从容器解析实例并注册（具备 DI）。
  */
 import { Injectable } from '@nestjs/common';
 import { ActionController, ActionMethod } from '@nbb-ionet/core-framework';

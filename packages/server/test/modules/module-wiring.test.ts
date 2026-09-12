@@ -14,7 +14,7 @@ import { HealthService } from '../../src/modules/health/health.service.js';
 import { EdgeModule } from '../../src/modules/edge/edge.module.js';
 import { EdgeService } from '../../src/modules/edge/edge.service.js';
 import { NOTIFICATION_PORT } from '../../src/common/ports/notification.port.js';
-import { GameActionBridgeModule } from '../../src/ionet/game-action-bridge.module.js';
+import { GAME_LOGIC_MODULES } from '../../src/ionet/game-actions.js';
 import { GameModule } from '../../src/modules/game/game.module.js';
 import { GameDatabaseService } from '../../src/modules/game/game-database.service.js';
 import { RateLimiterService } from '../../src/common/services/rate-limiter.service.js';
@@ -51,10 +51,15 @@ function hasModule(imports: unknown[], target: unknown): boolean {
 }
 
 describe('根模块接线边界', () => {
-  test('AppModule 导入基础能力与游戏/对外服/桥接', () => {
+  test('AppModule 导入基础能力、游戏基础设施、对外服与全部逻辑服模块（任务 4：无桥接模块）', () => {
     const imports = meta('imports', AppModule);
-    for (const mod of [IonetModule, DatabaseModule, AuthModule, CharacterModule, GameModule, HealthModule, EdgeModule, GameActionBridgeModule]) {
+    const expected: unknown[] = [IonetModule, DatabaseModule, AuthModule, CharacterModule, GameModule, HealthModule, EdgeModule];
+    for (const mod of expected) {
       assert.ok(hasModule(imports, mod), `AppModule 缺少导入: ${(mod as {name?:string}).name}`);
+    }
+    // 11 个逻辑服模块（提供 Action provider）
+    for (const mod of GAME_LOGIC_MODULES) {
+      assert.ok(hasModule(imports, mod), `AppModule 缺少逻辑服模块: ${(mod as {name?:string}).name}`);
     }
   });
 
@@ -67,13 +72,17 @@ describe('根模块接线边界', () => {
     const options = ionet.providers?.find((p) => typeof p.provide === 'symbol' && String(p.provide).includes('IONET_MODULE_OPTIONS'))
       ?.useValue as {
         actions?: unknown[];
+        resolveAction?: unknown;
         httpServer?: unknown;
-        wsServer?: { attachNestServer?: boolean; path?: string };
+        wsServer?: { attachNestServer?: boolean; path?: string; authenticate?: unknown };
         redis?: unknown;
         allowProduction?: boolean;
       } | undefined;
     assert.ok(options, '未找到 IonetModule 选项');
-    assert.deepEqual(options?.actions, []);
+    // 任务 4：Action 清单交给框架，并由 resolveAction 从容器解析实例
+    assert.equal(options?.actions?.length, 12, 'actions 应为 12 个 Action 类');
+    assert.equal(typeof options?.resolveAction, 'function', '必须提供 resolveAction');
+    assert.equal(typeof options?.wsServer?.authenticate, 'function', '必须提供握手鉴权 authenticate');
     assert.equal(options?.httpServer, false);
     assert.equal(options?.redis, false);
     assert.equal(options?.wsServer?.attachNestServer, true);

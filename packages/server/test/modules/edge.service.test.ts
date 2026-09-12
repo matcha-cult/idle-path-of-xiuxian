@@ -4,6 +4,8 @@ import { EdgeService, type EdgeWsServer } from '../../src/modules/edge/edge.serv
 import { stub } from '../helpers/stub.js';
 
 const MSG = { cmd: 100, subCmd: 1, data: { a: 1 } };
+/** 出站信封：实现会补 kind 判别字段，供客户端与响应区分 */
+const WIRE = { kind: 'notification', cmd: 100, subCmd: 1, data: { a: 1 } };
 
 function makeWs(clientCount = 0, sendResult = true) {
   const broadcast = stub<[unknown], void>();
@@ -40,12 +42,21 @@ describe('EdgeService wsServer 为 null 边界', () => {
 });
 
 describe('EdgeService wsServer 存在边界', () => {
-  test('broadcast 透传同一消息对象', () => {
+  test('出站信封一律带 kind=notification（任务 2 判别契约）', () => {
+    const { ws, broadcast, sendTo } = makeWs();
+    const svc = new EdgeService(ws);
+    svc.broadcast(MSG);
+    svc.sendTo(1, MSG);
+    assert.equal((broadcast.last?.[0] as { kind?: string }).kind, 'notification');
+    assert.equal((sendTo.last?.[1] as { kind?: string }).kind, 'notification');
+  });
+
+  test('broadcast 补 kind=notification 后透传（内容与入参一致，另加判别字段）', () => {
     const { ws, broadcast } = makeWs();
     const svc = new EdgeService(ws);
     assert.equal(svc.broadcast(MSG), undefined);
     assert.equal(broadcast.callCount, 1);
-    assert.deepEqual(broadcast.last, [MSG]);
+    assert.deepEqual(broadcast.last, [WIRE]);
   });
 
   test('broadcast 重复调用透传次数累加', () => {
@@ -61,7 +72,7 @@ describe('EdgeService wsServer 存在边界', () => {
     const svc = new EdgeService(ws);
     assert.equal(svc.sendTo(7, MSG), true);
     assert.equal(sendTo.callCount, 1);
-    assert.deepEqual(sendTo.last, [7n, MSG]);
+    assert.deepEqual(sendTo.last, [7n, WIRE]);
   });
 
   test('sendTo 返回 wsServer 的 false', () => {

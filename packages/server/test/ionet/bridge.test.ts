@@ -4,7 +4,7 @@ import { getActionControllerCmd } from '@nbb-ionet/core-framework';
 import {
   GAME_ACTION_CLASSES,
   GAME_INOUT_CLASSES,
-} from '../../src/ionet/game-action-bridge.module.js';
+} from '../../src/ionet/game-actions.js';
 import { CMD_SEGMENTS } from '../../src/ionet/cmd.js';
 
 const EXPECTED: Array<[string, number]> = [
@@ -22,7 +22,7 @@ const EXPECTED: Array<[string, number]> = [
   ['IdleAction', CMD_SEGMENTS.idle],
 ];
 
-describe('GameActionBridgeModule 路由表边界', () => {
+describe('逻辑服路由表边界（任务 4 后由 resolveAction 注册，清单见 game-actions.ts）', () => {
   test('登记 12 个 Action，顺序与层一致', () => {
     assert.deepEqual(GAME_ACTION_CLASSES.map((c) => c.name), EXPECTED.map(([name]) => name));
   });
