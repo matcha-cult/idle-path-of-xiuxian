@@ -36,8 +36,14 @@ pnpm --filter idle-path-server typecheck
 # 逻辑服依赖 / 环检查（DAG 门禁）
 pnpm --filter idle-path-server check:deps
 
-# 一键校验（typecheck + 依赖检查）
+# 一键校验（typecheck + 测试类型检查 + 依赖检查 + 单元测试）
 pnpm --filter idle-path-server verify
+
+# 单元边界测试（node:test + tsx；不需要 DB/Redis/网络）
+pnpm --filter idle-path-server test:unit
+
+# 测试代码类型检查
+pnpm --filter idle-path-server typecheck:test
 
 # WS 冒烟（需先启动服务；默认连 ws://127.0.0.1:${PORT:-3000}/ws）
 pnpm --filter idle-path-server smoke:ws

@@ -184,6 +184,14 @@
 - [x] 注册→登录→建角→拉背包→生成/穿戴装备→突破→秘境→任务（`pnpm run e2e:journey`）
 - [x] 断线重连后重新带 token 可继续（脚本内 `simulateDrop` + 重新登录换 token）
 
+### M5.5 · 全模块边界测试（新增验收要求）
+- [x] 测试基座：`node:test` + `tsx`（零新依赖、离线可用）；`test/helpers/` 提供 FakeDatabase（含挂起/异步）、真实 FlowContext 构造器、FakeRedis、stub、FakeWebSocket
+- [x] `test:unit` / `typecheck:test` 接入 `verify`；`test/README.md` 记录约定与边界清单
+- [x] 覆盖：ionet（action-support/cmd/route-check/ws-auth/health.action/bridge）、common（kernel/限流/app-config/装饰器/JWT Guard）、
+      11 个 Action、11 个门面、模块接线、Controller、check-deps 规则（含跨服 internal 泄漏检查）、ws-client SDK
+- [x] 各域 service 边界（item/affix/currency/craft/realm/skill/unit/zone/quest/chapter/story/idle/stat/game-database/auth/edge/database/types）
+- 说明：单元测试不启动 NestJS 容器（esbuild 不产出 `design:paramtypes`）；容器级联调由 `e2e:all` / `e2e:journey` 覆盖
+
 ### M6 · 框架侧加固（在 `vendor/ionet-ts` 所属框架仓库独立实施）
 > 政策（D4）：`vendor/ionet-ts` **可以修改**，但**不允许从本工作区直接改**。框架改动在框架仓库提交，
 > 经版本/发布流程进入本工作区；本工作区只登记需求并做升级后的回归验证。
@@ -206,6 +214,7 @@
 | A6 | 行为不回退 | 迁移前后业务结果一致（含 dev 限流/生产禁用） |
 | **A7** | **依赖无环** | **依赖检查工具通过；低层不依赖高层；无跨服直连数据表** |
 | **A8** | **对外服独立** | **广播/通知由对外服实现；逻辑服只依赖 NotificationPort，不反向依赖业务** |
+| **A9** | **全模块边界测试** | **每个模块都有单元边界测试（数值/字符串/缺失/集合/鉴权/分支/幂等上下界），`test:unit` 与 `typecheck:test` 全绿** |
 
 > **本轮验收状态**：A1 ✅（HTTP health/auth/character 实测）· A2 ✅（`/api/game/*` 全 404）·
 > A3 ✅（12 服各自 `@ActionController(cmd)` 注册进骨架）· A4 ✅（cmd 全量分配 + 启动期重复路由断言）·
