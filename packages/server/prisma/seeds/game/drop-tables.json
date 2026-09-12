@@ -75,6 +75,24 @@
         "minCount": 1,
         "maxCount": 1,
         "weight": 3
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 0,
+        "weight": 12
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 1,
+        "weight": 5
+      },
+      {
+        "kind": "base",
+        "baseTier": 4,
+        "rarity": 2,
+        "weight": 2
       }
     ]
   },
@@ -161,6 +179,24 @@
         "minCount": 1,
         "maxCount": 1,
         "weight": 3
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 0,
+        "weight": 12
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 1,
+        "weight": 5
+      },
+      {
+        "kind": "base",
+        "baseTier": 7,
+        "rarity": 2,
+        "weight": 2
       }
     ]
   },
@@ -247,6 +283,24 @@
         "minCount": 1,
         "maxCount": 1,
         "weight": 3
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 0,
+        "weight": 12
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 1,
+        "weight": 5
+      },
+      {
+        "kind": "base",
+        "baseTier": 10,
+        "rarity": 2,
+        "weight": 2
       }
     ]
   },
@@ -339,6 +393,24 @@
         "essenceCode": "ess_lingyun",
         "minCount": 1,
         "maxCount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 0,
+        "weight": 12
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 1,
+        "weight": 5
+      },
+      {
+        "kind": "base",
+        "baseTier": 13,
+        "rarity": 2,
         "weight": 2
       }
     ]

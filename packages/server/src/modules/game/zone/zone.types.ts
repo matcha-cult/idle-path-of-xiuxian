@@ -20,6 +20,9 @@ export interface ZoneRow {
   max_floor: number;
   lingyun_bonus_per_floor: number;
   boss_every_floors: number;
+  require_prev_best_floor: number;
+  tier_bonus_every_floors: number;
+  drop_bonus_every_floors: number;
 }
 
 export interface ZoneProgressRow {
@@ -54,4 +57,14 @@ export function floorRequirement(zone: ZoneRow, floor: number): number {
 
 export function isBossFloor(zone: ZoneRow, floor: number): boolean {
   return Boolean(zone.boss_code) && zone.boss_every_floors > 0 && floor % zone.boss_every_floors === 0;
+}
+
+/** 层深度阶数加成：每 tier_bonus_every_floors 层 tierOffset +1（0=禁用） */
+export function tierOffsetBonusFor(zone: ZoneRow, floor: number): number {
+  return zone.tier_bonus_every_floors > 0 ? Math.floor((floor - 1) / zone.tier_bonus_every_floors) : 0;
+}
+
+/** 层深度掉落加成：每 drop_bonus_every_floors 层 +1 次判定（0=禁用） */
+export function dropDrawBonusFor(zone: ZoneRow, floor: number): number {
+  return zone.drop_bonus_every_floors > 0 ? Math.floor((floor - 1) / zone.drop_bonus_every_floors) : 0;
 }

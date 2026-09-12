@@ -12,7 +12,10 @@
     "powerStep": 6,
     "maxFloor": 20,
     "lingyunBonusPerFloor": 2,
-    "bossEveryFloors": 10
+    "bossEveryFloors": 10,
+    "requirePrevBestFloor": 0,
+    "tierBonusEveryFloors": 5,
+    "dropBonusEveryFloors": 3
   },
   {
     "id": 2,
@@ -27,7 +30,10 @@
     "powerStep": 7,
     "maxFloor": 20,
     "lingyunBonusPerFloor": 5,
-    "bossEveryFloors": 10
+    "bossEveryFloors": 10,
+    "requirePrevBestFloor": 5,
+    "tierBonusEveryFloors": 5,
+    "dropBonusEveryFloors": 3
   },
   {
     "id": 3,
@@ -42,7 +48,10 @@
     "powerStep": 8,
     "maxFloor": 20,
     "lingyunBonusPerFloor": 10,
-    "bossEveryFloors": 10
+    "bossEveryFloors": 10,
+    "requirePrevBestFloor": 5,
+    "tierBonusEveryFloors": 5,
+    "dropBonusEveryFloors": 3
   },
   {
     "id": 4,
@@ -57,7 +66,10 @@
     "powerStep": 9,
     "maxFloor": 20,
     "lingyunBonusPerFloor": 18,
-    "bossEveryFloors": 10
+    "bossEveryFloors": 10,
+    "requirePrevBestFloor": 5,
+    "tierBonusEveryFloors": 5,
+    "dropBonusEveryFloors": 3
   },
   {
     "id": 5,
@@ -72,6 +84,9 @@
     "powerStep": 8,
     "maxFloor": 20,
     "lingyunBonusPerFloor": 30,
-    "bossEveryFloors": 10
+    "bossEveryFloors": 10,
+    "requirePrevBestFloor": 5,
+    "tierBonusEveryFloors": 5,
+    "dropBonusEveryFloors": 3
   }
 ]

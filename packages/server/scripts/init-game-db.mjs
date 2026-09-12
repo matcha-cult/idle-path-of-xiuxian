@@ -242,10 +242,16 @@ CREATE TABLE IF NOT EXISTS game_zones (
   max_floor               SMALLINT NOT NULL,
   lingyun_bonus_per_floor INTEGER NOT NULL,
   boss_every_floors       SMALLINT NOT NULL DEFAULT 10,
+  require_prev_best_floor INTEGER NOT NULL DEFAULT 0,
+  tier_bonus_every_floors INTEGER NOT NULL DEFAULT 0,
+  drop_bonus_every_floors INTEGER NOT NULL DEFAULT 0,
   created_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_game_zones_order ON game_zones(order_index);
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS require_prev_best_floor INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS tier_bonus_every_floors INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS drop_bonus_every_floors INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS game_zone_progress (
   id           SERIAL PRIMARY KEY,
@@ -495,8 +501,8 @@ try {
   await client.query('DELETE FROM game_zones');
   for (const z of zones) {
     await client.query(
-      'INSERT INTO game_zones (id, code, name, chapter, order_index, min_realm, unit_code, boss_code, base_power, power_step, max_floor, lingyun_bonus_per_floor, boss_every_floors) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-      [z.id, z.code, z.name, z.chapter, z.orderIndex, z.minRealm, z.unitCode, z.bossCode ?? null, z.basePower, z.powerStep, z.maxFloor, z.lingyunBonusPerFloor, z.bossEveryFloors ?? 10],
+      'INSERT INTO game_zones (id, code, name, chapter, order_index, min_realm, unit_code, boss_code, base_power, power_step, max_floor, lingyun_bonus_per_floor, boss_every_floors, require_prev_best_floor, tier_bonus_every_floors, drop_bonus_every_floors) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [z.id, z.code, z.name, z.chapter, z.orderIndex, z.minRealm, z.unitCode, z.bossCode ?? null, z.basePower, z.powerStep, z.maxFloor, z.lingyunBonusPerFloor, z.bossEveryFloors ?? 10, z.requirePrevBestFloor ?? 0, z.tierBonusEveryFloors ?? 0, z.dropBonusEveryFloors ?? 0],
     );
   }
   await client.query("SELECT setval('game_zones_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_zones));");

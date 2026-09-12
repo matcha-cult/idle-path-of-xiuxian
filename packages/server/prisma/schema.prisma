@@ -201,6 +201,9 @@ model game_zones {
   max_floor              Int      @db.SmallInt
   lingyun_bonus_per_floor Int
   boss_every_floors      Int      @default(10) @db.SmallInt
+  require_prev_best_floor Int     @default(0) // 链式解锁：前置秘境 bestFloor 阈值（P5.2）
+  tier_bonus_every_floors Int     @default(0) // 每 N 层 tierOffset +1（0=禁用，P5.2）
+  drop_bonus_every_floors Int     @default(0) // 每 N 层 +1 掉落判定（0=禁用，P5.2）
   created_at             DateTime @default(now()) @db.Timestamp(6)
   updated_at             DateTime @updatedAt @db.Timestamp(6)
 

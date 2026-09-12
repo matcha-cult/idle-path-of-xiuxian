@@ -435,7 +435,7 @@ export class UnitService {
     characterId: number,
     code: string,
     count: number,
-    options?: { itemBudget?: number; lingyunBonusFlat?: number },
+    options?: { itemBudget?: number; lingyunBonusFlat?: number; tierOffsetBonus?: number; dropDrawBonus?: number },
   ): Promise<SettleResult> {
     const loaded = await this.loadUnit(code);
     if (!loaded) return { ok: false, result: fail('UNIT_NOT_FOUND', '单位不存在：' + code) };
@@ -444,10 +444,12 @@ export class UnitService {
     }
     const itemBudget = options?.itemBudget;
     const lingyunBonusFlat = options?.lingyunBonusFlat ?? 0;
+    const tierOffsetBonus = options?.tierOffsetBonus ?? 0;
+    const dropDrawBonus = options?.dropDrawBonus ?? 0;
 
     const rules = await this.loadPickupRules(characterId);
-    const tierOffset = loaded.table ? loaded.table.tier_offset : 0;
-    const dropsPerKill = loaded.table ? loaded.table.drops_per_kill : 0;
+    const tierOffset = (loaded.table ? loaded.table.tier_offset : 0) + tierOffsetBonus;
+    const dropsPerKill = (loaded.table ? loaded.table.drops_per_kill : 0) + dropDrawBonus;
 
     const items: ItemView[] = [];
     let kept = 0;

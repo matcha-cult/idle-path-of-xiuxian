@@ -60,6 +60,8 @@ export interface AppConfig {
   idleDailyItemCap: number;
   /** 秘境战力权重：realm×realmWeight + 装备数×equipWeight + floor(功法等级和/skillDivisor)（P5.1） */
   zonePower: ZonePowerConfig;
+  /** 秘境 Boss 层额外掉落判定次数（P5.2） */
+  zoneBossExtraDraws: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -87,6 +89,7 @@ const DEFAULT_CONFIG: AppConfig = {
   idleMaxOfflineHours: 12,
   idleDailyItemCap: 200,
   zonePower: { realmWeight: 20, equipWeight: 5, skillDivisor: 2 },
+  zoneBossExtraDraws: 2,
 };
 
 function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
@@ -180,6 +183,7 @@ function load(): AppConfig {
       idleMaxOfflineHours: sanitizeInt(parsed.idleMaxOfflineHours, DEFAULT_CONFIG.idleMaxOfflineHours, 1, 48),
       idleDailyItemCap: sanitizeInt(parsed.idleDailyItemCap, DEFAULT_CONFIG.idleDailyItemCap, 0, 100000),
       zonePower: sanitizeZonePower(parsed.zonePower),
+      zoneBossExtraDraws: sanitizeInt(parsed.zoneBossExtraDraws, DEFAULT_CONFIG.zoneBossExtraDraws, 0, 100),
     };
   } catch (error) {
     console.warn('[config] 读取 app.config.json 失败，使用默认配置:', (error as Error).message);

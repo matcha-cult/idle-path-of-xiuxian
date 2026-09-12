@@ -59,5 +59,6 @@
     "realmWeight": 20,
     "equipWeight": 5,
     "skillDivisor": 2
-  }
+  },
+  "zoneBossExtraDraws": 2
 }

@@ -55,6 +55,7 @@ pnpm --filter idle-path-server typecheck
 | idleMaxOfflineHours | 12 | 可累计离线上限小时（设计 §9.2）（P4.2） |
 | idleDailyItemCap | 200 | 每日物品产出上限件数（设计 §9.2）（P4.2） |
 | zonePower | {realm:20, equip:5, skillDiv:2} | 秘境战力权重：realm×w + 装备数×w + floor(功法等级和/div)（P5.1） |
+| zoneBossExtraDraws | 2 | 秘境 Boss 层额外掉落判定次数（P5.2） |
 
 ## HTTP 接口
 
@@ -88,18 +89,18 @@ pnpm --filter idle-path-server typecheck
 | POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
 | POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
 | GET | /api/game/units | 单位图鉴（境界/阵营/灵韵/掉落表/隐藏词条池） | JWT |
-| GET | /api/game/drop-tables | 掉落表图鉴（9 表 / 126 条目） | JWT |
+| GET | /api/game/drop-tables | 掉落表图鉴（9 表 / 138 条目，含深层跨阶条目） | JWT |
 | POST | /api/game/unit/spawn | 单位即时实例化（开发：生产禁用、限流） | JWT |
 | POST | /api/game/unit/kill | 击杀结算 + 辨宝法阵执行（开发：生产禁用、限流） | JWT |
 | GET | /api/game/idle/status | 离线收益状态（待结算时长/预计击杀/今日物品计数） | JWT |
 | POST | /api/game/idle/settle | 离线结算（unitCode 缺省取当前秘境层单位；hours 覆盖仅开发环境） | JWT |
-| GET | /api/game/zones | 秘境图鉴（解锁状态 + 进度） | JWT |
-| GET | /api/game/zone/progress | 当前秘境进度（层/战力/下一层门槛） | JWT |
+| GET | /api/game/zones | 秘境图鉴（链式解锁理由 + 进度） | JWT |
+| GET | /api/game/zone/progress | 当前秘境进度（层/战力/门槛/层深度加成） | JWT |
 | POST | /api/game/zone/enter | 切换当前秘境（境界门槛） | JWT |
-| POST | /api/game/zone/challenge | 层数挑战（战力检定 → 奖励 → 推进） | JWT |
+| POST | /api/game/zone/challenge | 层数挑战（战力检定 → 奖励 → 推进；层深度 Tier/掉落加成） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`。
+详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`。
 
 ## WS 入口
 
