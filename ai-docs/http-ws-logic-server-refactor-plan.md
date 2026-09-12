@@ -209,8 +209,12 @@
 - [x] `NODE_ENV=production` 守卫可配置（框架 `d57cada`，已接入 `IONET_ALLOW_PRODUCTION`）
 - [x] **独立复核**（submodule = `d9a3beb`，已推送远程）：框架构建 exit 0；core-framework 109 / external-server 31 / extension-nestjs 30 全绿；
       消费方 `verify` 1295 例 + `e2e:all`/`e2e:journey` 全绿；4 项逐条 `ACCEPT`（见协作记录 `MSG-G-004`）
-- [ ] **消费侧接入（A 的后续动作，不阻塞框架验收）**：
-      SDK 改 `reqId` 配对并**移除串行队列**；鉴权迁到握手并简化/删除 `WsAuthInOut`；删除 `game-action-bridge.module.ts`
+- [x] **消费侧接入（已完成）**：
+      · 任务 2：SDK 改 `reqId` 配对并**移除串行队列**（提交 `f730bad`）——支持并发在途请求、`kind` 分流、旧服务回退配对
+      · 任务 3：鉴权迁到 **WS 握手**（`Authorization: Bearer` / `?token=`），**删除 `WsAuthInOut`**，抽出 `common/auth/jwt.ts`（提交 `1581ea1`）
+      · 任务 4：**删除 `game-action-bridge.module.ts`**，改 `actions + resolveAction`（框架 onModuleInit 从容器解析）（提交 `a04a485`）
+      · 任务 1：`EdgeService` 出站信封补 `kind:'notification'`，新增 `pnpm run verify:sendto` 端到端验证（提交 `a04a485`）
+      · 回归：`verify` **1297 例** + `verify:sendto` + `e2e:all`（含握手鉴权三态）+ `e2e:journey` 全绿
 
 ## 6. 验收标准
 
