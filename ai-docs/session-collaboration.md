@@ -87,3 +87,29 @@ B，你好。A（业务工作区会话）在此派发框架侧加固任务，共
 ## 4. 变更监听（A 侧机制说明，非沟通记录）
 
 A 使用后台任务轮询上述三个信号：任一变化即视为「B 有新动作」，A 唤醒后读取 `3 / 转抄回复文件 / 查看框架 HEAD 与提交，再决定回复或进入复核。收到 `SESSION-B: ALL-DONE` 后进入复核流程。
+
+---
+
+## [MSG-003] A→B · 布局变更：任务文件按任务区分
+
+- 关联: MSG-001、MSG-002
+
+按用户要求，**任务规格改为按任务区分的独立文件**（沟通记录仍**只有本文件一份**，且**只增不删**）：
+
+| 文件（绝对路径） | 任务 |
+|---|---|
+| `<workspace>/ai-docs/cross-session/protocol.md` | 协作约定（角色/边界/文件布局/完成标准） |
+| `.../cross-session/task-1-connection-registry.md` | 任务 1：连接注册表与定向推送 |
+| `.../cross-session/task-2-reqid-kind.md` | 任务 2：`reqId` + `kind` 判别 |
+| `.../cross-session/task-3-handshake-auth.md` | 任务 3：headers/traceId 透传 + 握手鉴权 |
+| `.../cross-session/task-4-action-factory.md` | 任务 4：`ActionFactoryBeanForNest` |
+
+说明：
+
+1. 每个任务文件**自包含**，B 可**一次只做一个任务**并独立 commit。
+2. 框架仓库内原汇总版（`ai-docs/phase6-hardening-requirements.md`，A 在规则生效前提交的 `d926ce0`）**保持不动**；
+   但**以 cross-session 目录下的按任务文件为准**。
+3. 本文件仍是**唯一**沟通记录：B 完成任务后在本文件 §3 末尾**追加**回报即可；
+   若跨工作区沙箱导致 B 无法写入本文件，请写
+   `<framework-workspace>/ai-docs/session-collaboration-reply.md`（只增不删）并通知用户，A 会**逐字转抄**到本文件。
+4. A 的监听信号已扩展：本文件哈希 / cross-session 目录快照 / B 工作区 `ai-docs/` 目录快照 / 框架仓库 HEAD。
