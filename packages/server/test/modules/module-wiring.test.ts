@@ -21,6 +21,26 @@ import { RateLimiterService } from '../../src/common/services/rate-limiter.servi
 import { CurrencyModule } from '../../src/modules/game/currency/currency.module.js';
 import { CraftService } from '../../src/modules/game/currency/craft.service.js';
 import { CurrencyService } from '../../src/modules/game/currency/currency.service.js';
+import { ItemModule } from '../../src/modules/game/item/item.module.js';
+import { ItemService } from '../../src/modules/game/item/item.service.js';
+import { ItemAffixService } from '../../src/modules/game/item/item.affix.service.js';
+import { QuestModule } from '../../src/modules/game/quest/quest.module.js';
+import { QuestService } from '../../src/modules/game/quest/quest.service.js';
+import { ChapterService } from '../../src/modules/game/quest/chapter.service.js';
+import { StatModule } from '../../src/modules/game/stat/stat.module.js';
+import { StatService } from '../../src/modules/game/stat/stat.service.js';
+import { IdleModule } from '../../src/modules/game/idle/idle.module.js';
+import { IdleService } from '../../src/modules/game/idle/idle.service.js';
+import { UnitModule } from '../../src/modules/game/unit/unit.module.js';
+import { UnitService } from '../../src/modules/game/unit/unit.service.js';
+import { ZoneModule } from '../../src/modules/game/zone/zone.module.js';
+import { ZoneService } from '../../src/modules/game/zone/zone.service.js';
+import { StoryModule } from '../../src/modules/game/story/story.module.js';
+import { StoryService } from '../../src/modules/game/story/story.service.js';
+import { RealmModule } from '../../src/modules/logic/realm/internal/realm-internal.module.js';
+import { RealmService } from '../../src/modules/logic/realm/internal/realm.service.js';
+import { SkillModule } from '../../src/modules/logic/skill/internal/skill-internal.module.js';
+import { SkillService } from '../../src/modules/logic/skill/internal/skill.service.js';
 
 function meta(key: string, target: object): unknown[] {
   return (Reflect.getMetadata(key, target) as unknown[] | undefined) ?? [];
@@ -69,6 +89,15 @@ describe('各模块 providers/exports 边界', () => {
     ['EdgeModule', EdgeModule, [EdgeService, NOTIFICATION_PORT], [EdgeService, NOTIFICATION_PORT]],
     ['GameModule', GameModule, [GameDatabaseService, RateLimiterService], [GameDatabaseService, RateLimiterService]],
     ['CurrencyModule', CurrencyModule, [CurrencyService, CraftService], [CurrencyService, CraftService]],
+    ['ItemModule', ItemModule, [ItemService, ItemAffixService], [ItemService, ItemAffixService]],
+    ['QuestModule', QuestModule, [QuestService, ChapterService], [QuestService, ChapterService]],
+    ['StatModule', StatModule, [StatService], [StatService]],
+    ['IdleModule', IdleModule, [IdleService], [IdleService]],
+    ['UnitModule', UnitModule, [UnitService], [UnitService]],
+    ['ZoneModule', ZoneModule, [ZoneService], [ZoneService]],
+    ['StoryModule', StoryModule, [StoryService], [StoryService]],
+    ['realm-internal', RealmModule, [RealmService], [RealmService]],
+    ['skill-internal', SkillModule, [SkillService], [SkillService]],
   ];
   for (const [name, mod, providers, exportsList] of cases) {
     test(`${name} 声明并导出关键 provider`, () => {
