@@ -6,7 +6,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { CraftService } from '../../../src/modules/game/currency/craft.service.js';
+import { CraftService } from '../../../src/modules/logic/economy/internal/craft.service.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 

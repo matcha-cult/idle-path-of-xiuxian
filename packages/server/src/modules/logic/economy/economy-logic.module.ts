@@ -2,7 +2,7 @@
  * economy 逻辑服模块（L1，依赖 item, prop）
  */
 import { Module } from '@nestjs/common';
-import { CurrencyModule } from '../../game/currency/currency.module.js';
+import { CurrencyModule } from './internal/economy-internal.module.js';
 import { EconomyAction } from './economy.action.js';
 import { EconomyLogicService } from './economy.logic.service.js';
 

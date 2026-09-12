@@ -18,9 +18,9 @@ import { GameActionBridgeModule } from '../../src/ionet/game-action-bridge.modul
 import { GameModule } from '../../src/modules/game/game.module.js';
 import { GameDatabaseService } from '../../src/modules/game/game-database.service.js';
 import { RateLimiterService } from '../../src/common/services/rate-limiter.service.js';
-import { CurrencyModule } from '../../src/modules/game/currency/currency.module.js';
-import { CraftService } from '../../src/modules/game/currency/craft.service.js';
-import { CurrencyService } from '../../src/modules/game/currency/currency.service.js';
+import { CurrencyModule } from '../../src/modules/logic/economy/internal/economy-internal.module.js';
+import { CraftService } from '../../src/modules/logic/economy/internal/craft.service.js';
+import { CurrencyService } from '../../src/modules/logic/economy/internal/currency.service.js';
 import { ItemModule } from '../../src/modules/game/item/item.module.js';
 import { ItemService } from '../../src/modules/game/item/item.service.js';
 import { ItemAffixService } from '../../src/modules/game/item/item.affix.service.js';

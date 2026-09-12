@@ -34,7 +34,7 @@ import {
   UNIT_CAMPS,
   fail as unitFail,
 } from '../../../src/modules/game/unit/unit.types.js';
-import { CRAFT_OPS, fail as currencyFail } from '../../../src/modules/game/currency/currency.types.js';
+import { CRAFT_OPS, fail as currencyFail } from '../../../src/modules/logic/economy/internal/currency.types.js';
 import {
   fail as zoneFail,
   progressOf,

@@ -4,8 +4,8 @@
  * 职责：通货/精华持有与注入、炼器十四操作。
  */
 import { Injectable } from '@nestjs/common';
-import { CraftService } from '../../game/currency/craft.service.js';
-import { CurrencyService } from '../../game/currency/currency.service.js';
+import { CraftService } from './internal/craft.service.js';
+import { CurrencyService } from './internal/currency.service.js';
 
 @Injectable()
 export class EconomyLogicService {

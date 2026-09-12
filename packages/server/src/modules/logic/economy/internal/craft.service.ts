@@ -7,11 +7,11 @@
  */
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { ItemAffixService } from '../item/item.affix.service.js';
-import { StatService } from '../stat/stat.service.js';
-import type { AffixEntry, BaseRow } from '../item/item.types.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { ItemAffixService } from '../../../game/item/item.affix.service.js';
+import { StatService } from '../../../game/stat/stat.service.js';
+import type { AffixEntry, BaseRow } from '../../../game/item/item.types.js';
 import { type CraftOp, type FailResult, fail, CRAFT_OPS } from './currency.types.js';
 
 interface ItemWithBase {

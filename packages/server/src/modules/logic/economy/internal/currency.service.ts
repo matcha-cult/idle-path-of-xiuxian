@@ -4,10 +4,10 @@
  * 钱包与通货定义均在 game 库（game_wallets/game_currencies），与物品同库。
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { RateLimiterService } from '../../../common/services/rate-limiter.service.js';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { type CurrencyRow, type FailResult, type WalletRow, fail } from './currency.types.js';
 
 interface EssenceRow {
