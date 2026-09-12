@@ -44,6 +44,7 @@ import { StoryAction } from '../modules/logic/story/story.action.js';
 import { IdleLogicModule } from '../modules/logic/idle/idle-logic.module.js';
 import { IdleAction } from '../modules/logic/idle/idle.action.js';
 import { HealthAction } from './health.action.js';
+import { assertNoDuplicateRoutes } from './route-check.js';
 import { WsAuthInOut } from './ws-auth.inout.js';
 
 /** 已登记的逻辑服 Action 类（按依赖层自底向上排列） */
@@ -121,17 +122,12 @@ export class GameActionBridgeModule implements OnModuleInit {
 
   /** 全局重复路由断言：同一 cmd/subCmd 只能注册一个 Action */
   private assertNoDuplicateRoutes(): void {
-    const seen = new Map<number, string>();
-    for (const command of this.skeleton.actionCommandRegions.getAllActionCommands()) {
-      const { cmd, subCmd, cmdMerge } = command.cmdInfo;
-      const label = command.actionControllerClass.name + '.' + command.methodName;
-      const prev = seen.get(cmdMerge);
-      if (prev) {
-        throw new Error(
-          '[ionet] 重复路由 cmd=' + cmd + ' subCmd=' + subCmd + '：' + prev + ' 与 ' + label,
-        );
-      }
-      seen.set(cmdMerge, label);
-    }
+    assertNoDuplicateRoutes(
+      this.skeleton.actionCommandRegions.getAllActionCommands().map((command) => ({
+        cmd: command.cmdInfo.cmd,
+        subCmd: command.cmdInfo.subCmd,
+        label: command.actionControllerClass.name + '.' + command.methodName,
+      })),
+    );
   }
 }

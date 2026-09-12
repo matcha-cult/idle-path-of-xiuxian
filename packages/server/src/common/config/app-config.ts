@@ -64,7 +64,7 @@ export interface AppConfig {
   zoneBossExtraDraws: number;
 }
 
-const DEFAULT_CONFIG: AppConfig = {
+export const DEFAULT_CONFIG: AppConfig = {
   maxCharactersPerAccount: 1,
   devToolRateLimitPerMinute: 5,
   spiritBudget: 100,
@@ -92,24 +92,24 @@ const DEFAULT_CONFIG: AppConfig = {
   zoneBossExtraDraws: 2,
 };
 
-function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
+export function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : NaN;
   if (!Number.isInteger(n) || n < min || n > max) return fallback;
   return n;
 }
 
 /** 境界消耗表：需 int[] 且长度 ≥14，否则回退默认（递增公式预设 200×n²） */
-function sanitizeCosts(value: unknown): number[] {
+export function sanitizeCosts(value: unknown): number[] {
   if (!Array.isArray(value) || value.length < 14) return DEFAULT_CONFIG.realmBreakthroughCosts;
   const nums = value.map((v) => Math.floor(Number(v)));
   if (nums.some((n) => !Number.isInteger(n) || n < 0)) return DEFAULT_CONFIG.realmBreakthroughCosts;
   return nums.slice(0, 15);
 }
 
-const REALM_BASE_KEYS = ['hp', 'atk', 'def', 'spiritPower', 'lingyun'] as const;
+export const REALM_BASE_KEYS = ['hp', 'atk', 'def', 'spiritPower', 'lingyun'] as const;
 
 /** 境界模板：5 个属性各自 {base>0, growth>=1}，任一非法 → 整体回退 */
-function sanitizeRealmBase(value: unknown): AppConfig['unitRealmBase'] {
+export function sanitizeRealmBase(value: unknown): AppConfig['unitRealmBase'] {
   if (value == null || typeof value !== 'object') return DEFAULT_CONFIG.unitRealmBase;
   const out = {} as AppConfig['unitRealmBase'];
   const src = value as Record<string, unknown>;
@@ -126,7 +126,7 @@ function sanitizeRealmBase(value: unknown): AppConfig['unitRealmBase'] {
 }
 
 /** 隐藏词条条数区间：[min,max]，0<=min<=max<=6 */
-function sanitizeCountRange(value: unknown): [number, number] {
+export function sanitizeCountRange(value: unknown): [number, number] {
   if (!Array.isArray(value) || value.length < 2) return DEFAULT_CONFIG.unitHiddenAffixCount;
   const lo = Math.floor(Number(value[0]));
   const hi = Math.floor(Number(value[1]));
@@ -135,7 +135,7 @@ function sanitizeCountRange(value: unknown): [number, number] {
   return [lo, hi];
 }
 
-function sanitizeZonePower(value: unknown): ZonePowerConfig {
+export function sanitizeZonePower(value: unknown): ZonePowerConfig {
   const fallback = DEFAULT_CONFIG.zonePower;
   if (value == null || typeof value !== 'object') return fallback;
   const src = value as Record<string, unknown>;
@@ -148,7 +148,7 @@ function sanitizeZonePower(value: unknown): ZonePowerConfig {
   return { realmWeight, equipWeight, skillDivisor };
 }
 
-function sanitizeAction(value: unknown): AppConfig['lootFallbackAction'] {
+export function sanitizeAction(value: unknown): AppConfig['lootFallbackAction'] {
   return value === 'keep' || value === 'salvage' || value === 'sell' || value === 'discard'
     ? value
     : DEFAULT_CONFIG.lootFallbackAction;
