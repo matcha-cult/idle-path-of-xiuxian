@@ -44,7 +44,16 @@ pnpm --filter idle-path-server smoke:ws
 
 # idle 逻辑服端到端：注册 → 建角 → 带 token 调用 (130,1) → 无 token 被拦截
 pnpm --filter idle-path-server e2e:idle
+
+# 全逻辑服冒烟：16 只读 Action + 生成/穿戴/卸下/丢弃写入链路 + 鉴权拦截
+pnpm --filter idle-path-server e2e:all
+
+# M5 端到端旅程：注册→登录→建角→背包→装备→突破→秘境→任务→断线重连
+pnpm --filter idle-path-server e2e:journey
 ```
+
+WS 参考客户端实现见 `scripts/sdk/ws-client.ts`（串行队列 + 应用层心跳 + 自动重连重新取 token），
+前端可直接复用该实现接入 `/ws`。
 
 ## 配置文件（config/app.config.json）
 

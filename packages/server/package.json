@@ -16,7 +16,8 @@
     "verify": "pnpm run typecheck && pnpm run check:deps",
     "smoke:ws": "tsx scripts/ws-smoke.mts",
     "e2e:idle": "tsx scripts/e2e-idle.mts",
-    "e2e:all": "tsx scripts/e2e-all.mts"
+    "e2e:all": "tsx scripts/e2e-all.mts",
+    "e2e:journey": "tsx scripts/e2e-journey.mts"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",

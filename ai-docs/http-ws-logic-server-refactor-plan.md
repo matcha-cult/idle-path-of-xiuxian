@@ -178,12 +178,13 @@
 - [x] 回归全局 JWT Guard：`/api/character/*` 无 token 仍 401；`/api/game/*` 已 404
 - 验证：`e2e:all` 全绿（游戏能力全部经 `/ws`）
 
-### M5 · 端到端验收
-- [ ] 前端 SDK 接 `/ws`（串行队列 + 应用层心跳）
-- [ ] 注册→登录→建角→拉背包→装备→突破→秘境→任务
-- [ ] 断线重连后重新带 token 可继续
+### M5 · 端到端验收 ✅ 已完成
+- [x] WS 参考客户端 `scripts/sdk/ws-client.ts`（串行队列 + 应用层心跳 + 断线重连重新取 token）
+      ※ 仓库当前**无前端包**，故以可复用参考客户端 + 旅程脚本落地；后续前端可直接复用该实现
+- [x] 注册→登录→建角→拉背包→生成/穿戴装备→突破→秘境→任务（`pnpm run e2e:journey`）
+- [x] 断线重连后重新带 token 可继续（脚本内 `simulateDrop` + 重新登录换 token）
 
-### M6 · 可选框架加固（独立仓库）
+### M6 · 可选框架加固（独立仓库，Track A 之外，本轮未做）
 - [ ] `ActionFactoryBeanForNest`（去桥接）
 - [ ] headers/traceId 透传 + 握手鉴权
 - [ ] 连接注册表 + Broadcaster 接线 + 定向推送（对外服正式化）
@@ -202,6 +203,11 @@
 | A6 | 行为不回退 | 迁移前后业务结果一致（含 dev 限流/生产禁用） |
 | **A7** | **依赖无环** | **依赖检查工具通过；低层不依赖高层；无跨服直连数据表** |
 | **A8** | **对外服独立** | **广播/通知由对外服实现；逻辑服只依赖 NotificationPort，不反向依赖业务** |
+
+> **本轮验收状态**：A1 ✅（HTTP health/auth/character 实测）· A2 ✅（`/api/game/*` 全 404）·
+> A3 ✅（12 服各自 `@ActionController(cmd)` 注册进骨架）· A4 ✅（cmd 全量分配 + 启动期重复路由断言）·
+> A5 ✅（无 token 调受保护 Action 返回 UNAUTHORIZED）· A6 ✅（`e2e:all` 16 只读 + 写入链路；`e2e:journey` 全旅程）·
+> A7 ✅（`check:deps`：94 文件，无环、无越层）· A8 ✅（EdgeModule + NotificationPort，逻辑服零业务反向依赖）。
 
 ## 7. 风险与缓解
 
