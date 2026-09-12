@@ -187,6 +187,30 @@ tar -czf pkg.tgz .          # ✅ 含子模块实体内容
 
 不要用 `ssh-keyscan` 之类"跳过校验"的手段绕过。
 
+### 6.1 一个实测遇到的坑：`Bad owner or permissions on .../ssh_config.d/...`
+
+本机 `ssh` 曾直接拒绝加载配置：
+
+```
+Bad owner or permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf
+fatal: Could not read from remote repository.
+Please make sure you have the correct access rights and the repository exists.
+```
+
+根因是该文件（指向 `/usr/lib/systemd/ssh_config.d/` 的符号链接）属主为 `nobody:nogroup`，而 ssh 只接受 **root 属主、且不可被他人写**的配置文件。这**与网络和鉴权完全无关**，但报错文案会把人引向"没权限 / 仓库不存在"，极易误判。
+
+两种处理：
+
+```bash
+# 1) 修系统文件（需 root，推荐）
+sudo chown root:root /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf
+
+# 2) 不改系统，仅绕过该配置文件
+GIT_SSH_COMMAND="ssh -F /dev/null" git clone ...
+```
+
+本文第 10 节的端到端演练即是在 `-F /dev/null` 下完成的。部署/构建机若与开发机同源（同一镜像），很可能带同样的问题，建议在 CI 脚本里显式设置 `GIT_SSH_COMMAND`。
+
 ---
 
 ## 7. 部署机侧
