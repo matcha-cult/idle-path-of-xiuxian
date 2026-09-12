@@ -10,8 +10,6 @@ import { RateLimiterService } from '../../common/services/rate-limiter.service.j
 import { GameDatabaseService } from './game-database.service.js';
 import { CurrencyModule } from './currency/currency.module.js';
 import { ItemModule } from './item/item.module.js';
-import { RealmModule } from './realm/realm.module.js';
-import { SkillModule } from './skill/skill.module.js';
 import { UnitModule } from './unit/unit.module.js';
 import { IdleModule } from './idle/idle.module.js';
 import { ZoneModule } from './zone/zone.module.js';
@@ -21,7 +19,7 @@ import { StoryModule } from './story/story.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, SkillModule, RealmModule, CurrencyModule, UnitModule, IdleModule, ZoneModule, QuestModule, StatModule, StoryModule],
+  imports: [ItemModule, CurrencyModule, UnitModule, IdleModule, ZoneModule, QuestModule, StatModule, StoryModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

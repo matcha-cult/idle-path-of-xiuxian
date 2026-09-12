@@ -4,7 +4,7 @@
  * 职责：功法修习/装配/参悟与开发注入门禁。
  */
 import { Injectable } from '@nestjs/common';
-import { SkillService } from '../../game/skill/skill.service.js';
+import { SkillService } from './internal/skill.service.js';
 
 @Injectable()
 export class SkillLogicService {

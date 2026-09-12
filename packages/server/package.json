@@ -13,11 +13,13 @@
     "db:init": "node scripts/init-db.mjs",
     "db:init:game": "node scripts/init-game-db.mjs",
     "check:deps": "tsx scripts/check-deps.mts",
-    "verify": "pnpm run typecheck && pnpm run check:deps",
+    "verify": "pnpm run typecheck && pnpm run typecheck:test && pnpm run check:deps && pnpm run test:unit",
     "smoke:ws": "tsx scripts/ws-smoke.mts",
     "e2e:idle": "tsx scripts/e2e-idle.mts",
     "e2e:all": "tsx scripts/e2e-all.mts",
-    "e2e:journey": "tsx scripts/e2e-journey.mts"
+    "e2e:journey": "tsx scripts/e2e-journey.mts",
+    "test:unit": "tsx --test \"test/**/*.test.ts\"",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",

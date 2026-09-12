@@ -2,7 +2,7 @@
  * skill 逻辑服模块（L0，依赖 character）
  */
 import { Module } from '@nestjs/common';
-import { SkillModule } from '../../game/skill/skill.module.js';
+import { SkillModule } from './internal/skill-internal.module.js';
 import { SkillAction } from './skill.action.js';
 import { SkillLogicService } from './skill.logic.service.js';
 

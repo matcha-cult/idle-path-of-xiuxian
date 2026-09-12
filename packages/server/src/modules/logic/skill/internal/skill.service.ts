@@ -5,12 +5,12 @@
  * 双库无法同事务（O1），采用「原子扣减 + 失败补偿」的迷你 SAGA 模式。
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { RateLimiterService } from '../../../common/services/rate-limiter.service.js';
-import { CharacterService } from '../../character/character.service.js';
-import { DatabaseService } from '../../database/database.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { EFFECT_LABELS, PERCENT_KEYS } from '../../../common/kernel/effect.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { EFFECT_LABELS, PERCENT_KEYS } from '../../../../common/kernel/effect.js';
 import {
   PANEL_LIMITS,
   type FailResult,

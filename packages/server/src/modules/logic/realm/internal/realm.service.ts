@@ -6,10 +6,10 @@
  * - 14 境合道封顶 → MAX_REALM_REACHED
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { CharacterService } from '../../character/character.service.js';
-import { DatabaseService } from '../../database/database.service.js';
-import { StatService } from '../stat/stat.service.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import { StatService } from '../../../game/stat/stat.service.js';
 import { type FailResult, MAX_REALM, fail, realmName } from './realm.types.js';
 
 @Injectable()
