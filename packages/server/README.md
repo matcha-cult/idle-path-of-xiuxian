@@ -137,6 +137,36 @@ pnpm --filter idle-path-server e2e:idle
 - 对外服：`src/modules/edge` 实现 `NotificationPort`（广播/通知/推送），逻辑服只依赖 `src/common/ports/notification.port.ts`。
 - 完整契约见 `ai-docs/ws-protocol-contract.md`。
 
+### WS Action 表（已实现）
+
+| cmd | 逻辑服 | subCmd → Action |
+| --- | --- | --- |
+| 1 | system | 1 ping（免鉴权） |
+| 30 | item | 1 inventory · 2 inventoryDetail · 3 bases · 4 pickupRuleList · 5 pickupRuleCreate · 6 pickupRuleUpdate · 7 pickupRuleDelete |
+| 40 | prop | 1 discard · 2 generate（dev） |
+| 50 | equip | 1 equip · 2 unequip · 3 equipment |
+| 60 | skill | 1 list · 2 learn · 3 panel · 4 panelUpdate · 5 enlighten · 6 lingyunGrant（dev） · 7 jadeGrant（dev） |
+| 70 | economy | 1 currencies · 2 currencyGrant（dev） · 3 craft · 4 essences · 5 essenceGrant（dev） |
+| 80 | realm | 1 breakthroughInfo · 2 breakthrough |
+| 90 | combat | 1 units · 2 dropTables · 3 spawn（dev） · 4 kill（dev） |
+| 100 | zone | 1 zones · 2 progress · 3 enter · 4 challenge |
+| 110 | quest | 1 list · 2 detail · 3 sync · 4 chapterList · 5 chapterDetail · 6 chapterSync |
+| 120 | story | 1 chapter · 2 quest · 3 seen |
+| 130 | idle | 1 status · 2 settle |
+
+依赖图（边方向上层→下层，禁止环）：
+
+```
+idle(L4)
+  └─ quest(L3) ─ story(L3)
+       └─ zone(L2)
+            └─ combat · realm · economy(L1)
+                 └─ prop · equip · skill(L0)
+                      └─ item · character(L-1)
+```
+
+> 依赖由 `pnpm run check:deps` 静态强制；越层/成环即 CI 失败。
+
 ## 参考项目说明
 
 - 所有参考项目仅作参考，不作为当前项目业务逻辑指引。

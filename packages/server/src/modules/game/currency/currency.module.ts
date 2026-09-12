@@ -12,6 +12,6 @@ import { CurrencyService } from './currency.service.js';
   imports: [CharacterModule, ItemModule],
   controllers: [CurrencyController],
   providers: [CurrencyService, CraftService],
-  exports: [CurrencyService],
+  exports: [CurrencyService, CraftService],
 })
 export class CurrencyModule {}

@@ -159,15 +159,18 @@
 - [x] 对照旧 REST 行为：(130,1)=GET /api/game/idle/status、(130,2)=POST /api/game/idle/settle
 - [x] 沉淀 Action 化模板（见 `idle.action.ts` 顶部注释）+ 端到端脚本 `pnpm run e2e:idle`
 
-### M3 · 按依赖层自底向上迁移
-- [ ] L-1 item（+ 拾取规则，按 D1.1）
-- [ ] L0 prop、equip、skill
-- [ ] L1 economy、realm、combat
-- [ ] L2 zone
-- [ ] L3 quest、story
-- [ ] L4 idle
-- [ ] 每服独立提交；每服更新 §3.2「允许依赖」并跑环检测
-- [ ] 修正现存越层依赖（见 R4）
+### M3 · 按依赖层自底向上迁移 ✅ 已完成（Action 面全部落地）
+- [x] L-1 item（+ 拾取规则，按 D1.1）
+- [x] L0 prop、equip、skill
+- [x] L1 economy、realm、combat
+- [x] L2 zone
+- [x] L3 quest、story
+- [x] L4 idle（M2 已完成）
+- [x] 每层独立提交；每服跑环检测（`pnpm run check:deps`：104 文件无环、无越层）
+- [x] 修正现存越层依赖（见 R4）：`skill→item`、`combat→realm` 已上提 `common/kernel`
+- [x] 启动期重复路由断言（`GameActionBridgeModule.assertNoDuplicateRoutes`）
+- [x] 端到端：`pnpm run e2e:all`（16 只读 + 生成/穿戴/卸下/丢弃写入链路 + 鉴权拦截）
+- 备注：本层各服 Action 委托既有 `modules/game/<domain>` 服务实现；服务实现按服物理搬迁（`modules/game/*` → `modules/logic/*/internal`）留待 M4 一并处理。
 
 ### M4 · 下线 REST 游戏接口
 - [ ] 删除 `modules/game/**/*.controller.ts`；保留 Service/DB/配置
