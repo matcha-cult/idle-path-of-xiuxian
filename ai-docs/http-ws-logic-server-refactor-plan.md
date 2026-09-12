@@ -239,7 +239,7 @@
 | R4 | **现存越层依赖**（M0 已复核完毕） | 复核结论：`idle → zone`、`zone → unit`、`craft → stat`、`quest/realm/unit → stat` 均为**向下**边，与 §3 一致；另发现两处**值依赖**越层 `skill → item`（EFFECT_LABELS/PERCENT_KEYS）、`combat → realm`（realmName），已上提共享内核 `src/common/kernel/` 消除。当前 `check:deps` 全绿 |
 | R5 | `story → quest`、`chapter → quest` 同源依赖 | 归入 quest 服或按 §3 层级（quest 在下）排布 |
 | R6 | attach WS 与 Nest 网关冲突 | M1 删 `/ws-user`；必要时改独立端口 |
-| R7 | **生产禁用 `extension-nestjs`**：`IonetModule.forRoot()` 在 `NODE_ENV=production` 时直接抛错 | 框架侧 M6 使该守卫可配置；在此之前生产部署**不得设 `NODE_ENV=production`**（用 `staging` 等编排变量），或按框架设计改走 Java External Server + 独立逻辑服进程 |
+| R7 | **生产禁用 `extension-nestjs`**：`IonetModule.forRoot()` 在 `NODE_ENV=production` 时直接抛错 | **已解**：框架侧 `d57cada` 提供 `allowProduction`，本工作区已同步 submodule 并接入 `IONET_ALLOW_PRODUCTION=true` 显式放行（默认仍禁用）。未放行时生产启动依旧被拦截 |
 | R8 | 依赖被打破形成环 | §4.4 CI 强制；评审对照 §3.2 |
 | R10 | **`StatService.increment` 不跳过负数**：实现只过滤「非有限数 或 0」，负 amount 会落库递减计数（边界测试已按现状锁定） | 低危（内部调用方目前不传负数）；后续若要收紧，改为 `amount <= 0` 直接返回 |
 | R11 | **`ItemService.inventory` 对 NaN 分页未归一**：`Math.max(1, NaN) = NaN` 会透传进 SQL | Action 层已用 `toFiniteInt(...) ?? 1` 兜底，WS 入口不受影响；服务层防御性归一列入后续整理 |

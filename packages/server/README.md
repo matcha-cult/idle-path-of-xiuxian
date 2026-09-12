@@ -78,6 +78,19 @@ src/modules/logic/<server>/
 
 依赖约束由 `pnpm run check:deps` 静态强制：全图无环、低层不依赖高层、禁止跨服直连 `internal/`。
 
+## 生产部署（R7）
+
+框架 `@nbb-ionet/extension-nestjs` 默认在 `NODE_ENV=production` 下**拒绝启动**（`IonetModule.forRoot` 直接抛错）。
+框架侧已支持显式放行，本服务接入为环境变量：
+
+```bash
+# 自管 Node 生产进程时显式放行；不设置则保持「生产禁用」
+IONET_ALLOW_PRODUCTION=true NODE_ENV=production node dist/main.js
+```
+
+> 未显式设置 `IONET_ALLOW_PRODUCTION=true` 时，生产环境启动仍会被框架拦截。
+> 若按框架设计改走 Java External Server + 独立逻辑服进程，则无需该变量。
+
 ## 配置文件（config/app.config.json）
 
 | 字段 | 默认 | 说明 |

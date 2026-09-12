@@ -28,11 +28,15 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
   imports: [
     // ionet 外部服：HTTP 关闭（游戏 HTTP 由 NestJS 承担），WS attach 到 NestJS http.Server 的 /ws。
     // Action 不在此声明（actions: []），统一由 GameActionBridgeModule 以 DI 实例注册。
+    //
+    // allowProduction：框架默认在 NODE_ENV=production 下拒绝启动；需要自管 Node 生产部署时，
+    // 显式设置 IONET_ALLOW_PRODUCTION=true 放行（否则保持默认禁用，见 ai-docs 计划 R7）。
     IonetModule.forRoot({
       actions: [],
       httpServer: false,
       wsServer: { attachNestServer: true, path: '/ws' },
       redis: false,
+      allowProduction: process.env.IONET_ALLOW_PRODUCTION === 'true',
     }),
     DatabaseModule,
     AuthModule,

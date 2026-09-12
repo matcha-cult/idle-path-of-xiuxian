@@ -65,13 +65,21 @@ describe('根模块接线边界', () => {
       | undefined;
     assert.ok(ionet, '未找到 IonetModule 动态模块');
     const options = ionet.providers?.find((p) => typeof p.provide === 'symbol' && String(p.provide).includes('IONET_MODULE_OPTIONS'))
-      ?.useValue as { actions?: unknown[]; httpServer?: unknown; wsServer?: { attachNestServer?: boolean; path?: string }; redis?: unknown } | undefined;
+      ?.useValue as {
+        actions?: unknown[];
+        httpServer?: unknown;
+        wsServer?: { attachNestServer?: boolean; path?: string };
+        redis?: unknown;
+        allowProduction?: boolean;
+      } | undefined;
     assert.ok(options, '未找到 IonetModule 选项');
     assert.deepEqual(options?.actions, []);
     assert.equal(options?.httpServer, false);
     assert.equal(options?.redis, false);
     assert.equal(options?.wsServer?.attachNestServer, true);
     assert.equal(options?.wsServer?.path, '/ws');
+    // 测试环境未设置 IONET_ALLOW_PRODUCTION -> 默认禁用生产放行
+    assert.equal(options?.allowProduction, false);
   });
 
   test('AppModule 注册全局 JWT Guard', () => {
