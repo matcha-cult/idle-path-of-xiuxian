@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { UnitService } from '../../../src/modules/game/unit/unit.service.js';
+import { UnitService } from '../../../src/modules/logic/combat/internal/unit.service.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';

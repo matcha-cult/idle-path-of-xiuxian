@@ -5,8 +5,8 @@
  *       CharacterService、ItemAffixService（掉落物品生成）
  */
 import { Module } from '@nestjs/common';
-import { CharacterModule } from '../../character/character.module.js';
-import { ItemModule } from '../item/item.module.js';
+import { CharacterModule } from '../../../character/character.module.js';
+import { ItemModule } from '../../../game/item/item.module.js';
 import { UnitService } from './unit.service.js';
 
 @Module({

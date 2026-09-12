@@ -12,7 +12,7 @@ import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import { UnitService } from '../../../game/unit/unit.service.js';
+import { CombatLogicService } from '../../combat/combat.logic.service.js';
 import {
   type FailResult,
   type ZoneProgressRow,
@@ -48,7 +48,7 @@ export class ZoneService {
   constructor(
     private readonly gameDb: GameDatabaseService,
     private readonly characterService: CharacterService,
-    private readonly unitService: UnitService,
+    private readonly combatLogic: CombatLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -337,7 +337,7 @@ export class ZoneService {
     const { boss, tierOffset, extraDraws } = this.depth(zone, progress.floor);
     const unitCode = boss && zone.boss_code ? zone.boss_code : zone.unit_code;
     const lingyunBonus = progress.floor * zone.lingyun_bonus_per_floor;
-    const settled = await this.unitService.settleKills(character.id, unitCode, 1, {
+    const settled = await this.combatLogic.settleKills(character.id, unitCode, 1, {
       lingyunBonusFlat: lingyunBonus,
       tierOffsetBonus: tierOffset,
       dropDrawBonus: extraDraws,

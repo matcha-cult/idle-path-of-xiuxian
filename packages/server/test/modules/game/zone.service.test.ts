@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ZoneService } from '../../../src/modules/logic/zone/internal/zone.service.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/modules/logic/zone/internal/zone.types.js';
-import type { SettleResult } from '../../../src/modules/game/unit/unit.service.js';
+import type { SettleResult } from '../../../src/modules/logic/combat/combat.api.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';

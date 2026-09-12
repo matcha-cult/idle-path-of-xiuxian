@@ -33,7 +33,7 @@ import type { PanelSlots } from '../../../src/modules/logic/skill/internal/skill
 import {
   UNIT_CAMPS,
   fail as unitFail,
-} from '../../../src/modules/game/unit/unit.types.js';
+} from '../../../src/modules/logic/combat/combat.api.js';
 import { CRAFT_OPS, fail as currencyFail } from '../../../src/modules/logic/economy/internal/currency.types.js';
 import {
   fail as zoneFail,

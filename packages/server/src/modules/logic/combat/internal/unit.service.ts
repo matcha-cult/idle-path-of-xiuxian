@@ -7,15 +7,15 @@
  *   跨池无法同事务 → 各自原子写入（dev 接口，正式产出走 P4.2 离线结算）
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { RateLimiterService } from '../../../common/services/rate-limiter.service.js';
-import { CharacterService } from '../../character/character.service.js';
-import { DatabaseService } from '../../database/database.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { ItemAffixService } from '../item/item.affix.service.js';
-import { StatService } from '../stat/stat.service.js';
-import type { BaseRow, ItemView } from '../item/item.types.js';
-import { realmName } from '../../../common/kernel/realm.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { ItemAffixService } from '../../../game/item/item.affix.service.js';
+import { StatService } from '../../../game/stat/stat.service.js';
+import type { BaseRow, ItemView } from '../../../game/item/item.types.js';
+import { realmName } from '../../../../common/kernel/realm.js';
 import {
   type DropEntryRow,
   type DropTableRow,

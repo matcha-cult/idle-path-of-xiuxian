@@ -12,7 +12,7 @@ import { Injectable } from '@nestjs/common';
 import { ActionController, ActionMethod, FlowContext } from '@nbb-ionet/core-framework';
 import { COMBAT_CMD } from '../../../ionet/cmd.js';
 import { ActionError, dataOf, requireUserId, toFiniteInt } from '../../../ionet/action-support.js';
-import { UNIT_CAMPS } from '../../game/unit/unit.types.js';
+import { UNIT_CAMPS } from './internal/unit.types.js';
 import { CombatLogicService } from './combat.logic.service.js';
 
 @Injectable()

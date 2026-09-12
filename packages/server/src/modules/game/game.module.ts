@@ -9,12 +9,11 @@ import { Global, Module } from '@nestjs/common';
 import { RateLimiterService } from '../../common/services/rate-limiter.service.js';
 import { GameDatabaseService } from './game-database.service.js';
 import { ItemModule } from './item/item.module.js';
-import { UnitModule } from './unit/unit.module.js';
 import { StatModule } from './stat/stat.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, UnitModule, StatModule],
+  imports: [ItemModule, StatModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

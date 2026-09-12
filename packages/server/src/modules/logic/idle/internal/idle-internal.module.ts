@@ -5,12 +5,12 @@
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../../character/character.module.js';
-import { UnitModule } from '../../../game/unit/unit.module.js';
+import { CombatLogicModule } from '../../combat/combat-logic.module.js';
 import { ZoneLogicModule } from '../../zone/zone-logic.module.js';
 import { IdleService } from './idle.service.js';
 
 @Module({
-  imports: [CharacterModule, UnitModule, ZoneLogicModule],
+  imports: [CharacterModule, CombatLogicModule, ZoneLogicModule],
   providers: [IdleService],
   exports: [IdleService],
 })

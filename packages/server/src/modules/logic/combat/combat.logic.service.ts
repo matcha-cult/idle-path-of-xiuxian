@@ -4,7 +4,7 @@
  * 职责：单位实例化/击杀结算/掉落/辨宝。
  */
 import { Injectable } from '@nestjs/common';
-import { UnitService } from '../../game/unit/unit.service.js';
+import { UnitService } from './internal/unit.service.js';
 
 @Injectable()
 export class CombatLogicService {
@@ -24,5 +24,15 @@ export class CombatLogicService {
 
   kill(userId: number, code: string, count?: number) {
     return this.unitService.kill(userId, code, count);
+  }
+
+  /** 供 zone/idle 复用：单位击杀结算（灵韵 + 掉落 + 辨宝） */
+  settleKills(
+    characterId: number,
+    code: string,
+    count: number,
+    options?: { itemBudget?: number; lingyunBonusFlat?: number; tierOffsetBonus?: number; dropDrawBonus?: number },
+  ) {
+    return this.unitService.settleKills(characterId, code, count, options);
   }
 }

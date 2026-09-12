@@ -13,8 +13,8 @@ import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import { UnitService } from '../../../game/unit/unit.service.js';
-import { type FailResult, fail } from '../../../game/unit/unit.types.js';
+import { CombatLogicService } from '../../combat/combat.logic.service.js';
+import { type FailResult, fail } from '../../../../common/kernel/result.js';
 import { ZoneLogicService } from '../../zone/zone.logic.service.js';
 
 interface SettleAnchorRow {
@@ -31,7 +31,7 @@ export class IdleService {
     private readonly gameDb: GameDatabaseService,
     private readonly userDb: DatabaseService,
     private readonly characterService: CharacterService,
-    private readonly unitService: UnitService,
+    private readonly combatLogic: CombatLogicService,
     private readonly zoneLogic: ZoneLogicService,
   ) {}
 
@@ -170,7 +170,7 @@ export class IdleService {
     }
 
     const budget = Math.max(0, APP_CONFIG.idleDailyItemCap - produced);
-    const settled = await this.unitService.settleKills(character.id, unitCode, plan.kills, { itemBudget: budget });
+    const settled = await this.combatLogic.settleKills(character.id, unitCode, plan.kills, { itemBudget: budget });
     if (!settled.ok) return settled.result;
 
     const counter = await this.gameDb.query<CountRow>(
