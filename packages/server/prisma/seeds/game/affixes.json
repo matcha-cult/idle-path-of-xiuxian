@@ -3107,5 +3107,18 @@
     "weight": 0,
     "isFractured": false,
     "id": 175
+  },
+  {
+    "id": 176,
+    "code": "vaal_demonic",
+    "name": "入魔",
+    "polarity": "suffix",
+    "tier": 0,
+    "effects": {
+      "atk_pct": 8,
+      "hp_regen": -3
+    },
+    "weight": 0,
+    "isFractured": false
   }
 ]

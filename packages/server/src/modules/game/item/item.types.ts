@@ -78,6 +78,8 @@ export interface AffixEntry {
   polarity: AffixPolarity;
   /** roll 来源效果键（如 atk）；基底/固定词缀为 null */
   key: string | null;
+  /** 天定铭文（破溃宝珠锁定）：洗炼操作永久保留 */
+  fractured?: boolean;
 }
 
 /** 词缀表行 */
@@ -118,6 +120,9 @@ export interface ItemRow {
   tier: number;
   quality: number;
   affixes: string | null;
+  base_stats: string | null;
+  mirrored: boolean;
+  vaaled: boolean;
   status: string;
   created_at: Date | string;
 }

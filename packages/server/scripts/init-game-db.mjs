@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS game_items (
 CREATE INDEX IF NOT EXISTS idx_game_items_character_status ON game_items(character_id, status);
 CREATE INDEX IF NOT EXISTS idx_game_items_base ON game_items(base_id);
 
+-- P3.2 增量列（幂等）
+ALTER TABLE game_items ADD COLUMN IF NOT EXISTS base_stats TEXT;
+ALTER TABLE game_items ADD COLUMN IF NOT EXISTS mirrored BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE game_items ADD COLUMN IF NOT EXISTS vaaled BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE IF NOT EXISTS game_equipment (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL UNIQUE,

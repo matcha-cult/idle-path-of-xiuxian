@@ -317,10 +317,11 @@ export class ItemAffixService {
     for (const entry of entries) {
       const row = affixById.get(entry.affixId);
       if (!row) continue;
+      const fracturedMark = entry.fractured || row.is_fractured ? '·天定' : '';
       if (entry.key && entry.value != null) {
         const percent = PERCENT_KEYS.has(entry.key);
         texts.push(
-          `${row.name}${row.tier > 0 ? ` T${row.tier}` : ''}：${EFFECT_LABELS[entry.key] ?? entry.key} +${this.formatValue(entry.value, percent)}`,
+          `${row.name}${fracturedMark}${row.tier > 0 ? ` T${row.tier}` : ''}：${EFFECT_LABELS[entry.key] ?? entry.key} +${this.formatValue(entry.value, percent)}`,
         );
       } else {
         // 基底/固定词缀：取词缀定义 effects
@@ -330,7 +331,11 @@ export class ItemAffixService {
           return `${EFFECT_LABELS[k] ?? k} +${this.formatValue(v, percent)}`;
         });
         const tag = row.polarity === 'base' ? '基底' : '固定';
-        texts.push(parts.length > 0 ? `${row.name}（${tag}）：${parts.join('，')}` : `${row.name}（${tag}）`);
+        texts.push(
+          parts.length > 0
+            ? `${row.name}${fracturedMark}（${tag}）：${parts.join('，')}`
+            : `${row.name}${fracturedMark}（${tag}）`,
+        );
       }
     }
     return texts;

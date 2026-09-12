@@ -107,7 +107,10 @@ model game_items {
   rarity       Int      @default(0) @db.SmallInt   // 0凡/1灵/2宝/3传奇
   tier         Int      @db.SmallInt               // 底材 T 阶（冗余自基底）
   quality      Int      @default(0) @db.SmallInt   // 品质 0~20（P3 启用）
-  affixes      String?  @db.Text                   // JSON 字符串：[{affixId, value, polarity, key}]
+  affixes      String?  @db.Text                   // JSON 字符串：[{affixId, value, polarity, key, fractured?}]
+  base_stats   String?  @db.Text                   // P3.2 基础属性覆盖（blessed 重 roll 落库）
+  mirrored     Boolean  @default(false)            // P3.2 映道镜复制品（不可再复制）
+  vaaled       Boolean  @default(false)            // P3.2 瓦尔宝珠已变异（禁一切洗炼）
   status       String   @default("bag") @db.VarChar(20) // bag/equipped/warehouse/selling
   created_at   DateTime @default(now()) @db.Timestamp(6)
   updated_at   DateTime @updatedAt @db.Timestamp(6)

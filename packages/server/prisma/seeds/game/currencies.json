@@ -53,35 +53,35 @@
     "code": "blessed",
     "name": "祝福石",
     "description": "重roll基础属性数值（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   },
   {
     "id": 9,
     "code": "mirror",
     "name": "映道镜",
     "description": "复制一件物品，镜像不可再复制（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   },
   {
     "id": 10,
     "code": "vaal",
     "name": "瓦尔宝珠",
     "description": "危险强化：随机变异，不可逆（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   },
   {
     "id": 11,
     "code": "fracture",
     "name": "破溃宝珠",
     "description": "锁定 1 条词缀为天定铭文（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   },
   {
     "id": 12,
     "code": "ember",
     "name": "古灵余烬",
     "description": "新增/替换基底词缀（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   },
   {
     "id": 13,
