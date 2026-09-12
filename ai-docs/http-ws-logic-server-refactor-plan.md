@@ -172,10 +172,11 @@
 - [x] 端到端：`pnpm run e2e:all`（16 只读 + 生成/穿戴/卸下/丢弃写入链路 + 鉴权拦截）
 - 备注：本层各服 Action 委托既有 `modules/game/<domain>` 服务实现；服务实现按服物理搬迁（`modules/game/*` → `modules/logic/*/internal`）留待 M4 一并处理。
 
-### M4 · 下线 REST 游戏接口
-- [ ] 删除 `modules/game/**/*.controller.ts`；保留 Service/DB/配置
-- [ ] `README.md` HTTP 表收敛为基础接口，新增 WS Action 表与依赖图
-- [ ] 回归全局 JWT Guard
+### M4 · 下线 REST 游戏接口 ✅ 已完成
+- [x] 删除 `modules/game/**/*.controller.ts`（10 个）并从各模块移除 `controllers` 登记；保留 Service/DB/配置
+- [x] `README.md` HTTP 表收敛为基础接口（auth/character/health），新增 WS Action 表与依赖图
+- [x] 回归全局 JWT Guard：`/api/character/*` 无 token 仍 401；`/api/game/*` 已 404
+- 验证：`e2e:all` 全绿（游戏能力全部经 `/ws`）
 
 ### M5 · 端到端验收
 - [ ] 前端 SDK 接 `/ws`（串行队列 + 应用层心跳）

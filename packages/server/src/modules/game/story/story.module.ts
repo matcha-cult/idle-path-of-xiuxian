@@ -6,12 +6,10 @@
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../character/character.module.js';
 import { QuestModule } from '../quest/quest.module.js';
-import { StoryController } from './story.controller.js';
 import { StoryService } from './story.service.js';
 
 @Module({
   imports: [CharacterModule, QuestModule],
-  controllers: [StoryController],
   providers: [StoryService],
   exports: [StoryService],
 })

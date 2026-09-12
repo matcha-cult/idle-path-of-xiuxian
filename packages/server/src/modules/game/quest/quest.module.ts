@@ -5,14 +5,11 @@
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../character/character.module.js';
-import { ChapterController } from './chapter.controller.js';
 import { ChapterService } from './chapter.service.js';
-import { QuestController } from './quest.controller.js';
 import { QuestService } from './quest.service.js';
 
 @Module({
   imports: [CharacterModule],
-  controllers: [QuestController, ChapterController],
   providers: [QuestService, ChapterService],
   exports: [QuestService, ChapterService],
 })

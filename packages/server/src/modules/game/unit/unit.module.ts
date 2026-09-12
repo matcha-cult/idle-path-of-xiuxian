@@ -7,12 +7,10 @@
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../character/character.module.js';
 import { ItemModule } from '../item/item.module.js';
-import { UnitController } from './unit.controller.js';
 import { UnitService } from './unit.service.js';
 
 @Module({
   imports: [CharacterModule, ItemModule],
-  controllers: [UnitController],
   providers: [UnitService],
   exports: [UnitService],
 })

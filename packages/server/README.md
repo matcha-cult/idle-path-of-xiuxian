@@ -72,9 +72,8 @@ pnpm --filter idle-path-server e2e:idle
 
 ## HTTP 接口
 
-> **通道规划**：目标形态是「注册/登录/角色/健康走 HTTP，其余游戏交互走 WS `/ws`」。
-> 下表中的 `/api/game/*` 将在 M3–M4 逐条迁移为 WS Action（映射见 `ai-docs/ws-protocol-contract.md` §7），
-> 迁移完成后 HTTP 仅保留 auth / character / health。当前仍处于过渡期，游戏接口暂走 REST。
+> **通道规划已落地**：注册/登录/角色/健康走 HTTP；**其余游戏交互全部走 WS `/ws`**。
+> 旧 REST 游戏接口已在 M4 全部删除（404）；游戏能力见下方「WS Action 表」。
 
 | 方法 | 路径 | 说明 | 认证 |
 | --- | --- | --- | --- |
@@ -83,50 +82,9 @@ pnpm --filter idle-path-server e2e:idle
 | GET | /api/character/check | 检查角色 | JWT |
 | POST | /api/character/create | 创建角色（数量上限见配置） | JWT |
 | GET | /api/character/info | 获取角色信息 | JWT |
-| GET | /api/game/inventory | 背包列表（筛选+分页） | JWT |
-| GET | /api/game/inventory/:id | 物品详情 | JWT |
-| POST | /api/game/item/equip | 装备 | JWT |
-| POST | /api/game/item/unequip | 卸下 | JWT |
-| POST | /api/game/item/discard | 丢弃 | JWT |
-| GET | /api/game/equipment | 当前装备栏 | JWT |
-| GET | /api/game/item/bases | 物品基底库 | JWT |
-| POST | /api/game/item/generate | 生成物品（开发/测试：生产禁用、仅限本人角色、限流） | JWT |
-| GET | /api/game/skills | 功法图鉴（修习状态/等级/效果文本） | JWT |
-| POST | /api/game/skill/learn | 修习功法（消耗 1 枚未开光玉简，永久入册） | JWT |
-| GET | /api/game/skill/panel | 功法面板（9 槽 + 神识 + 协同标记） | JWT |
-| PUT | /api/game/skill/panel | 装槽/换装（1 主 3 辅 + 5 术法，免费） | JWT |
-| POST | /api/game/skill/enlighten | 参悟升级（消耗灵韵） | JWT |
-| GET | /api/game/breakthrough | 境界状态与下一境消耗 | JWT |
-| GET | /api/game/currencies | 通货图鉴（13 种 + 持有量） | JWT |
-| POST | /api/game/currency/grant | 开发注入通货（生产禁用、限流） | JWT |
-| POST | /api/game/item/craft | 炼器十四操作（蜕变/点金/混沌/崇高/剥离/重铸/神圣/祝福/映道/瓦尔/破溃/古灵余烬/古灵溶液/精华） | JWT |
-| GET | /api/game/essences | 精华图鉴（6 种定向 + 持有量） | JWT |
-| POST | /api/game/essence/grant | 开发发放精华（生产禁用、限流） | JWT |
-| POST | /api/game/breakthrough | 突破（消耗灵韵必定成功，14 境封顶） | JWT |
-| POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
-| POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
-| GET | /api/game/units | 单位图鉴（境界/阵营/灵韵/掉落表/隐藏词条池） | JWT |
-| GET | /api/game/drop-tables | 掉落表图鉴（9 表 / 138 条目，含深层跨阶条目） | JWT |
-| POST | /api/game/unit/spawn | 单位即时实例化（开发：生产禁用、限流） | JWT |
-| POST | /api/game/unit/kill | 击杀结算 + 辨宝法阵执行（开发：生产禁用、限流） | JWT |
-| GET | /api/game/idle/status | 离线收益状态（待结算时长/预计击杀/今日物品计数） | JWT |
-| POST | /api/game/idle/settle | 离线结算（unitCode 缺省取当前秘境层单位；hours 覆盖仅开发环境） | JWT |
-| GET | /api/game/zones | 秘境图鉴（链式解锁理由 + 进度） | JWT |
-| GET | /api/game/zone/progress | 当前秘境进度（层/战力/门槛/层深度加成） | JWT |
-| POST | /api/game/zone/enter | 切换当前秘境（境界门槛） | JWT |
-| POST | /api/game/zone/challenge | 层数挑战（战力检定 → 奖励 → 推进；层深度 Tier/掉落加成） | JWT |
-| GET | /api/game/quests | 任务列表（状态 locked/active/completed + 目标进度） | JWT |
-| GET | /api/game/quests/:code | 任务详情（含触发/奖励/对话） | JWT |
-| POST | /api/game/quest/sync | 推进任务（自动激活 + 完成 + 发奖，幂等） | JWT |
-| GET | /api/game/chapters | 章节列表（解锁链 + 完成度 + 任务进度） | JWT |
-| GET | /api/game/chapters/:chapter | 章节详情（秘境/任务清单/对话/奖励） | JWT |
-| POST | /api/game/chapter/sync | 章节完成判定与发奖（幂等） | JWT |
-| GET | /api/game/story/chapter/:chapter | 章节剧本节点（intro/outro + 任务 start/done + 已读） | JWT |
-| GET | /api/game/story/quest/:code | 单任务剧本节点 | JWT |
-| POST | /api/game/story/seen | 标记剧本节点已读（幂等） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`、`p6-api-contract.md`、`p7-api-contract.md`、`p6.2-p7.2-api-contract.md`。
+历史 Game REST 契约见仓库 `ai-docs/v2/`（`p1`…`p7.2`）；当前生效的接口契约为 WS 版：`ai-docs/ws-protocol-contract.md`。
 
 ## WS 通道（ionet 外部服）
 

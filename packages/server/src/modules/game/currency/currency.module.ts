@@ -5,12 +5,10 @@ import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../character/character.module.js';
 import { ItemModule } from '../item/item.module.js';
 import { CraftService } from './craft.service.js';
-import { CurrencyController } from './currency.controller.js';
 import { CurrencyService } from './currency.service.js';
 
 @Module({
   imports: [CharacterModule, ItemModule],
-  controllers: [CurrencyController],
   providers: [CurrencyService, CraftService],
   exports: [CurrencyService, CraftService],
 })
