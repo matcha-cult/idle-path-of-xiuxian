@@ -14,7 +14,8 @@
     "db:init:game": "node scripts/init-game-db.mjs",
     "check:deps": "tsx scripts/check-deps.mts",
     "verify": "pnpm run typecheck && pnpm run check:deps",
-    "smoke:ws": "tsx scripts/ws-smoke.mts"
+    "smoke:ws": "tsx scripts/ws-smoke.mts",
+    "e2e:idle": "tsx scripts/e2e-idle.mts"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",

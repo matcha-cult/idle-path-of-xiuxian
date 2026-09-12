@@ -43,6 +43,13 @@ export function requireUserId(ctx: FlowContext): number | ActionFailResult {
   return userId ?? ActionError.unauthorized();
 }
 
+/** 字符串/数字 → 有限数值（可为小数）；非法/缺失 → undefined */
+export function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  const n = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
 /** 字符串/数字 → 有限整数；非法/缺失 → undefined */
 export function toFiniteInt(value: unknown): number | undefined {
   if (typeof value === 'string' && value.trim() === '') return undefined;

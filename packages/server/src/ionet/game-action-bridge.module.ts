@@ -20,11 +20,13 @@ import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { type ActionMethodInOut, type BarSkeleton } from '@nbb-ionet/core-framework';
 import { IONET_BAR_SKELETON } from '@nbb-ionet/extension-nestjs';
 import { AuthModule } from '../modules/auth/auth.module.js';
+import { IdleLogicModule } from '../modules/logic/idle/idle-logic.module.js';
+import { IdleAction } from '../modules/logic/idle/idle.action.js';
 import { HealthAction } from './health.action.js';
 import { WsAuthInOut } from './ws-auth.inout.js';
 
 /** 已登记的逻辑服 Action 类（M2/M3 逐步扩充） */
-export const GAME_ACTION_CLASSES = [HealthAction] as const;
+export const GAME_ACTION_CLASSES = [HealthAction, IdleAction] as const;
 
 /** InOut 插件（按数组顺序执行 fuckIn） */
 export const GAME_INOUT_CLASSES = [WsAuthInOut] as const;
@@ -35,7 +37,7 @@ const GAME_ACTION_INSTANCES = Symbol('GAME_ACTION_INSTANCES');
 const GAME_INOUT_INSTANCES = Symbol('GAME_INOUT_INSTANCES');
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, IdleLogicModule],
   providers: [
     ...GAME_ACTION_CLASSES,
     ...GAME_INOUT_CLASSES,

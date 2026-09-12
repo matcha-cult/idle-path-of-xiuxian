@@ -113,6 +113,11 @@
 1. 每个逻辑服的 Action 类标 `@Injectable()`，在本服 Nest 模块注册为 provider。
 2. 新增 `GameActionBridgeModule`：`@Inject(IONET_BAR_SKELETON)` + `ModuleRef.get(ActionClass,{strict:false})`，在 `onModuleInit` 里 `skeleton.addAction(ActionClass, instance)`。
 3. 时序安全：所有 `onModuleInit` 早于 `app.listen()`。
+
+> ⚠️ **Action 方法签名约定**：固定 `(ctx: FlowContext, data: unknown)`，且 `FlowContext` 必须**以值导入**。
+> `import { type FlowContext }` 会被 tsc 擦除，`emitDecoratorMetadata` 只能退化成 `Function`，
+> 骨架据此把首参误判为 `DATA`（实测表现为 `ctx.getUserId is not a function`）。
+>
 > Track B 可选：框架补 `ActionFactoryBeanForNest`（`05` P1-1）后可去桥接。
 
 ### 4.2 WS 鉴权（v1）
@@ -148,11 +153,11 @@
 - [x] 冒烟：`{cmd:1,subCmd:1}` 返回 ok（`pnpm run smoke:ws`）；HTTP 回归 401/200/201 通过
 - [x] **既有缺陷修复**：`tsx`(esbuild) 不产出 `design:paramtypes`，导致全 HTTP 500 → 新增 `scripts/dev.mjs`（tsc --watch + node --watch）
 
-### M2 · 打样（选 idle 或 combat）
-- [ ] 建 `modules/logic/<server>/<server>.action.ts`（`@ActionController`+`@ActionMethod`+`@Injectable`）
-- [ ] 只依赖本服门面 + 下层门面，验证依赖检查通过
-- [ ] 对照旧 REST 行为
-- [ ] 沉淀 Action 化模板
+### M2 · 打样（idle）✅ 已完成
+- [x] 建 `modules/logic/idle/{idle.action.ts, idle.logic.service.ts, idle-logic.module.ts}`（`@ActionController(130)`+`@ActionMethod`+`@Injectable`）
+- [x] 只依赖本服门面（`IdleLogicService`）+ 同服实现，`check:deps` 通过
+- [x] 对照旧 REST 行为：(130,1)=GET /api/game/idle/status、(130,2)=POST /api/game/idle/settle
+- [x] 沉淀 Action 化模板（见 `idle.action.ts` 顶部注释）+ 端到端脚本 `pnpm run e2e:idle`
 
 ### M3 · 按依赖层自底向上迁移
 - [ ] L-1 item（+ 拾取规则，按 D1.1）

@@ -41,6 +41,9 @@ pnpm --filter idle-path-server verify
 
 # WS 冒烟（需先启动服务；默认连 ws://127.0.0.1:${PORT:-3000}/ws）
 pnpm --filter idle-path-server smoke:ws
+
+# idle 逻辑服端到端：注册 → 建角 → 带 token 调用 (130,1) → 无 token 被拦截
+pnpm --filter idle-path-server e2e:idle
 ```
 
 ## 配置文件（config/app.config.json）
