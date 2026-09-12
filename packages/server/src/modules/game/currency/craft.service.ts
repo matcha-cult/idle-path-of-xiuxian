@@ -44,6 +44,11 @@ export class CraftService {
     return min + randomInt(max - min + 1);
   }
 
+  /** 词缀族：code 去掉尾部 _数字 */
+  private familyOf(code: string): string {
+    return code.replace(/_\d+$/, '');
+  }
+
   private parseEntries(raw: string | null): AffixEntry[] {
     if (!raw) return [];
     try {
@@ -64,6 +69,7 @@ export class CraftService {
     userId: number,
     itemId: number,
     op: string,
+    extraCode?: string,
   ): Promise<{ success: boolean; message: string; data?: unknown }> {
     if (!(CRAFT_OPS as readonly string[]).includes(op)) {
       return fail('INVALID_OP', `未知炼器操作：${op}`);
@@ -119,6 +125,7 @@ export class CraftService {
       let finalEntries: AffixEntry[] = entries;
       let extra: Record<string, unknown> = {};
       let destroyed = false;
+      let essenceId: number | null = null;
 
       switch (craftOp) {
         case 'transmute': {
@@ -243,16 +250,79 @@ export class CraftService {
           finalEntries = [{ affixId: pick, value: null, polarity: 'base', key: null }, ...nonBaseEntries];
           break;
         }
+        case 'wisp': {
+          if (!extraCode) return { verdict: 'fail' as const, result: fail('INVALID_PARAM', '古灵溶液需指定 targetCode') };
+          const target = await tx.query<{ id: number }>(
+            "SELECT id FROM game_affixes WHERE code = $1 AND polarity = 'base'",
+            [extraCode],
+          );
+          if (!target.rows[0]) return { verdict: 'fail' as const, result: fail('AFFIX_NOT_FOUND', `基底词缀不存在：${extraCode}`) };
+          finalEntries = [{ affixId: Number(target.rows[0].id), value: null, polarity: 'base', key: null }, ...nonBaseEntries];
+          extra = { baseAffix: extraCode };
+          break;
+        }
+        case 'essence': {
+          if (rarity !== 1 && rarity !== 2) return { verdict: 'fail' as const, result: fail('RARITY_MISMATCH', '精华仅限灵品/宝品') };
+          if (!extraCode) return { verdict: 'fail' as const, result: fail('INVALID_PARAM', '精华需指定 essenceCode') };
+          const ess = await tx.query<{ id: number; polarity: string; target_family: string; name: string }>(
+            'SELECT id, polarity, target_family, name FROM game_essences WHERE code = $1',
+            [extraCode],
+          );
+          const essence = ess.rows[0];
+          if (!essence) return { verdict: 'fail' as const, result: fail('ESSENCE_NOT_FOUND', `精华不存在：${extraCode}`) };
+          const targetPolarity: 'prefix' | 'suffix' = essence.polarity === 'prefix' ? 'prefix' : 'suffix';
+          const pool = await this.affixService.queryRollPoolFor(base, targetPolarity);
+          const familyRows = pool.filter((r) => this.familyOf(r.code) === essence.target_family);
+          if (familyRows.length === 0) {
+            return { verdict: 'fail' as const, result: fail('NOT_AVAILABLE', `该底材无「${essence.name}」可定向的词缀`) };
+          }
+          const total = rarity === 1 ? this.randInt(1, 2) : this.randInt(3, 6);
+          const maxSide = rarity === 1 ? 1 : 3;
+          const alloc = this.affixService.allocCountsFor(total, maxSide, maxSide);
+          let pc = alloc.prefixCount;
+          let sc = alloc.suffixCount;
+          if (targetPolarity === 'prefix' && pc === 0) { pc = 1; sc = total - 1; }
+          if (targetPolarity === 'suffix' && sc === 0) { sc = 1; pc = total - 1; }
+          const forced = this.affixService.rollOneFromRows(familyRows) as AffixEntry;
+          const restPool = pool.filter((r) => this.familyOf(r.code) !== essence.target_family);
+          const restCount = (targetPolarity === 'prefix' ? pc : sc) - 1;
+          const restRows = this.affixService.samplePoolRows(restPool, restCount);
+          const targetSide = [forced, ...restRows.map((r) => this.affixService.rollRow(r))];
+          const otherPolarity: 'prefix' | 'suffix' = targetPolarity === 'prefix' ? 'suffix' : 'prefix';
+          const otherPool = await this.affixService.queryRollPoolFor(base, otherPolarity);
+          const otherCount = targetPolarity === 'prefix' ? sc : pc;
+          const otherSide = this.affixService
+            .samplePoolRows(otherPool, otherCount)
+            .map((r) => this.affixService.rollRow(r));
+          newRolled = targetPolarity === 'prefix' ? [...targetSide, ...otherSide] : [...otherSide, ...targetSide];
+          essenceId = Number(essence.id);
+          extra = { essence: extraCode, guaranteedFamily: essence.target_family };
+          break;
+        }
       }
 
-      // 钱包原子扣减（destroyed 同样消耗 1 枚）
-      const dec = await tx.query<{ amount: string }>(
-        `UPDATE game_wallets SET amount = amount - 1, updated_at = CURRENT_TIMESTAMP
-         WHERE character_id = $1 AND currency_code = $2 AND amount >= 1 RETURNING amount`,
-        [character.id, craftOp],
-      );
-      if (dec.rows.length === 0) {
-        return { verdict: 'fail' as const, result: fail('NOT_ENOUGH_CURRENCY', `通货不足：需要 1 枚对应工艺通货`) };
+      // 消耗扣减（destroyed 同样消耗 1 枚）：精华走精华存量，其余走通货钱包
+      if (craftOp === 'essence') {
+        if (essenceId == null) {
+          return { verdict: 'fail' as const, result: fail('INVALID_PARAM', '精华操作缺少精华标识') };
+        }
+        const decEss = await tx.query<{ count: string }>(
+          `UPDATE game_essence_inventory SET count = count - 1, updated_at = CURRENT_TIMESTAMP
+           WHERE character_id = $1 AND essence_id = $2 AND count >= 1 RETURNING count`,
+          [character.id, essenceId],
+        );
+        if (decEss.rows.length === 0) {
+          return { verdict: 'fail' as const, result: fail('NOT_ENOUGH_ESSENCE', '精华不足：需要 1 枚对应精华') };
+        }
+      } else {
+        const dec = await tx.query<{ amount: string }>(
+          `UPDATE game_wallets SET amount = amount - 1, updated_at = CURRENT_TIMESTAMP
+           WHERE character_id = $1 AND currency_code = $2 AND amount >= 1 RETURNING amount`,
+          [character.id, craftOp],
+        );
+        if (dec.rows.length === 0) {
+          return { verdict: 'fail' as const, result: fail('NOT_ENOUGH_CURRENCY', `通货不足：需要 1 枚对应工艺通货`) };
+        }
       }
 
       if (destroyed) {
@@ -276,7 +346,8 @@ export class CraftService {
           'UPDATE game_items SET base_stats = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
           [JSON.stringify(extra.baseStats ?? {}), item.id],
         );
-      } else if (craftOp !== 'ember') {
+      } else if (craftOp !== 'ember' && craftOp !== 'wisp') {
+        // ember/wisp 在各自分支内已完成基底条目替换，不可被通用组合覆盖
         finalEntries = [...fixedEntries, ...fracturedEntries, ...newRolled];
       }
 

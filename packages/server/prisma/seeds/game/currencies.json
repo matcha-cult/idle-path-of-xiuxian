@@ -88,6 +88,6 @@
     "code": "wisp",
     "name": "古灵溶液",
     "description": "新增/替换基底词缀（P3.2 实装）",
-    "implemented": false
+    "implemented": true
   }
 ]

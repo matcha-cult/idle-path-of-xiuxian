@@ -40,10 +40,32 @@ export class CurrencyController {
   }
 
   @Post('item/craft')
-  async craft(@UserId() userId: number, @Body() body: { itemId?: unknown; op?: unknown }) {
+  async craft(
+    @UserId() userId: number,
+    @Body() body: { itemId?: unknown; op?: unknown; essenceCode?: unknown; targetCode?: unknown },
+  ) {
     const itemId = toFiniteInt(body.itemId);
     if (itemId == null) return invalidParam('itemId 不合法');
     if (typeof body.op !== 'string' || !body.op.trim()) return invalidParam('op 必填');
-    return this.craftService.craft(userId, itemId, body.op.trim());
+    const extraCode =
+      typeof body.essenceCode === 'string' && body.essenceCode.trim()
+        ? body.essenceCode.trim()
+        : typeof body.targetCode === 'string' && body.targetCode.trim()
+          ? body.targetCode.trim()
+          : undefined;
+    return this.craftService.craft(userId, itemId, body.op.trim(), extraCode);
+  }
+
+  @Get('essences')
+  async catalogEssences(@UserId() userId: number) {
+    return this.currencyService.catalogEssences(userId);
+  }
+
+  @Post('essence/grant')
+  async grantEssence(@UserId() userId: number, @Body() body: { code?: unknown; count?: unknown }) {
+    if (typeof body.code !== 'string' || !body.code.trim()) return invalidParam('code 必填');
+    const count = toFiniteInt(body.count);
+    if (count == null) return invalidParam('count 不合法');
+    return this.currencyService.grantEssence(userId, body.code.trim(), count);
   }
 }

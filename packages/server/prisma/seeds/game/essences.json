@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "code": "ess_atk",
+    "name": "锋锐精华",
+    "polarity": "prefix",
+    "targetFamily": "aff_atk",
+    "description": "定向：前缀必出锋锐族"
+  },
+  {
+    "id": 2,
+    "code": "ess_spirit",
+    "name": "蕴灵精华",
+    "polarity": "prefix",
+    "targetFamily": "aff_spirit",
+    "description": "定向：前缀必出蕴灵族"
+  },
+  {
+    "id": 3,
+    "code": "ess_def",
+    "name": "御土精华",
+    "polarity": "prefix",
+    "targetFamily": "aff_def",
+    "description": "定向：前缀必出御土族"
+  },
+  {
+    "id": 4,
+    "code": "ess_hp",
+    "name": "太一精华",
+    "polarity": "prefix",
+    "targetFamily": "aff_hp",
+    "description": "定向：前缀必出太一族"
+  },
+  {
+    "id": 5,
+    "code": "ess_regen",
+    "name": "回春精华",
+    "polarity": "suffix",
+    "targetFamily": "aff_regen",
+    "description": "定向：后缀必出回春族"
+  },
+  {
+    "id": 6,
+    "code": "ess_lingyun",
+    "name": "悟性精华",
+    "polarity": "suffix",
+    "targetFamily": "aff_lingyun",
+    "description": "定向：后缀必出悟性族"
+  }
+]

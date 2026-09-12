@@ -127,6 +127,30 @@ model game_equipment {
   updated_at   DateTime @updatedAt @db.Timestamp(6)
 }
 
+// ===== 精华定义（P3.3：6 种定向精华，单阶） =====
+model game_essences {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique @db.VarChar(20)
+  name          String   @db.VarChar(50)
+  polarity      String   @db.VarChar(10)
+  target_family String   @db.VarChar(30)
+  description   String?  @db.VarChar(255)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+}
+
+// ===== 角色精华存量 =====
+model game_essence_inventory {
+  id           Int      @id @default(autoincrement())
+  character_id Int
+  essence_id   Int
+  count        BigInt   @default(0)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, essence_id])
+  @@index([character_id])
+}
+
 // ===== 通货定义（P3 第一批：7 种炼器核心实装） =====
 model game_currencies {
   id          Int      @id @default(autoincrement())

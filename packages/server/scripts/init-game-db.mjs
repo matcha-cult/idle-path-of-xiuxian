@@ -149,6 +149,27 @@ CREATE TABLE IF NOT EXISTS game_wallets (
 );
 CREATE INDEX IF NOT EXISTS idx_game_wallets_character ON game_wallets(character_id);
 
+CREATE TABLE IF NOT EXISTS game_essences (
+  id            SERIAL PRIMARY KEY,
+  code          VARCHAR(20) NOT NULL UNIQUE,
+  name          VARCHAR(50) NOT NULL,
+  polarity      VARCHAR(10) NOT NULL,
+  target_family VARCHAR(30) NOT NULL,
+  description   VARCHAR(255),
+  created_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS game_essence_inventory (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  essence_id   INTEGER NOT NULL,
+  count        BIGINT NOT NULL DEFAULT 0,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, essence_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_essence_inventory_character ON game_essence_inventory(character_id);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -177,7 +198,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (11 张表)');
+  console.log('[放置·修仙之路] game tables ok (13 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -265,6 +286,27 @@ try {
     );
   }
   console.log(`[放置·修仙之路] currencies: ${currencies.length}`);
+
+  // ===== 精华定义（重灌：存量保留） =====
+  const essences = await loadJson('essences.json');
+  await client.query('DELETE FROM game_essences');
+  for (const e of essences) {
+    await client.query(
+      `INSERT INTO game_essences (id, code, name, polarity, target_family, description)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+      [e.id, e.code, e.name, e.polarity, e.targetFamily, e.description ?? null],
+    );
+  }
+  await client.query("SELECT setval('game_essences_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_essences));");
+  const orphanEss = await client.query(
+    `SELECT COUNT(*)::int AS c FROM game_essence_inventory i
+     LEFT JOIN game_essences e ON e.id = i.essence_id WHERE e.id IS NULL`,
+  );
+  if (Number(orphanEss.rows[0].c) > 0) {
+    console.warn(`[放置·修仙之路] 警告：${orphanEss.rows[0].c} 条精华存量引用不存在的精华`);
+  }
+  console.log(`[放置·修仙之路] essences: ${essences.length}`);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

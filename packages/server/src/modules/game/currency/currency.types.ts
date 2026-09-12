@@ -18,7 +18,7 @@ export interface WalletRow {
 
 export const CRAFT_OPS = [
   'transmute', 'alchemy', 'chaos', 'exalt', 'annul', 'scour', 'divine',
-  'blessed', 'mirror', 'vaal', 'fracture', 'ember',
+  'blessed', 'mirror', 'vaal', 'fracture', 'ember', 'wisp', 'essence',
 ] as const;
 export type CraftOp = (typeof CRAFT_OPS)[number];
 

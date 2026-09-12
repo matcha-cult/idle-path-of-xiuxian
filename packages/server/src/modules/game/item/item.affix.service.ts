@@ -289,6 +289,28 @@ export class ItemAffixService {
     });
   }
 
+  /** P3 炼器复用：按底材 T 阶窗口查询某极性全池（权重含 tier 过滤/is_fractured 排除） */
+  async queryRollPoolFor(base: BaseRow, polarity: 'prefix' | 'suffix'): Promise<AffixRow[]> {
+    const tierMin = Math.max(1, base.tier - AFFIX_TIER_WINDOW);
+    return this.queryPool(base.id, polarity, tierMin, base.tier);
+  }
+
+  /** P3 炼器复用：从给定行集加权不放回抽 k 条（同族唯一） */
+  samplePoolRows(rows: AffixRow[], k: number): AffixRow[] {
+    return this.sampleAffixes(rows, k);
+  }
+
+  /** P3 炼器复用：从给定行集权重抽 1 条并 roll 为条目 */
+  rollOneFromRows(rows: AffixRow[]): AffixEntry | null {
+    if (rows.length === 0) return null;
+    return this.rollEntry(this.weightedPick(rows));
+  }
+
+  /** P3 炼器复用：把指定行 roll 为条目 */
+  rollRow(row: AffixRow): AffixEntry {
+    return this.rollEntry(row);
+  }
+
   /**
    * P3 炼器复用：词条数分配（灵品 前≤1 后≤1 / 宝品 前≤3 后≤3）。
    */
