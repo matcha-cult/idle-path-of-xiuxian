@@ -58,7 +58,7 @@ pnpm --filter idle-path-server e2e:all
 pnpm --filter idle-path-server e2e:journey
 ```
 
-WS 参考客户端实现见 `scripts/sdk/ws-client.ts`（串行队列 + 应用层心跳 + 自动重连重新取 token），
+WS 参考客户端实现见 `scripts/sdk/ws-client.ts`（**`reqId` 配对 + 并发在途请求** + 应用层心跳 + 自动重连重新取 token），
 前端可直接复用该实现接入 `/ws`。
 
 ## 逻辑服目录结构

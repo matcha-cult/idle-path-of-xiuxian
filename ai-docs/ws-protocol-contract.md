@@ -21,9 +21,10 @@ HTTP 基础能力（`/api/auth/*`、`/api/character/*`、`/api/health`）与 WS 
 {
   "cmd": 30,              // 必填：逻辑服段号
   "subCmd": 1,            // 必填：段内路由号
-  "data": {               // 可选：业务参数（对象；v1 鉴权令牌也在此）
-    "__token": "<jwt>"    // 受保护 Action 必填
-  }
+  "data": {               // 可选：业务参数（对象；鉴权令牌默认也在此）
+    "__token": "<jwt>"    // 受保护 Action 必填（启用握手鉴权后无需再传）
+  },
+  "reqId": "c1-ab12cd"    // 可选：请求配对 id；服务端原样回显
 }
 ```
 
@@ -33,11 +34,14 @@ HTTP 基础能力（`/api/auth/*`、`/api/character/*`、`/api/health`）与 WS 
 {
   "data": { ... },        // 成功：Action 返回值
   "errorCode": 404,       // 失败：错误码（成功时省略）
-  "errorMessage": "..."   // 失败：错误信息
+  "errorMessage": "...",  // 失败：错误信息
+  "reqId": "c1-ab12cd",   // 回显请求 reqId（请求未带则不出现）
+  "kind": "response"      // 'response' | 'notification'（仅新协议路径出现）
 }
 ```
 
-> **无 cmd 回显、无 requestId**（框架现状，见加固清单 P0-1）。v1 由客户端「串行队列 + 单飞」保证请求-响应配对；并行配对能力列入 M6。
+> **已支持 `reqId` 配对与 `kind` 判别**（框架 `d9a3beb`）：客户端可并发发起请求并按 `reqId` 精确配对；
+> 主动推送用 `kind: 'notification'` 与响应区分。**不带 `reqId` 的旧请求，其响应逐字节不变**（既无 `reqId` 也无 `kind`）。
 
 ## 4. 鉴权
 
@@ -102,20 +106,23 @@ HTTP 基础能力（`/api/auth/*`、`/api/character/*`、`/api/health`）与 WS 
 | `GET /api/game/story/*`、`POST story/seen` | (120,1~3) story.* |
 | `GET /api/game/idle/status`、`POST idle/settle` | (130,1~2) idle.* |
 
-## 8. 客户端接入建议（v1）
+## 8. 客户端接入建议（v1.1）
 
-1. 登录拿到 JWT 后建立 `/ws` 连接；
-2. 所有受保护请求把令牌放进 `data.__token`；
-3. **串行队列**：一次只发一个请求，收到响应再发下一个（因无 requestId）；
-4. 应用层心跳：定期发 `(1,1) system.ping`；
+1. 登录拿到 JWT 后建立 `/ws` 连接（可带 `Authorization` 头走握手鉴权，见 §4）；
+2. 受保护请求把令牌放进 `data.__token`（未启用握手鉴权时）；
+3. **按 `reqId` 配对**：客户端为每个请求生成 `reqId`，服务端回显后精确配对；**支持并发在途请求**（不再需要串行队列）；
+   - 收到 `kind === 'notification'` → 视为服务端推送，**不要**当作响应；
+   - 响应未带 `reqId`（旧服务）→ 按「最早在途请求」回退配对；
+4. 应用层心跳：定期发 `(1,1) system.ping`（同样走 `reqId` 配对）；
 5. 收到 `errorCode` 视为通道级错误，收到 `data.success === false` 视为业务级错误。
 
-## 9. 已知限制（当前由 Track A 规避；框架侧 M6 可消除）
+## 9. 框架能力现状（M6 已完成，submodule = `d9a3beb`）
 
-> 决策 D4：`vendor/ionet-ts` **可以修改，但不能从本工作区直接改**。以下限制先在 `packages/server` 规避，
-> 对应的框架侧改造在**框架仓库**实施（M6），经版本升级后本工作区可切换。
+- ✅ **`reqId` 配对 + `kind` 判别**（框架 `6a31847`）→ 客户端可并发，推送与响应可区分；
+- ✅ **headers/traceId 透传 + 可选握手鉴权**（框架 `d8a4f71`）→ 可不再把令牌放进 `data`；
+- ✅ **连接注册表 + `sendTo` 定向推送**（框架 `6dae720`）→ 对外服可定向推送；
+- ✅ **`ActionFactoryBeanForNest`**（框架 `d9a3beb`）→ Action 可走 NestJS DI（可去桥接模块）；
+- ✅ **`NODE_ENV=production` 守卫可配置**（框架 `d57cada`，本服务接 `IONET_ALLOW_PRODUCTION`）。
 
-- 无 `requestId` / cmd 回显 → 当前**客户端必须串行队列**（一次一个在途请求）；框架侧 M6 补 reqId 后支持并行配对；
-- 无握手鉴权、headers 被丢弃 → 当前令牌走 `data.__token`（`WsAuthInOut` 校验并剥离）；框架侧 M6 支持标准握手鉴权；
-- `sendTo(userId)` 依赖未赋值的 `ClientConnection.userId` → 当前**定向推送不可用，对外能力仅「广播」**；框架侧 M6 补连接注册表后启用；
-- `extension-nestjs` 在 `NODE_ENV=production` 时直接抛错 → 当前生产部署**不得设该变量**（用 `staging` 等编排变量）；框架侧 M6 使守卫可配置。
+> 说明：以上框架能力在 `d9a3beb` 已可用并独立复核通过（框架构建 + 测试 + 本服务回归全绿）。
+> 消费侧"SDK 去串行队列（已完成）/ 鉴权迁握手 / 删除桥接模块"由本工作区按需接入。

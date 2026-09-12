@@ -12,8 +12,6 @@ function makeClient(overrides: Record<string, unknown> = {}): WarWsClient {
     WebSocketImpl: FakeWebSocket,
     heartbeatMs: 0,
     requestTimeoutMs: 100,
-    // 默认把自动重连延迟设得很大：用例只依赖「显式调用触发重连」，避免定时器与调用竞态。
-    // 需要验证自动重连的用例会显式覆盖成很小的延迟。
     reconnectBaseDelayMs: 60_000,
     reconnectMaxDelayMs: 60_000,
     ...overrides,
@@ -27,8 +25,8 @@ async function connected(client: WarWsClient): Promise<void> {
   await promise;
 }
 
-describe('WarWsClient 连接与信封 边界', () => {
-  test('open 前 connected=false，open 后 true', async () => {
+describe('SDK 连接与请求信封', () => {
+  test('open 前后 connected 状态', async () => {
     const client = makeClient();
     const promise = client.connect();
     await tick();
@@ -39,15 +37,18 @@ describe('WarWsClient 连接与信封 边界', () => {
     client.close();
   });
 
-  test('请求信封为 { cmd, subCmd, data }，并注入 __token', async () => {
+  test('信封含 reqId，且注入 __token', async () => {
     const client = makeClient({ getToken: () => 'tk' });
     await connected(client);
     const promise = client.call(30, 1, { page: 2 });
     await tick();
     const req = FakeWebSocket.latest.lastRequest();
-    assert.deepEqual(req, { cmd: 30, subCmd: 1, data: { page: 2, __token: 'tk' } });
-    FakeWebSocket.latest.emitMessage({ data: { success: true } });
-    assert.deepEqual(await promise, { data: { success: true } });
+    assert.equal(req.cmd, 30);
+    assert.equal(req.subCmd, 1);
+    assert.deepEqual(req.data, { page: 2, __token: 'tk' });
+    assert.equal(typeof req.reqId, 'string');
+    FakeWebSocket.latest.emitMessage({ reqId: req.reqId, kind: 'response', data: { success: true } });
+    assert.deepEqual((await promise).data, { success: true });
     client.close();
   });
 
@@ -57,71 +58,137 @@ describe('WarWsClient 连接与信封 边界', () => {
     const promise = client.call(1, 1, {});
     await tick();
     assert.equal('__token' in FakeWebSocket.latest.lastRequest().data, false);
-    FakeWebSocket.latest.emitMessage({ data: {} });
+    const id = FakeWebSocket.latest.lastRequest().reqId;
+    FakeWebSocket.latest.emitMessage({ reqId: id, data: {} });
     await promise;
     client.close();
   });
 
-  test('每次请求都重新取 token（重连后可用新 token）', async () => {
+  test('每次请求重新取 token（重连后可用新 token）', async () => {
     let token = 't1';
     const client = makeClient({ getToken: () => token });
     await connected(client);
     const p1 = client.call(30, 1, {});
     await tick();
     assert.equal(FakeWebSocket.latest.lastRequest().data.__token, 't1');
-    FakeWebSocket.latest.emitMessage({ data: {} });
+    FakeWebSocket.latest.emitMessage({ reqId: FakeWebSocket.latest.lastRequest().reqId, data: {} });
     await p1;
     token = 't2';
     const p2 = client.call(30, 1, {});
     await tick();
     assert.equal(FakeWebSocket.latest.lastRequest().data.__token, 't2');
-    FakeWebSocket.latest.emitMessage({ data: {} });
+    FakeWebSocket.latest.emitMessage({ reqId: FakeWebSocket.latest.lastRequest().reqId, data: {} });
     await p2;
     client.close();
   });
 });
 
-describe('WarWsClient 串行队列 边界', () => {
-  test('前一个未响应时，后一个不发出（串行）', async () => {
+describe('SDK 并发与 reqId 配对', () => {
+  test('并发：多个请求同时发出，不需要串行等待', async () => {
     const client = makeClient();
     await connected(client);
     const p1 = client.call(30, 1, { n: 1 });
-    await tick();
     const p2 = client.call(30, 2, { n: 2 });
+    const p3 = client.call(30, 3, { n: 3 });
     await tick();
-    assert.equal(FakeWebSocket.latest.sent.length, 1, '第二个请求必须排队');
+    assert.equal(FakeWebSocket.latest.sent.length, 3, '三个请求应同时发出');
+    assert.equal(client.inFlight, 3);
+    const ids = FakeWebSocket.latest.requests().map((r) => r.reqId);
+    assert.equal(new Set(ids).size, 3, 'reqId 必须互不相同');
+    client.close();
+    await Promise.allSettled([p1, p2, p3]);
+  });
 
-    FakeWebSocket.latest.emitMessage({ data: { n: 1 } });
-    assert.deepEqual(await p1, { data: { n: 1 } });
+  test('乱序响应按 reqId 精确配对', async () => {
+    const client = makeClient();
+    await connected(client);
+    const p1 = client.call(30, 1, {});
+    const p2 = client.call(30, 2, {});
     await tick();
-    assert.equal(FakeWebSocket.latest.sent.length, 2, '第一个响应后才发第二个');
-    assert.equal(FakeWebSocket.latest.lastRequest().subCmd, 2);
-
-    FakeWebSocket.latest.emitMessage({ data: { n: 2 } });
-    assert.deepEqual(await p2, { data: { n: 2 } });
+    const [r1, r2] = FakeWebSocket.latest.requests();
+    // 先回第二个，再回第一个
+    FakeWebSocket.latest.emitMessage({ reqId: r2.reqId, data: 'second' });
+    FakeWebSocket.latest.emitMessage({ reqId: r1.reqId, data: 'first' });
+    assert.equal((await p1).data, 'first');
+    assert.equal((await p2).data, 'second');
+    assert.equal(client.inFlight, 0);
     client.close();
   });
 
-  test('乱序响应也按顺序配对（无 requestId 的既有约束）', async () => {
+  test('显式指定 reqId', async () => {
+    const client = makeClient();
+    await connected(client);
+    const p = client.call(30, 1, {}, 'my-req-1');
+    await tick();
+    assert.equal(FakeWebSocket.latest.lastRequest().reqId, 'my-req-1');
+    FakeWebSocket.latest.emitMessage({ reqId: 'my-req-1', data: 'ok' });
+    assert.equal((await p).data, 'ok');
+    client.close();
+  });
+
+  test('旧服务无 reqId 回显 -> 回退配对最早在途请求', async () => {
     const client = makeClient();
     await connected(client);
     const p1 = client.call(30, 1, {});
     await tick();
     const p2 = client.call(30, 2, {});
-    FakeWebSocket.latest.emitMessage({ data: 'first' });
     await tick();
-    FakeWebSocket.latest.emitMessage({ data: 'second' });
-    assert.deepEqual(await p1, { data: 'first' });
-    assert.deepEqual(await p2, { data: 'second' });
+    // 响应不带 reqId：应结算最早的那个
+    FakeWebSocket.latest.emitMessage({ data: 'legacy-1' });
+    assert.equal((await p1).data, 'legacy-1');
+    assert.equal(client.inFlight, 1);
+    FakeWebSocket.latest.emitMessage({ data: 'legacy-2' });
+    assert.equal((await p2).data, 'legacy-2');
+    assert.equal(client.inFlight, 0);
     client.close();
   });
 });
 
-describe('WarWsClient 超时与重连 边界', () => {
-  test('请求超时 -> reject', async () => {
+describe('SDK 通知与错误分流', () => {
+  test('kind=notification 走 onNotification（即使有在途请求）', async () => {
+    const notifications: unknown[] = [];
+    const client = makeClient({ onNotification: (m: unknown) => notifications.push(m) });
+    await connected(client);
+    const p = client.call(30, 1, {});
+    await tick();
+    FakeWebSocket.latest.emitMessage({ kind: 'notification', cmd: 100, subCmd: 1, data: { push: true } });
+    assert.equal(notifications.length, 1);
+    assert.equal(client.inFlight, 1, '推送不得吃掉在途请求');
+    const id = FakeWebSocket.latest.lastRequest().reqId;
+    FakeWebSocket.latest.emitMessage({ reqId: id, data: 'resp' });
+    assert.equal((await p).data, 'resp');
+    client.close();
+  });
+
+  test('无在途请求时，未知消息走 onNotification', async () => {
+    const notifications: unknown[] = [];
+    const client = makeClient({ onNotification: (m: unknown) => notifications.push(m) });
+    await connected(client);
+    FakeWebSocket.latest.emitMessage({ data: { push: 1 } });
+    assert.equal(notifications.length, 1);
+    client.close();
+  });
+
+  test('非法 JSON 不抛错', async () => {
+    const client = makeClient();
+    await connected(client);
+    assert.doesNotThrow(() => FakeWebSocket.latest.emitMessage('{not json'));
+    client.close();
+  });
+});
+
+describe('SDK 超时、断线、重连', () => {
+  test('单请求超时不影响其它在途请求', async () => {
     const client = makeClient({ requestTimeoutMs: 30 });
     await connected(client);
-    await assert.rejects(() => client.call(30, 1, {}), /请求超时/);
+    const bad = client.call(30, 1, {});
+    const good = client.call(30, 2, {});
+    await tick();
+    const [a, b] = FakeWebSocket.latest.requests();
+    FakeWebSocket.latest.emitMessage({ reqId: b.reqId, data: 'ok' });
+    assert.equal((await good).data, 'ok');
+    await assert.rejects(() => bad, /请求超时/);
+    assert.equal(client.inFlight, 0);
     client.close();
   });
 
@@ -130,11 +197,9 @@ describe('WarWsClient 超时与重连 边界', () => {
     const client = makeClient({ getToken: () => token });
     await connected(client);
     assert.equal(FakeWebSocket.instances.length, 1);
-
     client.simulateDrop();
     await tick();
     assert.equal(client.connected, false);
-
     token = 'new';
     const promise = client.call(30, 1, {});
     await tick();
@@ -142,9 +207,32 @@ describe('WarWsClient 超时与重连 边界', () => {
     FakeWebSocket.latest.emitOpen();
     await tick();
     assert.equal(FakeWebSocket.latest.lastRequest().data.__token, 'new');
-    FakeWebSocket.latest.emitMessage({ data: { success: true } });
-    assert.deepEqual(await promise, { data: { success: true } });
+    const id = FakeWebSocket.latest.lastRequest().reqId;
+    FakeWebSocket.latest.emitMessage({ reqId: id, data: { success: true } });
+    assert.deepEqual((await promise).data, { success: true });
     client.close();
+  });
+
+  test('断线后未决请求全部 reject', async () => {
+    const client = makeClient();
+    await connected(client);
+    const p = client.call(30, 1, {});
+    await tick();
+    client.simulateDrop();
+    await assert.rejects(() => p, /连接已断开/);
+    client.close();
+  });
+
+  test('主动 close 后不再重连且未决请求被拒', async () => {
+    const client = makeClient();
+    await connected(client);
+    const p = client.call(30, 1, {});
+    await tick();
+    client.close();
+    await assert.rejects(() => p, /客户端已关闭/);
+    assert.equal(client.connected, false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(FakeWebSocket.instances.length, 1, 'close() 后不得新建连接');
   });
 
   test('自动重连定时器：掉线后无需调用也会重建连接', async () => {
@@ -156,29 +244,20 @@ describe('WarWsClient 超时与重连 边界', () => {
     assert.ok(FakeWebSocket.instances.length >= 2, '掉线后应自动新建连接');
     client.close();
   });
+});
 
-  test('主动 close 后不再重连', async () => {
-    const client = makeClient();
+describe('SDK 握手鉴权头（任务 3 预留）', () => {
+  test('提供 getAuthHeaders 时，构造 WebSocket 带 headers', async () => {
+    const client = makeClient({ getAuthHeaders: () => ({ Authorization: 'Bearer abc' }) });
     await connected(client);
-    client.close();
-    assert.equal(client.connected, false);
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    assert.equal(FakeWebSocket.instances.length, 1, 'close() 后不得新建连接');
-  });
-
-  test('无在途请求时的消息走 onNotification', async () => {
-    const notifications: unknown[] = [];
-    const client = makeClient({ onNotification: (m: unknown) => notifications.push(m) });
-    await connected(client);
-    FakeWebSocket.latest.emitMessage({ cmd: 1, subCmd: 1, data: { push: true } });
-    assert.equal(notifications.length, 1);
+    assert.deepEqual(FakeWebSocket.latest.options, { headers: { Authorization: 'Bearer abc' } });
     client.close();
   });
 
-  test('非法 JSON 消息不抛错', async () => {
+  test('未提供 getAuthHeaders 时，不传第二个参数', async () => {
     const client = makeClient();
     await connected(client);
-    assert.doesNotThrow(() => FakeWebSocket.latest.emitMessage('{not json'));
+    assert.equal(FakeWebSocket.latest.options, undefined);
     client.close();
   });
 });

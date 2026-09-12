@@ -11,7 +11,10 @@ export class FakeWebSocket {
   closed = false;
   private readonly handlers = new Map<string, WsHandler[]>();
 
-  constructor(readonly url: string) {
+  constructor(
+    readonly url: string,
+    readonly options?: { headers?: Record<string, string> },
+  ) {
     FakeWebSocket.instances.push(this);
   }
 
@@ -57,10 +60,15 @@ export class FakeWebSocket {
   }
 
   /** 解析最后一次发出的请求 */
-  lastRequest(): { cmd: number; subCmd: number; data: Record<string, unknown> } {
+  lastRequest(): { cmd: number; subCmd: number; data: Record<string, unknown>; reqId?: string } {
     const raw = this.sent[this.sent.length - 1];
     if (raw == null) throw new Error('没有已发送的请求');
-    return JSON.parse(raw) as { cmd: number; subCmd: number; data: Record<string, unknown> };
+    return JSON.parse(raw) as { cmd: number; subCmd: number; data: Record<string, unknown>; reqId?: string };
+  }
+
+  /** 解析全部已发送请求（并发断言用） */
+  requests(): Array<{ cmd: number; subCmd: number; data: Record<string, unknown>; reqId?: string }> {
+    return this.sent.map((raw) => JSON.parse(raw) as { cmd: number; subCmd: number; data: Record<string, unknown>; reqId?: string });
   }
 
   private emit(type: string, ev: unknown): void {
