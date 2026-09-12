@@ -10,7 +10,7 @@ import { RateLimiterService } from '../../../common/services/rate-limiter.servic
 import { CharacterService } from '../../character/character.service.js';
 import { DatabaseService } from '../../database/database.service.js';
 import { GameDatabaseService } from '../game-database.service.js';
-import { EFFECT_LABELS, PERCENT_KEYS } from '../item/item.types.js';
+import { EFFECT_LABELS, PERCENT_KEYS } from '../../../common/kernel/effect.js';
 import {
   PANEL_LIMITS,
   type FailResult,

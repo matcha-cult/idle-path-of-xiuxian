@@ -5,7 +5,7 @@
 ## 技术栈
 
 - NestJS（HTTP API 全部 NestJS 风格）
-- ionet-ts（官方示例集成，仅注册 HealthAction，不启用 ionet-ts HTTP/WS 外部服务）
+- ionet-ts（外部服 attach 到 NestJS 同一 http.Server 的 `/ws`；Action 经 NestJS DI 桥接注册）
 - PostgreSQL（用户系统 + Game 游戏系统共用统一库，连接串见 .env 的 DATABASE_URL）
 - Redis（健康检测探测用，REDIS_URL）
 
@@ -25,12 +25,22 @@ pnpm --filter idle-path-server db:init
 # 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
 pnpm --filter idle-path-server db:init:game
 
-# 开发
+# 开发（tsc --watch 产出 dist + node --watch 运行 dist）
+# 注意：不要用 tsx 直接跑 src——esbuild 不产出装饰器元数据，NestJS 按类型注入会全部失效
 pnpm --filter idle-path-server dev
 
 # 构建 / 类型检查
 pnpm --filter idle-path-server build
 pnpm --filter idle-path-server typecheck
+
+# 逻辑服依赖 / 环检查（DAG 门禁）
+pnpm --filter idle-path-server check:deps
+
+# 一键校验（typecheck + 依赖检查）
+pnpm --filter idle-path-server verify
+
+# WS 冒烟（需先启动服务；默认连 ws://127.0.0.1:${PORT:-3000}/ws）
+pnpm --filter idle-path-server smoke:ws
 ```
 
 ## 配置文件（config/app.config.json）
@@ -58,6 +68,10 @@ pnpm --filter idle-path-server typecheck
 | zoneBossExtraDraws | 2 | 秘境 Boss 层额外掉落判定次数（P5.2） |
 
 ## HTTP 接口
+
+> **通道规划**：目标形态是「注册/登录/角色/健康走 HTTP，其余游戏交互走 WS `/ws`」。
+> 下表中的 `/api/game/*` 将在 M3–M4 逐条迁移为 WS Action（映射见 `ai-docs/ws-protocol-contract.md` §7），
+> 迁移完成后 HTTP 仅保留 auth / character / health。当前仍处于过渡期，游戏接口暂走 REST。
 
 | 方法 | 路径 | 说明 | 认证 |
 | --- | --- | --- | --- |
@@ -111,11 +125,14 @@ pnpm --filter idle-path-server typecheck
 
 详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`、`p6-api-contract.md`、`p7-api-contract.md`、`p6.2-p7.2-api-contract.md`。
 
-## WS 入口
+## WS 通道（ionet 外部服）
 
-- 路径：`/ws-user`
-- 由 NestJS 侧预留，仅做连接接入/握手。
-- ionet-ts 侧 WS 接口不调整。
+- 路径：`/ws`，与 HTTP **同端口**（attach 到 NestJS `http.Server`）。
+- 请求：`{ cmd, subCmd, data }`；响应：`{ data?, errorCode?, errorMessage? }`。
+- 鉴权（v1）：受保护 Action 需在 `data.__token` 携带 JWT；白名单见 `src/ionet/cmd.ts` 的 `PUBLIC_ACTION_KEYS`。
+- 路由表：`src/ionet/cmd.ts`（每逻辑服一个 cmd 段）；Action 经 `GameActionBridgeModule` 以 DI 实例注册进 `BarSkeleton`。
+- 对外服：`src/modules/edge` 实现 `NotificationPort`（广播/通知/推送），逻辑服只依赖 `src/common/ports/notification.port.ts`。
+- 完整契约见 `ai-docs/ws-protocol-contract.md`。
 
 ## 参考项目说明
 

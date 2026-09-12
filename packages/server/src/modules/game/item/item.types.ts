@@ -34,38 +34,8 @@ export const ITEM_SLOT_BASE = {
   belt: 'belt',
 } as const;
 
-/** 效果键 → 中文展示名 */
-export const EFFECT_LABELS: Record<string, string> = {
-  atk: '攻击',
-  def: '防御',
-  hp: '生命',
-  hp_pct: '生命加成',
-  skill_damage: '技能伤害',
-  spirit_power: '灵力',
-  atk_speed: '攻速',
-  hp_regen: '生命回复',
-  lingyun_gain: '灵韵获取',
-  spirit_power_pct: '灵力加成',
-  move_speed: '移速',
-  focus: '神识',
-  crit: '暴击',
-  all_stats: '全属性',
-  atk_pct: '攻击加成',
-  atk_speed_pct: '攻速加成',
-  all_stats_pct: '全属性加成',
-  vs_demon_pct: '对魔修增伤',
-};
-
-/** 百分比类效果键 */
-export const PERCENT_KEYS = new Set([
-  'crit',
-  'spirit_power_pct',
-  'hp_pct',
-  'atk_pct',
-  'atk_speed_pct',
-  'all_stats_pct',
-  'vs_demon_pct',
-]);
+/** 效果词表已上提到共享内核（common/kernel/effect.ts），此处再导出保持既有引用 */
+export { EFFECT_LABELS, PERCENT_KEYS } from '../../../common/kernel/effect.js';
 
 /** 词缀极性 */
 export type AffixPolarity = 'prefix' | 'suffix' | 'base';

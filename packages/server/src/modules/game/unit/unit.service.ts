@@ -15,7 +15,7 @@ import { GameDatabaseService } from '../game-database.service.js';
 import { ItemAffixService } from '../item/item.affix.service.js';
 import { StatService } from '../stat/stat.service.js';
 import type { BaseRow, ItemView } from '../item/item.types.js';
-import { realmName } from '../realm/realm.types.js';
+import { realmName } from '../../../common/kernel/realm.js';
 import {
   type DropEntryRow,
   type DropTableRow,

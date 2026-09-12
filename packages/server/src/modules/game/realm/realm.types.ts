@@ -1,16 +1,10 @@
 /**
  * 境界常量（v2 §2.1 十四境；玩家封顶 14）
+ *
+ * REALMS / MAX_REALM / realmName 已上提到共享内核（common/kernel/realm.ts），
+ * 此处再导出保持既有引用；境界服自身与 combat 均从内核读取。
  */
-export const REALMS = [
-  '铜皮', '草根', '柳筋', '骨气', '铸炉', '洞府', '观海',
-  '龙门', '金丹', '元婴', '玉璞', '仙人', '飞升', '合道',
-] as const;
-
-export const MAX_REALM = 14;
-
-export function realmName(realm: number): string {
-  return REALMS[realm - 1] ?? '未知';
-}
+export { REALMS, MAX_REALM, realmName } from '../../../common/kernel/realm.js';
 
 export interface FailResult {
   success: false;

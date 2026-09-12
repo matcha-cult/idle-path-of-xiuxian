@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "node scripts/dev.mjs",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:init": "node scripts/init-db.mjs",
-    "db:init:game": "node scripts/init-game-db.mjs"
+    "db:init:game": "node scripts/init-game-db.mjs",
+    "check:deps": "tsx scripts/check-deps.mts",
+    "verify": "pnpm run typecheck && pnpm run check:deps",
+    "smoke:ws": "tsx scripts/ws-smoke.mts"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",
