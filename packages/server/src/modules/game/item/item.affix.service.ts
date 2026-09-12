@@ -258,6 +258,48 @@ export class ItemAffixService {
     return result.rows;
   }
 
+  /**
+   * P3 炼器复用：按数量 roll 前后缀条目（调用方负责品阶/窗口检查与基底拼接）。
+   */
+  async rollRollableEntries(
+    base: BaseRow,
+    prefixCount: number,
+    suffixCount: number,
+  ): Promise<AffixEntry[]> {
+    const entries: AffixEntry[] = [];
+    await this.rollInto(base, entries, prefixCount, suffixCount);
+    return entries;
+  }
+
+  /**
+   * P3 炼器复用：重 roll 各条目数值（种类与数量不变）。
+   * 基底（key=null）与天定（is_fractured）条目原样保留。
+   */
+  async rerollEntryValues(entries: AffixEntry[]): Promise<AffixEntry[]> {
+    const rollableIds = entries
+      .filter((e) => e.key != null && e.value != null)
+      .map((e) => e.affixId);
+    const rows = await this.findAffixesByIds(rollableIds);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return entries.map((e) => {
+      if (e.key == null) return e;
+      const row = byId.get(e.affixId);
+      if (!row || row.is_fractured) return e;
+      return this.rollEntry(row);
+    });
+  }
+
+  /**
+   * P3 炼器复用：词条数分配（灵品 前≤1 后≤1 / 宝品 前≤3 后≤3）。
+   */
+  allocCountsFor(
+    total: number,
+    maxPrefix: number,
+    maxSuffix: number,
+  ): { prefixCount: number; suffixCount: number } {
+    return this.allocCounts(total, maxPrefix, maxSuffix);
+  }
+
   /** 批量读取词缀定义 */
   async findAffixesByIds(ids: number[]): Promise<AffixRow[]> {
     if (ids.length === 0) return [];

@@ -1,0 +1,93 @@
+[
+  {
+    "id": 1,
+    "code": "chaos",
+    "name": "混沌石",
+    "description": "重roll当前品阶的词条数与词缀（灵品 1~2 / 宝品 3~6）",
+    "implemented": true
+  },
+  {
+    "id": 2,
+    "code": "annul",
+    "name": "剥离石",
+    "description": "随机移除 1 条词缀，品阶不变",
+    "implemented": true
+  },
+  {
+    "id": 3,
+    "code": "scour",
+    "name": "重铸石",
+    "description": "清除全部词缀，还原凡品（唯一降阶途径）",
+    "implemented": true
+  },
+  {
+    "id": 4,
+    "code": "alchemy",
+    "name": "点金石",
+    "description": "凡品 → 宝品（roll 3~6 条词缀）",
+    "implemented": true
+  },
+  {
+    "id": 5,
+    "code": "transmute",
+    "name": "蜕变石",
+    "description": "凡品 → 灵品（roll 1~2 条词缀）",
+    "implemented": true
+  },
+  {
+    "id": 6,
+    "code": "exalt",
+    "name": "崇高石",
+    "description": "新增 1 条词缀；灵品满 2 条再使用即升宝品",
+    "implemented": true
+  },
+  {
+    "id": 7,
+    "code": "divine",
+    "name": "神圣石",
+    "description": "重roll词缀数值（不改词条数与种类）",
+    "implemented": true
+  },
+  {
+    "id": 8,
+    "code": "blessed",
+    "name": "祝福石",
+    "description": "重roll基础属性数值（P3.2 实装）",
+    "implemented": false
+  },
+  {
+    "id": 9,
+    "code": "mirror",
+    "name": "映道镜",
+    "description": "复制一件物品，镜像不可再复制（P3.2 实装）",
+    "implemented": false
+  },
+  {
+    "id": 10,
+    "code": "vaal",
+    "name": "瓦尔宝珠",
+    "description": "危险强化：随机变异，不可逆（P3.2 实装）",
+    "implemented": false
+  },
+  {
+    "id": 11,
+    "code": "fracture",
+    "name": "破溃宝珠",
+    "description": "锁定 1 条词缀为天定铭文（P3.2 实装）",
+    "implemented": false
+  },
+  {
+    "id": 12,
+    "code": "ember",
+    "name": "古灵余烬",
+    "description": "新增/替换基底词缀（P3.2 实装）",
+    "implemented": false
+  },
+  {
+    "id": 13,
+    "code": "wisp",
+    "name": "古灵溶液",
+    "description": "新增/替换基底词缀（P3.2 实装）",
+    "implemented": false
+  }
+]

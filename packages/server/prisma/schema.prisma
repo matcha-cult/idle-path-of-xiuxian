@@ -124,6 +124,29 @@ model game_equipment {
   updated_at   DateTime @updatedAt @db.Timestamp(6)
 }
 
+// ===== 通货定义（P3 第一批：7 种炼器核心实装） =====
+model game_currencies {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  implemented Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+}
+
+// ===== 角色通货钱包 =====
+model game_wallets {
+  id            Int      @id @default(autoincrement())
+  character_id  Int
+  currency_code String   @db.VarChar(20)
+  amount        BigInt   @default(0)
+  updated_at    DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, currency_code])
+  @@index([character_id])
+}
+
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
 model game_pickup_rules {
   id            Int      @id @default(autoincrement())

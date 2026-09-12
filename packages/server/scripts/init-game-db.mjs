@@ -124,6 +124,26 @@ CREATE TABLE IF NOT EXISTS game_skill_panels (
   updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS game_currencies (
+  id          SERIAL PRIMARY KEY,
+  code        VARCHAR(20) NOT NULL UNIQUE,
+  name        VARCHAR(50) NOT NULL,
+  description VARCHAR(255),
+  implemented BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS game_wallets (
+  id            SERIAL PRIMARY KEY,
+  character_id  INTEGER NOT NULL,
+  currency_code VARCHAR(20) NOT NULL,
+  amount        BIGINT NOT NULL DEFAULT 0,
+  updated_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, currency_code)
+);
+CREATE INDEX IF NOT EXISTS idx_game_wallets_character ON game_wallets(character_id);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -152,7 +172,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (9 张表)');
+  console.log('[放置·修仙之路] game tables ok (11 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -217,6 +237,29 @@ try {
     );
   }
   console.log(`[放置·修仙之路] skills: ${skills.length}`);
+
+  // ===== 通货定义（重灌：钱包为玩家数据保留） =====
+  const currencies = await loadJson('currencies.json');
+  await client.query('DELETE FROM game_currencies');
+  for (const c of currencies) {
+    await client.query(
+      `INSERT INTO game_currencies (id, code, name, description, implemented)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+      [c.id, c.code, c.name, c.description ?? null, Boolean(c.implemented)],
+    );
+  }
+  await client.query("SELECT setval('game_currencies_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_currencies));");
+  const orphanWallets = await client.query(
+    `SELECT COUNT(*)::int AS c FROM game_wallets w
+     LEFT JOIN game_currencies cc ON cc.code = w.currency_code WHERE cc.code IS NULL`,
+  );
+  if (Number(orphanWallets.rows[0].c) > 0) {
+    console.warn(
+      `[放置·修仙之路] 警告：${orphanWallets.rows[0].c} 条钱包记录引用未知通货代码`,
+    );
+  }
+  console.log(`[放置·修仙之路] currencies: ${currencies.length}`);
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

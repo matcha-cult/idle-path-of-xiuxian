@@ -68,6 +68,9 @@ pnpm --filter idle-path-server typecheck
 | PUT | /api/game/skill/panel | 装槽/换装（1 主 3 辅 + 5 术法，免费） | JWT |
 | POST | /api/game/skill/enlighten | 参悟升级（消耗灵韵） | JWT |
 | GET | /api/game/breakthrough | 境界状态与下一境消耗 | JWT |
+| GET | /api/game/currencies | 通货图鉴（13 种 + 持有量） | JWT |
+| POST | /api/game/currency/grant | 开发注入通货（生产禁用、限流） | JWT |
+| POST | /api/game/item/craft | 炼器七操作（蜕变/点金/混沌/崇高/剥离/重铸/神圣） | JWT |
 | POST | /api/game/breakthrough | 突破（消耗灵韵必定成功，14 境封顶） | JWT |
 | POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
 | POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
