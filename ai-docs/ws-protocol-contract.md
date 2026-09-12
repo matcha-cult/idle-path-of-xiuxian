@@ -110,13 +110,12 @@ HTTP 基础能力（`/api/auth/*`、`/api/character/*`、`/api/health`）与 WS 
 4. 应用层心跳：定期发 `(1,1) system.ping`；
 5. 收到 `errorCode` 视为通道级错误，收到 `data.success === false` 视为业务级错误。
 
-## 9. 已知限制（受 vendor 硬约束，长期规避）
+## 9. 已知限制（当前由 Track A 规避；框架侧 M6 可消除）
 
-> 决策 D4：**禁止改动 `vendor/ionet-ts`**（牵涉服务端编译/部署流程）。以下限制在 Node 侧无法消除，
-> 以业务侧方案长期规避；原「M6 框架加固」已取消。
+> 决策 D4：`vendor/ionet-ts` **可以修改，但不能从本工作区直接改**。以下限制先在 `packages/server` 规避，
+> 对应的框架侧改造在**框架仓库**实施（M6），经版本升级后本工作区可切换。
 
-- 无 `requestId` / cmd 回显 → **客户端必须串行队列**（一次一个在途请求），不能用并行配对；
-- 无握手鉴权、headers 被丢弃 → **令牌长期走 `data.__token`**（`WsAuthInOut` 校验并剥离）；
-- `sendTo(userId)` 依赖未赋值的 `ClientConnection.userId` → **定向推送不可用，对外能力仅「广播」**；
-- `extension-nestjs` 在 `NODE_ENV=production` 时直接抛错 → **生产部署不得设该变量**（用 `staging` 等编排变量），
-  或按框架设计改走 Java External Server + 独立逻辑服进程。
+- 无 `requestId` / cmd 回显 → 当前**客户端必须串行队列**（一次一个在途请求）；框架侧 M6 补 reqId 后支持并行配对；
+- 无握手鉴权、headers 被丢弃 → 当前令牌走 `data.__token`（`WsAuthInOut` 校验并剥离）；框架侧 M6 支持标准握手鉴权；
+- `sendTo(userId)` 依赖未赋值的 `ClientConnection.userId` → 当前**定向推送不可用，对外能力仅「广播」**；框架侧 M6 补连接注册表后启用；
+- `extension-nestjs` 在 `NODE_ENV=production` 时直接抛错 → 当前生产部署**不得设该变量**（用 `staging` 等编排变量）；框架侧 M6 使守卫可配置。
