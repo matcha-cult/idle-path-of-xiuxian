@@ -311,6 +311,36 @@ CREATE TABLE IF NOT EXISTS game_quest_progress (
 CREATE INDEX IF NOT EXISTS idx_game_quest_progress_character ON game_quest_progress(character_id);
 ALTER TABLE game_quest_progress ADD COLUMN IF NOT EXISTS rewards_granted BOOLEAN NOT NULL DEFAULT FALSE;
 
+CREATE TABLE IF NOT EXISTS game_chapters (
+  id               SERIAL PRIMARY KEY,
+  code             VARCHAR(50) NOT NULL UNIQUE,
+  chapter          SMALLINT NOT NULL,
+  name             VARCHAR(100) NOT NULL,
+  theme            VARCHAR(100),
+  min_realm        SMALLINT NOT NULL,
+  zone_code        VARCHAR(50) NOT NULL,
+  quest_start_code VARCHAR(50) NOT NULL,
+  quest_end_code   VARCHAR(50) NOT NULL,
+  requires_chapter VARCHAR(50),
+  rewards          TEXT NOT NULL,
+  dialogues        TEXT,
+  order_index      INTEGER NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_chapters_order ON game_chapters(order_index);
+
+CREATE TABLE IF NOT EXISTS game_chapter_progress (
+  id              SERIAL PRIMARY KEY,
+  character_id    INTEGER NOT NULL,
+  chapter_id      INTEGER NOT NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'active',
+  rewards_granted BOOLEAN NOT NULL DEFAULT FALSE,
+  completed_at    TIMESTAMP(6),
+  UNIQUE (character_id, chapter_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_chapter_progress_character ON game_chapter_progress(character_id);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -339,7 +369,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (24 张表)');
+  console.log('[放置·修仙之路] game tables ok (26 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -586,6 +616,37 @@ try {
     console.warn('[放置·修仙之路] 警告：' + orphanQuestProgress.rows[0].c + ' 条任务进度引用不存在的任务');
   }
   console.log('[放置·修仙之路] quest defs: ' + questDefs.length + (badQuestRefs > 0 ? ' / 引用告警 ' + badQuestRefs : ''));
+
+  // ===== P7 章节定义（重灌：章节进度为玩家数据，保留） =====
+  const chapterDefs = await loadJson('chapters.json');
+  await client.query('DELETE FROM game_chapters');
+  for (const c of chapterDefs) {
+    await client.query(
+      'INSERT INTO game_chapters (id, code, chapter, name, theme, min_realm, zone_code, quest_start_code, quest_end_code, requires_chapter, rewards, dialogues, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [c.id, c.code, c.chapter, c.name, c.theme ?? null, c.minRealm, c.zoneCode, c.questStartCode, c.questEndCode, c.requiresChapter ?? null, jstr(c.rewards ?? {}), jstr(c.dialogues ?? null), c.orderIndex ?? 0],
+    );
+  }
+  await client.query("SELECT setval('game_chapters_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_chapters));");
+  const chapterCodes = new Set(chapterDefs.map((c) => c.code));
+  const questCodeSet = new Set(questDefs.map((q) => q.code));
+  let badChapterRefs = 0;
+  for (const c of chapterDefs) {
+    if (c.requiresChapter && !chapterCodes.has(c.requiresChapter)) {
+      console.warn('[放置·修仙之路] 警告：章节 ' + c.code + ' 前置引用未知章节 ' + c.requiresChapter);
+      badChapterRefs++;
+    }
+    if (!questCodeSet.has(c.questStartCode) || !questCodeSet.has(c.questEndCode)) {
+      console.warn('[放置·修仙之路] 警告：章节 ' + c.code + ' 引用未知任务');
+      badChapterRefs++;
+    }
+  }
+  const orphanChapterProgress = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_chapter_progress p LEFT JOIN game_chapters c ON c.id = p.chapter_id WHERE c.id IS NULL',
+  );
+  if (Number(orphanChapterProgress.rows[0].c) > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanChapterProgress.rows[0].c + ' 条章节进度引用不存在的章节');
+  }
+  console.log('[放置·修仙之路] chapters: ' + chapterDefs.length + (badChapterRefs > 0 ? ' / 引用告警 ' + badChapterRefs : ''));
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

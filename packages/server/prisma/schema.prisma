@@ -266,6 +266,41 @@ model game_quest_progress {
   @@index([character_id])
 }
 
+
+// ===== P7 章节定义 =====
+model game_chapters {
+  id                Int      @id @default(autoincrement())
+  code              String   @unique @db.VarChar(50)
+  chapter           Int      @db.SmallInt
+  name              String   @db.VarChar(100)
+  theme             String?  @db.VarChar(100)
+  min_realm         Int      @db.SmallInt
+  zone_code         String   @db.VarChar(50)
+  quest_start_code  String   @db.VarChar(50)
+  quest_end_code    String   @db.VarChar(50)
+  requires_chapter  String?  @db.VarChar(50)
+  rewards           String   @db.Text
+  dialogues         String?  @db.Text
+  order_index       Int      @default(0)
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  updated_at        DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([order_index])
+}
+
+// ===== P7 角色章节进度 =====
+model game_chapter_progress {
+  id              Int       @id @default(autoincrement())
+  character_id    Int
+  chapter_id      Int
+  status          String    @default("active") @db.VarChar(20)
+  rewards_granted Boolean   @default(false)
+  completed_at    DateTime? @db.Timestamp(6)
+
+  @@unique([character_id, chapter_id])
+  @@index([character_id])
+}
+
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
 model game_pickup_rules {
   id            Int      @id @default(autoincrement())

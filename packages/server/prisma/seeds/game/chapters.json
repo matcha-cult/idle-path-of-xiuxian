@@ -1,0 +1,114 @@
+[
+  {
+    "id": 1,
+    "code": "chapter_1",
+    "chapter": 1,
+    "name": "初入仙途",
+    "theme": "初入仙途",
+    "minRealm": 1,
+    "zoneCode": "zone_qingyun",
+    "questStartCode": "q_ch1_1",
+    "questEndCode": "q_ch1_3",
+    "requiresChapter": null,
+    "orderIndex": 1,
+    "rewards": {
+      "lingyun": 500,
+      "spiritStones": 1000
+    },
+    "dialogues": {
+      "intro": "凡尘如海，仙途初启。你自青云山脚起步。",
+      "outro": "根基已立，可下山历练。"
+    }
+  },
+  {
+    "id": 2,
+    "code": "chapter_2",
+    "chapter": 2,
+    "name": "下山历练",
+    "theme": "下山历练",
+    "minRealm": 3,
+    "zoneCode": "zone_miwu",
+    "questStartCode": "q_ch2_1",
+    "questEndCode": "q_ch2_3",
+    "requiresChapter": "chapter_1",
+    "orderIndex": 2,
+    "rewards": {
+      "lingyun": 1000,
+      "jadeSlips": 1
+    },
+    "dialogues": {
+      "intro": "迷雾秘境横亘前路，唯有历练可破。",
+      "outro": "你已小有所成，可探更深的秘境。"
+    }
+  },
+  {
+    "id": 3,
+    "code": "chapter_3",
+    "chapter": 3,
+    "name": "秘境夺宝",
+    "theme": "秘境夺宝",
+    "minRealm": 6,
+    "zoneCode": "zone_guhai",
+    "questStartCode": "q_ch3_1",
+    "questEndCode": "q_ch3_2",
+    "requiresChapter": "chapter_2",
+    "orderIndex": 3,
+    "rewards": {
+      "lingyun": 2000,
+      "currencies": {
+        "chaos": 2
+      }
+    },
+    "dialogues": {
+      "intro": "古海遗迹沉眠海底，宝物与凶险并存。",
+      "outro": "秘境夺宝，你已窥得门径。"
+    }
+  },
+  {
+    "id": 4,
+    "code": "chapter_4",
+    "chapter": 4,
+    "name": "大劫将临",
+    "theme": "大劫将临",
+    "minRealm": 9,
+    "zoneCode": "zone_dajie",
+    "questStartCode": "q_ch4_1",
+    "questEndCode": "q_ch4_2",
+    "requiresChapter": "chapter_3",
+    "orderIndex": 4,
+    "rewards": {
+      "lingyun": 3000,
+      "jadeSlips": 2
+    },
+    "dialogues": {
+      "intro": "天象有异，大劫将至，无人可避。",
+      "outro": "身经百战，你已堪当大任。"
+    }
+  },
+  {
+    "id": 5,
+    "code": "chapter_5",
+    "chapter": 5,
+    "name": "飞升前夜",
+    "theme": "飞升前夜",
+    "minRealm": 12,
+    "zoneCode": "zone_hundun",
+    "questStartCode": "q_ch5_1",
+    "questEndCode": "q_ch5_2",
+    "requiresChapter": "chapter_4",
+    "orderIndex": 5,
+    "rewards": {
+      "lingyun": 6000,
+      "currencies": {
+        "divine": 1
+      },
+      "essences": {
+        "ess_lingyun": 1
+      }
+    },
+    "dialogues": {
+      "intro": "飞升在即，混沌尽头即是大道。",
+      "outro": "身合大道，此界再无束缚。"
+    }
+  }
+]

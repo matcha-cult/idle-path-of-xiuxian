@@ -74,3 +74,30 @@ export interface QuestContext {
 }
 
 export const QUEST_STATUSES = ['locked', 'active', 'completed'] as const;
+
+// ===== P7 章节 =====
+
+export interface ChapterRow {
+  id: number;
+  code: string;
+  chapter: number;
+  name: string;
+  theme: string | null;
+  min_realm: number;
+  zone_code: string;
+  quest_start_code: string;
+  quest_end_code: string;
+  requires_chapter: string | null;
+  rewards: string;
+  dialogues: string | null;
+  order_index: number;
+}
+
+export interface ChapterProgressRow {
+  id: number;
+  character_id: number;
+  chapter_id: number;
+  status: string;
+  rewards_granted: boolean;
+  completed_at: Date | string | null;
+}

@@ -205,6 +205,35 @@ export class QuestService {
     };
   }
 
+  /** 供章节模块复用的奖励发放（单次 bundle） */
+  async grantRewardBundle(characterId: number, rewards: QuestRewards): Promise<void> {
+    await this.applyBundle(characterId, rewards);
+  }
+
+  private async applyBundle(characterId: number, rewards: QuestRewards): Promise<void> {
+    const lingyun = rewards.lingyun ?? 0;
+    const spiritStones = rewards.spiritStones ?? 0;
+    const jadeSlips = rewards.jadeSlips ?? 0;
+    if (lingyun > 0 || spiritStones > 0 || jadeSlips > 0) {
+      await this.userDb.query(
+        'UPDATE characters SET lingyun = lingyun + $1, spirit_stones = spirit_stones + $2, jade_slips = jade_slips + $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+        [lingyun, spiritStones, jadeSlips, characterId],
+      );
+    }
+    for (const [code, amount] of Object.entries(rewards.currencies ?? {})) {
+      await this.gameDb.query(
+        'INSERT INTO game_wallets (character_id, currency_code, amount) VALUES ($1, $2, $3) ON CONFLICT (character_id, currency_code) DO UPDATE SET amount = game_wallets.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP',
+        [characterId, code, Number(amount)],
+      );
+    }
+    for (const [code, amount] of Object.entries(rewards.essences ?? {})) {
+      await this.gameDb.query(
+        'INSERT INTO game_essence_inventory (character_id, essence_id, count) SELECT $1, id, $3 FROM game_essences WHERE code = $2 ON CONFLICT (character_id, essence_id) DO UPDATE SET count = game_essence_inventory.count + EXCLUDED.count, updated_at = CURRENT_TIMESTAMP',
+        [characterId, code, Number(amount)],
+      );
+    }
+  }
+
   async sync(userId: number): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
@@ -259,24 +288,13 @@ export class QuestService {
     }
 
     if (pendingIds.length > 0) {
-      if (lingyun > 0 || spiritStones > 0 || jadeSlips > 0) {
-        await this.userDb.query(
-          'UPDATE characters SET lingyun = lingyun + $1, spirit_stones = spirit_stones + $2, jade_slips = jade_slips + $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
-          [lingyun, spiritStones, jadeSlips, character.id],
-        );
-      }
-      for (const [code, amount] of currencies) {
-        await this.gameDb.query(
-          'INSERT INTO game_wallets (character_id, currency_code, amount) VALUES ($1, $2, $3) ON CONFLICT (character_id, currency_code) DO UPDATE SET amount = game_wallets.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP',
-          [character.id, code, amount],
-        );
-      }
-      for (const [code, amount] of essences) {
-        await this.gameDb.query(
-          'INSERT INTO game_essence_inventory (character_id, essence_id, count) SELECT $1, id, $3 FROM game_essences WHERE code = $2 ON CONFLICT (character_id, essence_id) DO UPDATE SET count = game_essence_inventory.count + EXCLUDED.count, updated_at = CURRENT_TIMESTAMP',
-          [character.id, code, amount],
-        );
-      }
+      await this.applyBundle(character.id, {
+        lingyun,
+        spiritStones,
+        jadeSlips,
+        currencies: Object.fromEntries(currencies),
+        essences: Object.fromEntries(essences),
+      });
       await this.gameDb.query(
         'UPDATE game_quest_progress SET rewards_granted = TRUE WHERE id = ANY($1::int[])',
         [pendingIds],
