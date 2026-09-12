@@ -50,5 +50,9 @@
   "lootFallbackAction": "salvage",
   "lootSalvageLingyunPerTier": 2,
   "lootSellSpiritStonesPerTier": 10,
-  "maxKillsPerRequest": 50
+  "maxKillsPerRequest": 50,
+  "idleRoundsPerHour": 60,
+  "idleEfficiencyPct": 60,
+  "idleMaxOfflineHours": 12,
+  "idleDailyItemCap": 200
 }

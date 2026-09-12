@@ -21,7 +21,7 @@ cp .env.example .env
 # 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
 
-# 初始化 Game 系统表与种子（18 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、拾取规则）
+# 初始化 Game 系统表与种子（19 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、离线计数、拾取规则）
 # 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
 pnpm --filter idle-path-server db:init:game
 
@@ -50,6 +50,10 @@ pnpm --filter idle-path-server typecheck
 | lootSalvageLingyunPerTier | 2 | 分解返还灵韵 = tier × perTier × (rarity+1)（P4） |
 | lootSellSpiritStonesPerTier | 10 | 出售返还灵石 = tier × perTier × (rarity+1)（P4） |
 | maxKillsPerRequest | 50 | 单次击杀结算的最大击杀数（P4） |
+| idleRoundsPerHour | 60 | 离线收益每小时结算轮数（P4.2） |
+| idleEfficiencyPct | 60 | 离线收益效率百分比（设计 §9.2）（P4.2） |
+| idleMaxOfflineHours | 12 | 可累计离线上限小时（设计 §9.2）（P4.2） |
+| idleDailyItemCap | 200 | 每日物品产出上限件数（设计 §9.2）（P4.2） |
 
 ## HTTP 接口
 
@@ -86,9 +90,11 @@ pnpm --filter idle-path-server typecheck
 | GET | /api/game/drop-tables | 掉落表图鉴（9 表 / 126 条目） | JWT |
 | POST | /api/game/unit/spawn | 单位即时实例化（开发：生产禁用、限流） | JWT |
 | POST | /api/game/unit/kill | 击杀结算 + 辨宝法阵执行（开发：生产禁用、限流） | JWT |
+| GET | /api/game/idle/status | 离线收益状态（待结算时长/预计击杀/今日物品计数） | JWT |
+| POST | /api/game/idle/settle | 离线结算（hours 覆盖仅开发环境） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`。
+详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`。
 
 ## WS 入口
 

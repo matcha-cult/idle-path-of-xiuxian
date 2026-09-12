@@ -40,6 +40,7 @@ model characters {
   realm         Int      @default(1) @db.SmallInt // 当前境界序号 1~14
   lingyun       BigInt   @default(0) // 灵韵（角色绑定成长资源）
   jade_slips    BigInt   @default(0) // 未开光玉简计数（P2 占位，P4 物品化）
+  last_settle_at DateTime @default(now()) @db.Timestamptz(6) // 离线收益结算锚点（P4.2，带时区）
   created_at    DateTime @default(now()) @db.Timestamp(6)
   updated_at    DateTime @updatedAt @db.Timestamp(6)
 
@@ -172,6 +173,17 @@ model game_wallets {
 
   @@unique([character_id, currency_code])
   @@index([character_id])
+}
+
+// ===== P4.2 离线收益日计数 =====
+model game_idle_counters {
+  id             Int      @id @default(autoincrement())
+  character_id   Int
+  day            DateTime @db.Date
+  items_produced Int      @default(0)
+  updated_at     DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, day])
 }
 
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）

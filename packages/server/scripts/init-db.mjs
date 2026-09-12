@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS characters (
   realm         SMALLINT NOT NULL DEFAULT 1, -- 当前境界序号 1~14
   lingyun       BIGINT NOT NULL DEFAULT 0, -- 灵韵（角色绑定成长资源）
   jade_slips    BIGINT NOT NULL DEFAULT 0, -- 未开光玉简计数（P2 占位，P4 物品化）
+  last_settle_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 离线收益结算锚点（P4.2，带时区避免 naive 偏差）
   created_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -44,6 +45,18 @@ CREATE INDEX IF NOT EXISTS idx_characters_user_id ON characters(user_id);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS realm SMALLINT NOT NULL DEFAULT 1;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS lingyun BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS jade_slips BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS last_settle_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+-- 兼容首轮已建为 timestamp（naive，UTC 写入）的库：迁移为 timestamptz
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = 'characters'
+      AND column_name = 'last_settle_at' AND data_type = 'timestamp without time zone'
+  ) THEN
+    ALTER TABLE characters ALTER COLUMN last_settle_at TYPE TIMESTAMPTZ USING last_settle_at AT TIME ZONE 'UTC';
+  END IF;
+END $$;
 `;
 
 try {

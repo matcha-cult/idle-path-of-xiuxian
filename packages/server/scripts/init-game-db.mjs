@@ -228,6 +228,15 @@ CREATE TABLE IF NOT EXISTS game_drop_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_game_drop_entries_table ON game_drop_entries(drop_table_id);
 
+CREATE TABLE IF NOT EXISTS game_idle_counters (
+  id             SERIAL PRIMARY KEY,
+  character_id   INTEGER NOT NULL,
+  day            DATE NOT NULL,
+  items_produced INTEGER NOT NULL DEFAULT 0,
+  updated_at     TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, day)
+);
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -256,7 +265,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (18 张表)');
+  console.log('[放置·修仙之路] game tables ok (19 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；

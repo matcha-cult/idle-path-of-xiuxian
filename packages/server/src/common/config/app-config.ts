@@ -43,6 +43,14 @@ export interface AppConfig {
   lootSellSpiritStonesPerTier: number;
   /** 单次击杀结算的最大击杀数（P4 dev 接口） */
   maxKillsPerRequest: number;
+  /** 离线收益：每小时结算轮数（P4.2） */
+  idleRoundsPerHour: number;
+  /** 离线收益：效率百分比（设计 §9.2 = 60）（P4.2） */
+  idleEfficiencyPct: number;
+  /** 离线收益：可累计的离线上限小时（设计 §9.2 = 12）（P4.2） */
+  idleMaxOfflineHours: number;
+  /** 离线收益：每日物品产出上限件数（设计 §9.2 = 200）（P4.2） */
+  idleDailyItemCap: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -65,6 +73,10 @@ const DEFAULT_CONFIG: AppConfig = {
   lootSalvageLingyunPerTier: 2,
   lootSellSpiritStonesPerTier: 10,
   maxKillsPerRequest: 50,
+  idleRoundsPerHour: 60,
+  idleEfficiencyPct: 60,
+  idleMaxOfflineHours: 12,
+  idleDailyItemCap: 200,
 };
 
 function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
@@ -140,6 +152,10 @@ function load(): AppConfig {
       lootSalvageLingyunPerTier: sanitizeInt(parsed.lootSalvageLingyunPerTier, DEFAULT_CONFIG.lootSalvageLingyunPerTier, 0, 1_000_000),
       lootSellSpiritStonesPerTier: sanitizeInt(parsed.lootSellSpiritStonesPerTier, DEFAULT_CONFIG.lootSellSpiritStonesPerTier, 0, 1_000_000),
       maxKillsPerRequest: sanitizeInt(parsed.maxKillsPerRequest, DEFAULT_CONFIG.maxKillsPerRequest, 1, 1000),
+      idleRoundsPerHour: sanitizeInt(parsed.idleRoundsPerHour, DEFAULT_CONFIG.idleRoundsPerHour, 1, 3600),
+      idleEfficiencyPct: sanitizeInt(parsed.idleEfficiencyPct, DEFAULT_CONFIG.idleEfficiencyPct, 1, 100),
+      idleMaxOfflineHours: sanitizeInt(parsed.idleMaxOfflineHours, DEFAULT_CONFIG.idleMaxOfflineHours, 1, 48),
+      idleDailyItemCap: sanitizeInt(parsed.idleDailyItemCap, DEFAULT_CONFIG.idleDailyItemCap, 0, 100000),
     };
   } catch (error) {
     console.warn('[config] 读取 app.config.json 失败，使用默认配置:', (error as Error).message);

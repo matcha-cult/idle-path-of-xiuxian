@@ -52,6 +52,25 @@ interface CatalogFilters {
   camp?: string;
 }
 
+/** 一次结算（击杀/离线）的产出汇总 */
+export interface SettlementData {
+  unit: { code: string; name: string; realm: number };
+  kills: number;
+  lingyunGained: number;
+  lingyunTotal: number;
+  items: ItemView[];
+  kept: number;
+  salvaged: { count: number; lingyun: number };
+  sold: { count: number; spiritStones: number };
+  discarded: number;
+  blockedByTier: number;
+  currencies: Record<string, number>;
+  essences: Record<string, number>;
+  itemsProduced: number;
+}
+
+export type SettleResult = { ok: true; data: SettlementData } | { ok: false; result: FailResult };
+
 @Injectable()
 export class UnitService {
   private readonly baseById = new Map<number, BaseRow>();
@@ -408,25 +427,24 @@ export class UnitService {
     return tier * APP_CONFIG.lootSellSpiritStonesPerTier * (rarity + 1);
   }
 
-  async kill(userId: number, code: string, countInput?: number): Promise<{ success: boolean; message: string; data?: unknown }> {
-    const guard = this.productionGuard();
-    if (guard) return guard;
-    const { character, error } = await this.resolveCharacter(userId);
-    if (error) return error;
-    const count = countInput == null ? 1 : countInput;
-    if (!Number.isInteger(count) || count < 1 || count > APP_CONFIG.maxKillsPerRequest) {
-      return fail('INVALID_PARAM', 'count 需为 1~' + APP_CONFIG.maxKillsPerRequest + ' 的整数');
-    }
-    if (!this.rateLimiter.allow(userId, APP_CONFIG.devToolRateLimitPerMinute)) {
-      return fail('RATE_LIMITED', '开发接口每分钟最多调用 ' + APP_CONFIG.devToolRateLimitPerMinute + ' 次');
-    }
+  /**
+   * 结算核心：击杀 count 次单位，产出灵韵 + 掉落（经辨宝法阵）并落库。
+   * options.itemBudget 非空时限制本次可产出物品件数（离线日上限），达到上限后不再生成物品（灵韵/通货/精华照常）。
+   */
+  async settleKills(
+    characterId: number,
+    code: string,
+    count: number,
+    options?: { itemBudget?: number },
+  ): Promise<SettleResult> {
     const loaded = await this.loadUnit(code);
-    if (!loaded) return fail('UNIT_NOT_FOUND', '单位不存在：' + code);
+    if (!loaded) return { ok: false, result: fail('UNIT_NOT_FOUND', '单位不存在：' + code) };
     if (loaded.unit.camp !== 'hostile') {
-      return fail('NOT_KILLABLE', loaded.unit.name + ' 非敌对单位，无法击杀');
+      return { ok: false, result: fail('NOT_KILLABLE', loaded.unit.name + ' 非敌对单位，无法击杀') };
     }
+    const itemBudget = options?.itemBudget;
 
-    const rules = await this.loadPickupRules(character.id);
+    const rules = await this.loadPickupRules(characterId);
     const tierOffset = loaded.table ? loaded.table.tier_offset : 0;
     const dropsPerKill = loaded.table ? loaded.table.drops_per_kill : 0;
 
@@ -436,6 +454,7 @@ export class UnitService {
     let sold = 0;
     let discarded = 0;
     let blockedByTier = 0;
+    let itemsProduced = 0;
     let lingyunGained = 0;
     let salvageLingyunTotal = 0;
     let spiritStonesGained = 0;
@@ -465,17 +484,19 @@ export class UnitService {
           blockedByTier++;
           continue;
         }
+        if (itemBudget != null && itemsProduced >= itemBudget) continue;
         const rarity = entry.rarity == null ? 0 : Number(entry.rarity);
-        const gen = await this.affixService.generateItem(Number(base.id), rarity, character.id);
+        const gen = await this.affixService.generateItem(Number(base.id), rarity, characterId);
         if (!gen.success) continue;
         const item = (gen.data as { item: ItemView }).item;
         const action = this.decideLoot(item, rules);
+        itemsProduced++;
         if (action === 'keep') {
           kept++;
           if (items.length < 50) items.push(item);
           continue;
         }
-        await this.gameDb.query('DELETE FROM game_items WHERE id = $1 AND character_id = $2', [item.id, character.id]);
+        await this.gameDb.query('DELETE FROM game_items WHERE id = $1 AND character_id = $2', [item.id, characterId]);
         if (action === 'salvage') {
           salvaged++;
           const reward = this.salvageLingyun(item.tier, item.rarity);
@@ -493,18 +514,18 @@ export class UnitService {
     for (const [currencyCode, amount] of currencies) {
       await this.gameDb.query(
         'INSERT INTO game_wallets (character_id, currency_code, amount) VALUES ($1, $2, $3) ON CONFLICT (character_id, currency_code) DO UPDATE SET amount = game_wallets.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP',
-        [character.id, currencyCode, amount],
+        [characterId, currencyCode, amount],
       );
     }
     for (const [essenceCode, amount] of essences) {
       await this.gameDb.query(
         'INSERT INTO game_essence_inventory (character_id, essence_id, count) SELECT $1, id, $3 FROM game_essences WHERE code = $2 ON CONFLICT (character_id, essence_id) DO UPDATE SET count = game_essence_inventory.count + EXCLUDED.count, updated_at = CURRENT_TIMESTAMP',
-        [character.id, essenceCode, amount],
+        [characterId, essenceCode, amount],
       );
     }
     const upd = await this.userDb.query<{ lingyun: string; spirit_stones: string }>(
       'UPDATE characters SET lingyun = lingyun + $1, spirit_stones = spirit_stones + $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING lingyun, spirit_stones',
-      [lingyunGained, spiritStonesGained, character.id],
+      [lingyunGained, spiritStonesGained, characterId],
     );
 
     const currencyView: Record<string, number> = {};
@@ -513,13 +534,12 @@ export class UnitService {
     for (const [k, v] of essences) essenceView[k] = v;
 
     return {
-      success: true,
-      message: '击杀结算完成：' + loaded.unit.name + ' ×' + count,
+      ok: true,
       data: {
         unit: { code: loaded.unit.code, name: loaded.unit.name, realm: loaded.unit.realm },
         kills: count,
         lingyunGained,
-        lingyunTotal: Number(upd.rows[0] ? upd.rows[0].lingyun : character.lingyun),
+        lingyunTotal: Number(upd.rows[0] ? upd.rows[0].lingyun : 0),
         items,
         kept,
         salvaged: { count: salvaged, lingyun: salvageLingyunTotal },
@@ -528,7 +548,30 @@ export class UnitService {
         blockedByTier,
         currencies: currencyView,
         essences: essenceView,
+        itemsProduced,
       },
+    };
+  }
+
+  /** 击杀结算（dev）：门禁 + 参数校验 + 限流 → settleKills */
+  async kill(userId: number, code: string, countInput?: number): Promise<{ success: boolean; message: string; data?: unknown }> {
+    const guard = this.productionGuard();
+    if (guard) return guard;
+    const { character, error } = await this.resolveCharacter(userId);
+    if (error) return error;
+    const count = countInput == null ? 1 : countInput;
+    if (!Number.isInteger(count) || count < 1 || count > APP_CONFIG.maxKillsPerRequest) {
+      return fail('INVALID_PARAM', 'count 需为 1~' + APP_CONFIG.maxKillsPerRequest + ' 的整数');
+    }
+    if (!this.rateLimiter.allow(userId, APP_CONFIG.devToolRateLimitPerMinute)) {
+      return fail('RATE_LIMITED', '开发接口每分钟最多调用 ' + APP_CONFIG.devToolRateLimitPerMinute + ' 次');
+    }
+    const settled = await this.settleKills(character.id, code, count);
+    if (!settled.ok) return settled.result;
+    return {
+      success: true,
+      message: '击杀结算完成：' + settled.data.unit.name + ' ×' + count,
+      data: settled.data,
     };
   }
 }
