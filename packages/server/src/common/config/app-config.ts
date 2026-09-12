@@ -22,6 +22,8 @@ export interface AppConfig {
   enlightenBaseCost: number;
   /** 主心法道基一致的术法协同加成（占位展示，% 数值） */
   synergyBonusPct: number;
+  /** 境界突破消耗表：index = 当前境界 → 升下一境消耗（0 占位，14 封顶无下一境） */
+  realmBreakthroughCosts: number[];
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -31,12 +33,21 @@ const DEFAULT_CONFIG: AppConfig = {
   maxSkillLevel: 20,
   enlightenBaseCost: 100,
   synergyBonusPct: 20,
+  realmBreakthroughCosts: [0, 200, 800, 1800, 3200, 5000, 7200, 9800, 12800, 16200, 20000, 24200, 28800, 33800],
 };
 
 function sanitizeInt(value: unknown, fallback: number, min: number, max: number): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : NaN;
   if (!Number.isInteger(n) || n < min || n > max) return fallback;
   return n;
+}
+
+/** 境界消耗表：需 int[] 且长度 ≥14，否则回退默认（递增公式预设 200×n²） */
+function sanitizeCosts(value: unknown): number[] {
+  if (!Array.isArray(value) || value.length < 14) return DEFAULT_CONFIG.realmBreakthroughCosts;
+  const nums = value.map((v) => Math.floor(Number(v)));
+  if (nums.some((n) => !Number.isInteger(n) || n < 0)) return DEFAULT_CONFIG.realmBreakthroughCosts;
+  return nums.slice(0, 15);
 }
 
 function load(): AppConfig {
@@ -56,6 +67,7 @@ function load(): AppConfig {
       maxSkillLevel: sanitizeInt(parsed.maxSkillLevel, DEFAULT_CONFIG.maxSkillLevel, 1, 1000),
       enlightenBaseCost: sanitizeInt(parsed.enlightenBaseCost, DEFAULT_CONFIG.enlightenBaseCost, 1, 10_000_000),
       synergyBonusPct: sanitizeInt(parsed.synergyBonusPct, DEFAULT_CONFIG.synergyBonusPct, 0, 1000),
+      realmBreakthroughCosts: sanitizeCosts(parsed.realmBreakthroughCosts),
     };
   } catch (error) {
     console.warn('[config] 读取 app.config.json 失败，使用默认配置:', (error as Error).message);

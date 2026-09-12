@@ -43,6 +43,7 @@ pnpm --filter idle-path-server typecheck
 | maxSkillLevel | 20 | 功法参悟等级上限 |
 | enlightenBaseCost | 100 | 参悟基础消耗（总消耗 = enlightenBaseCost × 当前等级） |
 | synergyBonusPct | 20 | 主心法道基一致术法的协同加成（占位展示） |
+| realmBreakthroughCosts | 200×n² 表 | 境界突破消耗：index=当前境界→升下一境消耗（0 占位，14 封顶） |
 
 ## HTTP 接口
 
@@ -66,6 +67,8 @@ pnpm --filter idle-path-server typecheck
 | GET | /api/game/skill/panel | 功法面板（9 槽 + 神识 + 协同标记） | JWT |
 | PUT | /api/game/skill/panel | 装槽/换装（1 主 3 辅 + 5 术法，免费） | JWT |
 | POST | /api/game/skill/enlighten | 参悟升级（消耗灵韵） | JWT |
+| GET | /api/game/breakthrough | 境界状态与下一境消耗 | JWT |
+| POST | /api/game/breakthrough | 突破（消耗灵韵必定成功，14 境封顶） | JWT |
 | POST | /api/game/lingyun/grant | 开发注入灵韵（生产禁用、限流） | JWT |
 | POST | /api/game/skill/jade-grant | 开发发放玉简（生产禁用、限流） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |

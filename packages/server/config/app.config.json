@@ -4,5 +4,21 @@
   "spiritBudget": 100,
   "maxSkillLevel": 20,
   "enlightenBaseCost": 100,
-  "synergyBonusPct": 20
+  "synergyBonusPct": 20,
+  "realmBreakthroughCosts": [
+    0,
+    200,
+    800,
+    1800,
+    3200,
+    5000,
+    7200,
+    9800,
+    12800,
+    16200,
+    20000,
+    24200,
+    28800,
+    33800
+  ]
 }
