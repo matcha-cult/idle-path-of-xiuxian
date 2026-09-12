@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { IdleService } from '../../../src/modules/game/idle/idle.service.js';
+import { IdleService } from '../../../src/modules/logic/idle/internal/idle.service.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/modules/game/unit/unit.types.js';
 import type { SettleResult, SettlementData } from '../../../src/modules/game/unit/unit.service.js';

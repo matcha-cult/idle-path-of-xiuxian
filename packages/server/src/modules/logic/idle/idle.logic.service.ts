@@ -8,7 +8,7 @@
  * M3 会把实现整体搬入 `modules/logic/idle/`。
  */
 import { Injectable } from '@nestjs/common';
-import { IdleService } from '../../game/idle/idle.service.js';
+import { IdleService } from './internal/idle.service.js';
 
 @Injectable()
 export class IdleLogicService {

@@ -4,7 +4,7 @@
  * 只声明本服门面与 Action；下层依赖经 import 既有子模块获得。
  */
 import { Module } from '@nestjs/common';
-import { IdleModule } from '../../game/idle/idle.module.js';
+import { IdleModule } from './internal/idle-internal.module.js';
 import { IdleAction } from './idle.action.js';
 import { IdleLogicService } from './idle.logic.service.js';
 

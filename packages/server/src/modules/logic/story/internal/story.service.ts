@@ -5,10 +5,10 @@
  * 已读：game_story_seen(character_id, node_key)
  */
 import { Injectable } from '@nestjs/common';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { QuestService } from '../quest/quest.service.js';
-import { type ChapterRow, type FailResult, type QuestDefRow, fail } from '../quest/quest.types.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { QuestService } from '../../../game/quest/quest.service.js';
+import { type ChapterRow, type FailResult, type QuestDefRow, fail } from '../../../game/quest/quest.types.js';
 
 interface StoryNode {
   nodeKey: string;

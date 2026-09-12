@@ -9,13 +9,13 @@
  * - hours 覆盖仅非生产环境可用（生产 → FORBIDDEN）
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { CharacterService } from '../../character/character.service.js';
-import { DatabaseService } from '../../database/database.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { UnitService } from '../unit/unit.service.js';
-import { type FailResult, fail } from '../unit/unit.types.js';
-import { ZoneService } from '../zone/zone.service.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { UnitService } from '../../../game/unit/unit.service.js';
+import { type FailResult, fail } from '../../../game/unit/unit.types.js';
+import { ZoneService } from '../../../game/zone/zone.service.js';
 
 interface SettleAnchorRow {
   last_settle_at: Date | string | null;

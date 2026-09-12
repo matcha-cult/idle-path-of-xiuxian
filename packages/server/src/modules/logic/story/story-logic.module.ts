@@ -2,7 +2,7 @@
  * story 逻辑服模块（L3，依赖 quest）
  */
 import { Module } from '@nestjs/common';
-import { StoryModule } from '../../game/story/story.module.js';
+import { StoryModule } from './internal/story-internal.module.js';
 import { StoryAction } from './story.action.js';
 import { StoryLogicService } from './story.logic.service.js';
 

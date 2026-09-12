@@ -2,7 +2,7 @@
  * story 逻辑服门面（L3，依赖 quest）
  */
 import { Injectable } from '@nestjs/common';
-import { StoryService } from '../../game/story/story.service.js';
+import { StoryService } from './internal/story.service.js';
 
 @Injectable()
 export class StoryLogicService {
