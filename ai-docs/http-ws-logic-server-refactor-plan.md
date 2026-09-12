@@ -198,16 +198,19 @@
 - **结果**：`test:unit` = 1295 例全绿；`coverage:report` 显示 95 个源码文件中 **94 个被测试直接引用**（唯一例外 `main.ts` 引导入口，由 e2e 覆盖）；
   `verify` = typecheck + typecheck:test + check:deps（95 文件）+ test:unit 全绿；e2e:all / e2e:journey 回归通过
 
-### M6 · 框架侧加固（在 `vendor/ionet-ts` 所属框架仓库独立实施）
-> 政策（D4）：`vendor/ionet-ts` **可以修改**，但**不允许从本工作区直接改**。框架改动在框架仓库提交，
-> 经版本/发布流程进入本工作区；本工作区只登记需求并做升级后的回归验证。
-- [ ] `ActionFactoryBeanForNest`：Action 走 NestJS DI（升级后可删 §4.1 桥接模块）
-- [ ] headers/traceId 透传 + 标准握手鉴权（替代 `data.__token`）
-- [ ] 连接注册表 + Broadcaster 接线 + 定向推送（为 `ClientConnection.userId` 提供赋值点）
-- [ ] reqId + `kind` 判别（支持并行请求配对，替代客户端串行队列）
-- [x] `NODE_ENV=production` 守卫可配置：框架仓库 `d57cada` 新增 `IonetModuleOptions.allowProduction`（默认 false 保持禁用；`forRootAsync` 守卫延后到 `onModuleInit`；`forFeature` 不再自行断言），框架侧 6 个新用例通过
-      → 本工作区经 submodule 版本升级后即可在生产编排中显式放行（当前 submodule 仍为 `62ab3f2`，未升级）
-- 回归验证点（框架新版本合入本工作区后）：`smoke:ws` / `e2e:all` / `e2e:journey` 全绿
+### M6 · 框架侧加固（在 `vendor/ionet-ts` 所属框架仓库独立实施）✅ 已完成并验收
+> 政策（D4）：`vendor/ionet-ts` **可以修改**，但**不允许从本工作区直接改**；框架改动在框架仓库提交并推送，经 submodule 升级进入本工作区。
+> 协作方式：**跨会话协作**——中立共享目录 `<collab-dir>/`（按任务命名、只增不删），
+> 框架侧由 SESSION-B 实施、SESSION-A 独立复核；沟通记录见该目录 `protocol.md` 与 `task-1..4`。
+- [x] `ActionFactoryBeanForNest`：Action 走 NestJS DI（框架 `d9a3beb`）
+- [x] headers/traceId 透传 + 可选握手鉴权（框架 `d8a4f71`）
+- [x] 连接注册表 + 定向推送：`sendTo` 可用（框架 `6dae720`）
+- [x] reqId + `kind` 判别（框架 `6a31847`；取舍：`kind` 仅在请求带 `reqId` 时写入，保旧客户端逐字节兼容）
+- [x] `NODE_ENV=production` 守卫可配置（框架 `d57cada`，已接入 `IONET_ALLOW_PRODUCTION`）
+- [x] **独立复核**（submodule = `d9a3beb`，已推送远程）：框架构建 exit 0；core-framework 109 / external-server 31 / extension-nestjs 30 全绿；
+      消费方 `verify` 1295 例 + `e2e:all`/`e2e:journey` 全绿；4 项逐条 `ACCEPT`（见协作记录 `MSG-G-004`）
+- [ ] **消费侧接入（A 的后续动作，不阻塞框架验收）**：
+      SDK 改 `reqId` 配对并**移除串行队列**；鉴权迁到握手并简化/删除 `WsAuthInOut`；删除 `game-action-bridge.module.ts`
 
 ## 6. 验收标准
 
