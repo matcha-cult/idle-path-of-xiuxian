@@ -22,12 +22,4 @@ export const CRAFT_OPS = [
 ] as const;
 export type CraftOp = (typeof CRAFT_OPS)[number];
 
-export interface FailResult {
-  success: false;
-  message: string;
-  data: { code: string };
-}
-
-export function fail(code: string, message: string): FailResult {
-  return { success: false, message, data: { code } };
-}
+export { type FailResult, fail } from '../../../../common/kernel/result.js';

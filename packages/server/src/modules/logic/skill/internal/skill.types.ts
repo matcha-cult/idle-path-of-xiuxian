@@ -42,13 +42,5 @@ export function emptyPanel(): PanelSlots {
   return { xinfa: { main: null, aux: [] }, shufa: [] };
 }
 
-/** 业务失败结果 */
-export interface FailResult {
-  success: false;
-  message: string;
-  data: { code: string };
-}
-
-export function fail(code: string, message: string): FailResult {
-  return { success: false, message, data: { code } };
-}
+/** 业务失败结果——已上提共享内核 */
+export { type FailResult, fail } from '../../../../common/kernel/result.js';

@@ -9,10 +9,10 @@
  * - 进度：game_zone_progress(floor/best_floor/cleared)；当前秘境：game_zone_state
  */
 import { Injectable } from '@nestjs/common';
-import { APP_CONFIG } from '../../../common/config/app-config.js';
-import { CharacterService } from '../../character/character.service.js';
-import { GameDatabaseService } from '../game-database.service.js';
-import { UnitService } from '../unit/unit.service.js';
+import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { CharacterService } from '../../../character/character.service.js';
+import { GameDatabaseService } from '../../../game/game-database.service.js';
+import { UnitService } from '../../../game/unit/unit.service.js';
 import {
   type FailResult,
   type ZoneProgressRow,

@@ -1,10 +1,7 @@
 /**
  * 秘境域共享类型（P5.1）
  */
-import { type FailResult, fail } from '../unit/unit.types.js';
-
-export { fail };
-export type { FailResult };
+export { type FailResult, fail } from '../../../../common/kernel/result.js';
 
 export interface ZoneRow {
   id: number;

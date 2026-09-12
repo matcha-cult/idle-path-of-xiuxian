@@ -42,13 +42,13 @@ import {
   isBossFloor,
   tierOffsetBonusFor,
   dropDrawBonusFor,
-} from '../../../src/modules/game/zone/zone.types.js';
+} from '../../../src/modules/logic/zone/internal/zone.types.js';
 import { fail as questFail, QUEST_STATUSES } from '../../../src/modules/logic/quest/internal/quest.types.js';
 
 // 编译期验证 type-only 再导出可用
-import type { FailResult as ZoneFailResult } from '../../../src/modules/game/zone/zone.types.js';
+import type { FailResult as ZoneFailResult } from '../../../src/modules/logic/zone/internal/zone.types.js';
 import type { FailResult as QuestFailResult } from '../../../src/modules/logic/quest/internal/quest.types.js';
-import type { ZoneRow } from '../../../src/modules/game/zone/zone.types.js';
+import type { ZoneRow } from '../../../src/modules/logic/zone/internal/zone.types.js';
 
 function assertUniqueNonEmpty(name: string, values: readonly string[]): void {
   assert.ok(values.length > 0, name + ' 应非空');

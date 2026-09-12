@@ -2,7 +2,7 @@
  * zone 逻辑服门面（L2，依赖 combat, item, equip）
  */
 import { Injectable } from '@nestjs/common';
-import { ZoneService } from '../../game/zone/zone.service.js';
+import { ZoneService } from './internal/zone.service.js';
 
 @Injectable()
 export class ZoneLogicService {
@@ -22,5 +22,10 @@ export class ZoneLogicService {
 
   challenge(userId: number, zoneCode?: string) {
     return this.zoneService.challenge(userId, zoneCode);
+  }
+
+  /** 供 idle 复用：当前秘境/当前层遭遇的单位（无可用秘境返回 null） */
+  encounterForCharacter(characterId: number, realm: number) {
+    return this.zoneService.encounterForCharacter(characterId, realm);
   }
 }

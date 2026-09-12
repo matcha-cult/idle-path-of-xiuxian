@@ -122,9 +122,5 @@ export interface ItemView {
   createdAt?: string | Date;
 }
 
-/** 业务错误结果（通过 success:false + data.code 表达） */
-export interface FailResult {
-  success: false;
-  message: string;
-  data: { code: string };
-}
+/** 业务错误结果（通过 success:false + data.code 表达）——已上提共享内核 */
+export { type FailResult, fail } from '../../../common/kernel/result.js';

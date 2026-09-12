@@ -4,7 +4,7 @@ import { IdleService } from '../../../src/modules/logic/idle/internal/idle.servi
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/modules/game/unit/unit.types.js';
 import type { SettleResult, SettlementData } from '../../../src/modules/game/unit/unit.service.js';
-import type { ZoneEncounter } from '../../../src/modules/game/zone/zone.service.js';
+import type { ZoneEncounter } from '../../../src/modules/logic/zone/internal/zone.service.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';

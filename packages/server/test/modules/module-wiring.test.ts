@@ -33,8 +33,8 @@ import { IdleModule } from '../../src/modules/logic/idle/internal/idle-internal.
 import { IdleService } from '../../src/modules/logic/idle/internal/idle.service.js';
 import { UnitModule } from '../../src/modules/game/unit/unit.module.js';
 import { UnitService } from '../../src/modules/game/unit/unit.service.js';
-import { ZoneModule } from '../../src/modules/game/zone/zone.module.js';
-import { ZoneService } from '../../src/modules/game/zone/zone.service.js';
+import { ZoneModule } from '../../src/modules/logic/zone/internal/zone-internal.module.js';
+import { ZoneService } from '../../src/modules/logic/zone/internal/zone.service.js';
 import { StoryModule } from '../../src/modules/logic/story/internal/story-internal.module.js';
 import { StoryService } from '../../src/modules/logic/story/internal/story.service.js';
 import { RealmModule } from '../../src/modules/logic/realm/internal/realm-internal.module.js';

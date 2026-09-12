@@ -2,15 +2,7 @@
  * 单位域共享类型与常量（P4 单位系统）
  */
 
-export interface FailResult {
-  success: false;
-  message: string;
-  data: { code: string };
-}
-
-export function fail(code: string, message: string): FailResult {
-  return { success: false, message, data: { code } };
-}
+export { type FailResult, fail } from '../../../common/kernel/result.js';
 
 /** 单位阵营 */
 export const UNIT_CAMPS = ['hostile', 'neutral', 'friendly'] as const;

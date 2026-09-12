@@ -10,12 +10,11 @@ import { RateLimiterService } from '../../common/services/rate-limiter.service.j
 import { GameDatabaseService } from './game-database.service.js';
 import { ItemModule } from './item/item.module.js';
 import { UnitModule } from './unit/unit.module.js';
-import { ZoneModule } from './zone/zone.module.js';
 import { StatModule } from './stat/stat.module.js';
 
 @Global()
 @Module({
-  imports: [ItemModule, UnitModule, ZoneModule, StatModule],
+  imports: [ItemModule, UnitModule, StatModule],
   providers: [GameDatabaseService, RateLimiterService],
   exports: [GameDatabaseService, RateLimiterService],
 })

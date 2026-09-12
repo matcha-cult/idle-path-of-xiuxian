@@ -1,10 +1,7 @@
 /**
  * 任务域共享类型（P6）
  */
-import { type FailResult, fail } from '../../../game/unit/unit.types.js';
-
-export { fail };
-export type { FailResult };
+export { type FailResult, fail } from '../../../../common/kernel/result.js';
 
 export interface QuestDefRow {
   id: number;

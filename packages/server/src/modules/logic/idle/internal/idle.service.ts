@@ -15,7 +15,7 @@ import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { UnitService } from '../../../game/unit/unit.service.js';
 import { type FailResult, fail } from '../../../game/unit/unit.types.js';
-import { ZoneService } from '../../../game/zone/zone.service.js';
+import { ZoneLogicService } from '../../zone/zone.logic.service.js';
 
 interface SettleAnchorRow {
   last_settle_at: Date | string | null;
@@ -32,7 +32,7 @@ export class IdleService {
     private readonly userDb: DatabaseService,
     private readonly characterService: CharacterService,
     private readonly unitService: UnitService,
-    private readonly zoneService: ZoneService,
+    private readonly zoneLogic: ZoneLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -158,7 +158,7 @@ export class IdleService {
     let unitCode = unitCodeInput && unitCodeInput.trim() ? unitCodeInput.trim() : undefined;
     let zoneInfo: { code: string; name: string; floor: number; isBoss: boolean } | null = null;
     if (!unitCode) {
-      const encounter = await this.zoneService.encounterForCharacter(character.id, character.realm);
+      const encounter = await this.zoneLogic.encounterForCharacter(character.id, character.realm);
       if (!encounter) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
       unitCode = encounter.unitCode;
       zoneInfo = {
