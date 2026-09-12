@@ -232,6 +232,40 @@ model game_zone_state {
   updated_at      DateTime @updatedAt @db.Timestamp(6)
 }
 
+
+// ===== P6 任务定义 =====
+model game_quest_defs {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique @db.VarChar(50)
+  chapter      Int      @db.SmallInt
+  name         String   @db.VarChar(100)
+  trigger_type String   @default("auto") @db.VarChar(20)
+  trigger_cond String?  @db.Text                      // JSON：{ realm, requires[] }
+  objectives   String   @db.Text                      // JSON：[{ type, key?, value?, desc }]
+  rewards      String   @db.Text                      // JSON：{ lingyun, spiritStones, jadeSlips, currencies{}, essences{} }
+  dialogues    String?  @db.Text
+  next_quest   String?  @db.VarChar(50)
+  order_index  Int      @default(0)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([order_index])
+}
+
+// ===== P6 角色任务进度 =====
+model game_quest_progress {
+  id           Int       @id @default(autoincrement())
+  character_id Int
+  quest_code   String    @db.VarChar(50)
+  status          String    @default("active") @db.VarChar(20) // active/completed
+  objectives      String?   @db.Text
+  completed_at    DateTime? @db.Timestamp(6)
+  rewards_granted Boolean   @default(false) // 奖励是否已发放（可重试，不丢奖）
+
+  @@unique([character_id, quest_code])
+  @@index([character_id])
+}
+
 // 辨宝法阵（拾取规则，P1 仅 CRUD 落库）
 model game_pickup_rules {
   id            Int      @id @default(autoincrement())

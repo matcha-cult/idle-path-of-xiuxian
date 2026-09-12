@@ -281,6 +281,36 @@ CREATE TABLE IF NOT EXISTS game_idle_counters (
   UNIQUE (character_id, day)
 );
 
+CREATE TABLE IF NOT EXISTS game_quest_defs (
+  id           SERIAL PRIMARY KEY,
+  code         VARCHAR(50) NOT NULL UNIQUE,
+  chapter      SMALLINT NOT NULL,
+  name         VARCHAR(100) NOT NULL,
+  trigger_type VARCHAR(20) NOT NULL DEFAULT 'auto',
+  trigger_cond TEXT,
+  objectives   TEXT NOT NULL,
+  rewards      TEXT NOT NULL,
+  dialogues    TEXT,
+  next_quest   VARCHAR(50),
+  order_index  INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_quest_defs_order ON game_quest_defs(order_index);
+
+CREATE TABLE IF NOT EXISTS game_quest_progress (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL,
+  quest_code   VARCHAR(50) NOT NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'active',
+  objectives      TEXT,
+  completed_at    TIMESTAMP(6),
+  rewards_granted BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE (character_id, quest_code)
+);
+CREATE INDEX IF NOT EXISTS idx_game_quest_progress_character ON game_quest_progress(character_id);
+ALTER TABLE game_quest_progress ADD COLUMN IF NOT EXISTS rewards_granted BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE IF NOT EXISTS game_pickup_rules (
   id           SERIAL PRIMARY KEY,
   character_id INTEGER NOT NULL,
@@ -309,7 +339,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (22 张表)');
+  console.log('[放置·修仙之路] game tables ok (24 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -523,6 +553,39 @@ try {
     console.warn('[放置·修仙之路] 警告：' + orphanZoneRefs + ' 条秘境进度/当前秘境引用不存在的秘境（种子 id 漂移）');
   }
   console.log('[放置·修仙之路] zones: ' + zones.length);
+
+  // ===== P6 任务定义（重灌：任务进度为玩家数据，保留） =====
+  const questDefs = await loadJson('quest-defs.json');
+  await client.query('DELETE FROM game_quest_defs');
+  for (const q of questDefs) {
+    await client.query(
+      'INSERT INTO game_quest_defs (id, code, chapter, name, trigger_type, trigger_cond, objectives, rewards, dialogues, next_quest, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [q.id, q.code, q.chapter, q.name, q.triggerType ?? 'auto', jstr(q.trigger ?? {}), jstr(q.objectives ?? []), jstr(q.rewards ?? {}), jstr(q.dialogues ?? null), q.nextQuest ?? null, q.orderIndex ?? 0],
+    );
+  }
+  await client.query("SELECT setval('game_quest_defs_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_quest_defs));");
+  const questCodes = new Set(questDefs.map((q) => q.code));
+  let badQuestRefs = 0;
+  for (const q of questDefs) {
+    const reqs = (q.trigger && q.trigger.requires) || [];
+    for (const req of reqs) {
+      if (!questCodes.has(req)) {
+        console.warn('[放置·修仙之路] 警告：任务 ' + q.code + ' 前置引用未知任务 ' + req);
+        badQuestRefs++;
+      }
+    }
+    if (q.nextQuest && !questCodes.has(q.nextQuest)) {
+      console.warn('[放置·修仙之路] 警告：任务 ' + q.code + ' 后续引用未知任务 ' + q.nextQuest);
+      badQuestRefs++;
+    }
+  }
+  const orphanQuestProgress = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_quest_progress p LEFT JOIN game_quest_defs d ON d.code = p.quest_code WHERE d.code IS NULL',
+  );
+  if (Number(orphanQuestProgress.rows[0].c) > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanQuestProgress.rows[0].c + ' 条任务进度引用不存在的任务');
+  }
+  console.log('[放置·修仙之路] quest defs: ' + questDefs.length + (badQuestRefs > 0 ? ' / 引用告警 ' + badQuestRefs : ''));
 
   // ===== 底材词缀池（族 → 14 阶展开） =====
   const poolSeed = await loadJson('base-affix-pools.json');

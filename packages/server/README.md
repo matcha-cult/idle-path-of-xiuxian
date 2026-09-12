@@ -21,7 +21,7 @@ cp .env.example .env
 # 初始化用户系统表（users / characters）
 pnpm --filter idle-path-server db:init
 
-# 初始化 Game 系统表与种子（22 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、秘境/进度/状态、离线计数、拾取规则）
+# 初始化 Game 系统表与种子（24 表：物品基底/词缀/池、功法、通货/精华、单位模板/隐藏词条/掉落表、秘境/进度/状态、离线计数、任务定义/进度、拾取规则）
 # 注意：重复执行会重灌配置种子（显式 id，无漂移），不清理玩家物品与自建拾取规则
 pnpm --filter idle-path-server db:init:game
 
@@ -98,9 +98,12 @@ pnpm --filter idle-path-server typecheck
 | GET | /api/game/zone/progress | 当前秘境进度（层/战力/门槛/层深度加成） | JWT |
 | POST | /api/game/zone/enter | 切换当前秘境（境界门槛） | JWT |
 | POST | /api/game/zone/challenge | 层数挑战（战力检定 → 奖励 → 推进；层深度 Tier/掉落加成） | JWT |
+| GET | /api/game/quests | 任务列表（状态 locked/active/completed + 目标进度） | JWT |
+| GET | /api/game/quests/:code | 任务详情（含触发/奖励/对话） | JWT |
+| POST | /api/game/quest/sync | 推进任务（自动激活 + 完成 + 发奖，幂等） | JWT |
 | GET/POST | /api/health | 健康检测（DB+Redis，容器监控探针） | 公开 |
 
-详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`。
+详细的 Game 接口契约见仓库 `ai-docs/v2/`：`p1/p1-api-contract.md`、`p2/p2-api-contract.md`、`p3-api-contract.md`、`p4-api-contract.md`、`p4.2-api-contract.md`、`p5-api-contract.md`、`p5.2-api-contract.md`、`p6-api-contract.md`。
 
 ## WS 入口
 

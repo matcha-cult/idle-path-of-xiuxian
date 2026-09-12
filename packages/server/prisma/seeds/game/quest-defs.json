@@ -1,0 +1,396 @@
+[
+  {
+    "id": 1,
+    "code": "q_ch1_1",
+    "chapter": 1,
+    "name": "初入仙途",
+    "orderIndex": 1,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 1,
+      "requires": []
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 1,
+        "desc": "踏入修行"
+      }
+    ],
+    "rewards": {
+      "lingyun": 100,
+      "spiritStones": 500
+    },
+    "dialogues": {
+      "start": "凡尘如海，仙途初启。",
+      "done": "你已踏入修行之门。"
+    },
+    "nextQuest": "q_ch1_2"
+  },
+  {
+    "id": 2,
+    "code": "q_ch1_2",
+    "chapter": 1,
+    "name": "夯实根基",
+    "orderIndex": 2,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 2,
+      "requires": [
+        "q_ch1_1"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 2,
+        "desc": "达到 2 境"
+      }
+    ],
+    "rewards": {
+      "lingyun": 200,
+      "jadeSlips": 1
+    },
+    "dialogues": {
+      "start": "根基不牢，地动山摇。",
+      "done": "你已站稳脚跟。"
+    },
+    "nextQuest": "q_ch1_3"
+  },
+  {
+    "id": 3,
+    "code": "q_ch1_3",
+    "chapter": 1,
+    "name": "秘境初探",
+    "orderIndex": 3,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 2,
+      "requires": [
+        "q_ch1_2"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "zone_best_floor",
+        "key": "zone_qingyun",
+        "value": 3,
+        "desc": "青云山脚推进至第 3 层"
+      }
+    ],
+    "rewards": {
+      "lingyun": 300,
+      "currencies": {
+        "transmute": 2
+      }
+    },
+    "dialogues": {
+      "start": "山脚之下，妖气初现。",
+      "done": "秘境之门已为你敞开。"
+    },
+    "nextQuest": "q_ch2_1"
+  },
+  {
+    "id": 4,
+    "code": "q_ch2_1",
+    "chapter": 2,
+    "name": "下山历练",
+    "orderIndex": 4,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 3,
+      "requires": [
+        "q_ch1_3"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 4,
+        "desc": "达到 4 境"
+      }
+    ],
+    "rewards": {
+      "lingyun": 500,
+      "spiritStones": 2000
+    },
+    "dialogues": {
+      "start": "读万卷书，不如行万里路。",
+      "done": "你已具备下山之力。"
+    },
+    "nextQuest": "q_ch2_2"
+  },
+  {
+    "id": 5,
+    "code": "q_ch2_2",
+    "chapter": 2,
+    "name": "迷雾追踪",
+    "orderIndex": 5,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 4,
+      "requires": [
+        "q_ch2_1"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "zone_best_floor",
+        "key": "zone_miwu",
+        "value": 1,
+        "desc": "迷雾秘境推进至第 1 层"
+      }
+    ],
+    "rewards": {
+      "lingyun": 600,
+      "jadeSlips": 1,
+      "essences": {
+        "ess_atk": 1
+      }
+    },
+    "dialogues": {
+      "start": "迷雾深处，似有蹊跷。",
+      "done": "迷雾之中，你寻得一线天光。"
+    },
+    "nextQuest": "q_ch2_3"
+  },
+  {
+    "id": 6,
+    "code": "q_ch2_3",
+    "chapter": 2,
+    "name": "小有所成",
+    "orderIndex": 6,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 5,
+      "requires": [
+        "q_ch2_2"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "learn_skills",
+        "value": 2,
+        "desc": "修习 2 门功法"
+      },
+      {
+        "type": "own_items",
+        "value": 5,
+        "desc": "持有 5 件物品"
+      }
+    ],
+    "rewards": {
+      "lingyun": 800,
+      "currencies": {
+        "alchemy": 2
+      }
+    },
+    "dialogues": {
+      "start": "艺多不压身。",
+      "done": "你已小有所成。"
+    },
+    "nextQuest": "q_ch3_1"
+  },
+  {
+    "id": 7,
+    "code": "q_ch3_1",
+    "chapter": 3,
+    "name": "秘境夺宝",
+    "orderIndex": 7,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 6,
+      "requires": [
+        "q_ch2_3"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 7,
+        "desc": "达到 7 境"
+      }
+    ],
+    "rewards": {
+      "lingyun": 1200,
+      "spiritStones": 5000
+    },
+    "dialogues": {
+      "start": "秘境之中，宝物与凶险并存。",
+      "done": "你已有夺宝之力。"
+    },
+    "nextQuest": "q_ch3_2"
+  },
+  {
+    "id": 8,
+    "code": "q_ch3_2",
+    "chapter": 3,
+    "name": "古海探秘",
+    "orderIndex": 8,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 7,
+      "requires": [
+        "q_ch3_1"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "zone_best_floor",
+        "key": "zone_guhai",
+        "value": 3,
+        "desc": "古海遗迹推进至第 3 层"
+      }
+    ],
+    "rewards": {
+      "lingyun": 1500,
+      "currencies": {
+        "chaos": 2
+      },
+      "essences": {
+        "ess_lingyun": 1
+      }
+    },
+    "dialogues": {
+      "start": "古老的海底遗迹，沉睡着怎样的秘密？",
+      "done": "你从遗迹中带回了答案。"
+    },
+    "nextQuest": "q_ch4_1"
+  },
+  {
+    "id": 9,
+    "code": "q_ch4_1",
+    "chapter": 4,
+    "name": "大劫将临",
+    "orderIndex": 9,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 9,
+      "requires": [
+        "q_ch3_2"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 10,
+        "desc": "达到 10 境"
+      }
+    ],
+    "rewards": {
+      "lingyun": 2000,
+      "jadeSlips": 2
+    },
+    "dialogues": {
+      "start": "天象有异，大劫将至。",
+      "done": "你有资格直面大劫。"
+    },
+    "nextQuest": "q_ch4_2"
+  },
+  {
+    "id": 10,
+    "code": "q_ch4_2",
+    "chapter": 4,
+    "name": "身经百战",
+    "orderIndex": 10,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 10,
+      "requires": [
+        "q_ch4_1"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "own_items",
+        "value": 10,
+        "desc": "持有 10 件物品"
+      },
+      {
+        "type": "lingyun",
+        "value": 5000,
+        "desc": "积攒 5000 灵韵"
+      }
+    ],
+    "rewards": {
+      "lingyun": 2500,
+      "currencies": {
+        "exalt": 1
+      },
+      "essences": {
+        "ess_spirit": 1
+      }
+    },
+    "dialogues": {
+      "start": "百战之身，方堪大用。",
+      "done": "你已身经百战。"
+    },
+    "nextQuest": "q_ch5_1"
+  },
+  {
+    "id": 11,
+    "code": "q_ch5_1",
+    "chapter": 5,
+    "name": "飞升前夜",
+    "orderIndex": 11,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 12,
+      "requires": [
+        "q_ch4_2"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "reach_realm",
+        "value": 13,
+        "desc": "达到 13 境"
+      }
+    ],
+    "rewards": {
+      "lingyun": 4000,
+      "jadeSlips": 3
+    },
+    "dialogues": {
+      "start": "飞升在即，前路已明。",
+      "done": "你已立于飞升之门。"
+    },
+    "nextQuest": "q_ch5_2"
+  },
+  {
+    "id": 12,
+    "code": "q_ch5_2",
+    "chapter": 5,
+    "name": "合道归一",
+    "orderIndex": 12,
+    "triggerType": "auto",
+    "trigger": {
+      "realm": 13,
+      "requires": [
+        "q_ch5_1"
+      ]
+    },
+    "objectives": [
+      {
+        "type": "zone_cleared",
+        "key": "zone_hundun",
+        "desc": "通关混沌之隙"
+      }
+    ],
+    "rewards": {
+      "lingyun": 8000,
+      "currencies": {
+        "divine": 1,
+        "mirror": 1
+      },
+      "essences": {
+        "ess_lingyun": 2
+      }
+    },
+    "dialogues": {
+      "start": "混沌尽头，即是大道。",
+      "done": "身合大道，此界再无束缚。"
+    },
+    "nextQuest": null
+  }
+]
