@@ -5,7 +5,6 @@ import {
   GAME_ACTION_CLASSES,
   GAME_INOUT_CLASSES,
 } from '../../src/ionet/game-action-bridge.module.js';
-import { WsAuthInOut } from '../../src/ionet/ws-auth.inout.js';
 import { CMD_SEGMENTS } from '../../src/ionet/cmd.js';
 
 const EXPECTED: Array<[string, number]> = [
@@ -46,7 +45,7 @@ describe('GameActionBridgeModule 路由表边界', () => {
     assert.equal(cmds.has(CMD_SEGMENTS.character), false);
   });
 
-  test('InOut 仅 WsAuthInOut', () => {
-    assert.deepEqual(GAME_INOUT_CLASSES.map((c) => c.name), [WsAuthInOut.name]);
+  test('InOut 列表为空（鉴权已迁到 WS 握手，见 app.module 的 wsServer.authenticate）', () => {
+    assert.equal(GAME_INOUT_CLASSES.length, 0);
   });
 });

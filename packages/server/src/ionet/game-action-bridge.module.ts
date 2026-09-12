@@ -45,7 +45,6 @@ import { IdleLogicModule } from '../modules/logic/idle/idle-logic.module.js';
 import { IdleAction } from '../modules/logic/idle/idle.action.js';
 import { HealthAction } from './health.action.js';
 import { assertNoDuplicateRoutes } from './route-check.js';
-import { WsAuthInOut } from './ws-auth.inout.js';
 
 /** 已登记的逻辑服 Action 类（按依赖层自底向上排列） */
 export const GAME_ACTION_CLASSES = [
@@ -78,8 +77,14 @@ const GAME_LOGIC_MODULES = [
   IdleLogicModule,
 ];
 
-/** InOut 插件（按数组顺序执行 fuckIn） */
-export const GAME_INOUT_CLASSES = [WsAuthInOut] as const;
+/**
+ * InOut 插件（按数组顺序执行 fuckIn）。
+ *
+ * 目前为空：鉴权已迁到 WS **握手鉴权**（app.module.ts 的 `wsServer.authenticate`），
+ * 原 `WsAuthInOut`（`data.__token` 兜底）在强制握手鉴权下不可达，已删除。
+ * 保留本机制供后续插件使用。
+ */
+export const GAME_INOUT_CLASSES = [] as const;
 
 /** 收集后的 Action 实例（与 GAME_ACTION_CLASSES 同序） */
 const GAME_ACTION_INSTANCES = Symbol('GAME_ACTION_INSTANCES');

@@ -26,9 +26,12 @@ async function post(path: string, body: unknown, token?: string): Promise<HttpRe
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
-function wsCall(request: unknown): Promise<Record<string, unknown>> {
+function wsCall(request: unknown, token?: string): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
+    // 握手鉴权：token 走 upgrade 请求头（无凭据将被 401 拒绝）
+    const ws = token
+      ? new WebSocket(wsUrl, { headers: { Authorization: `Bearer ${token}` } })
+      : new WebSocket(wsUrl);
     const timer = setTimeout(() => {
       ws.terminate();
       reject(new Error('WS 超时: ' + JSON.stringify(request)));
@@ -56,17 +59,21 @@ async function main(): Promise<void> {
   const created = await post('/character/create', { nickname: '端到端道友', gender: 'male' }, token);
   console.log('✓ 建角', created.status, JSON.stringify(created.json).slice(0, 100));
 
-  const authed = await wsCall({ cmd: 130, subCmd: 1, data: { __token: token } });
+  const authed = await wsCall({ cmd: 130, subCmd: 1, data: {} }, token);
   const authedData = authed.data as { success?: boolean } | undefined;
-  console.log('idle.status(带 token) →', JSON.stringify(authed).slice(0, 220));
-  if (authedData?.success !== true) throw new Error('鉴权后业务调用失败');
+  console.log('idle.status(握手头带 token) →', JSON.stringify(authed).slice(0, 220));
+  if (authedData?.success !== true) throw new Error('握手鉴权后业务调用失败');
 
-  const anon = await wsCall({ cmd: 130, subCmd: 1, data: {} });
-  const anonCode = (anon.data as { data?: { code?: string } } | undefined)?.data?.code;
-  console.log('idle.status(无 token) →', JSON.stringify(anon));
-  if (anonCode !== 'UNAUTHORIZED') throw new Error('未鉴权请求未被拦截');
+  let anonRejected = false;
+  try {
+    await wsCall({ cmd: 130, subCmd: 1, data: {} });
+  } catch {
+    anonRejected = true;
+  }
+  console.log('idle.status(无凭据) → 连接被拒:', anonRejected);
+  if (!anonRejected) throw new Error('无凭据连接未被拦截');
 
-  console.log('✓ idle 逻辑服 WS 端到端通过（鉴权 + 业务）');
+  console.log('✓ idle 逻辑服 WS 端到端通过（握手鉴权 + 业务）');
 }
 
 main().catch((err) => {

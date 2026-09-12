@@ -135,7 +135,7 @@ IONET_ALLOW_PRODUCTION=true NODE_ENV=production node dist/main.js
 
 - 路径：`/ws`，与 HTTP **同端口**（attach 到 NestJS `http.Server`）。
 - 请求：`{ cmd, subCmd, data }`；响应：`{ data?, errorCode?, errorMessage? }`。
-- 鉴权（v1）：受保护 Action 需在 `data.__token` 携带 JWT；白名单见 `src/ionet/cmd.ts` 的 `PUBLIC_ACTION_KEYS`。
+- 鉴权（**WS 握手，强制**）：upgrade 时带 `Authorization: Bearer <jwt>`（浏览器用 `?token=<jwt>`）；校验失败即 401 拒绝升级。实现见 `app.module.ts` 的 `wsServer.authenticate` 与 `src/common/auth/jwt.ts`。
 - 路由表：`src/ionet/cmd.ts`（每逻辑服一个 cmd 段）；Action 经 `GameActionBridgeModule` 以 DI 实例注册进 `BarSkeleton`。
 - 对外服：`src/modules/edge` 实现 `NotificationPort`（广播/通知/推送），逻辑服只依赖 `src/common/ports/notification.port.ts`。
 - 完整契约见 `ai-docs/ws-protocol-contract.md`。

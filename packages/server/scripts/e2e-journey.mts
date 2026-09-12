@@ -56,11 +56,12 @@ async function main(): Promise<void> {
   const characterId = (created.data as { character?: { id?: number } } | undefined)?.character?.id;
   check('创建角色', created.success === true && typeof characterId === 'number', created.message);
 
-  // 4) WS 客户端（串行队列 + 心跳 + 重连重新带 token）
+  // 4) WS 客户端（reqId 配对 + 并发 + 握手鉴权 + 心跳 + 重连换 token）
   const client = new WarWsClient({
     url: wsUrl,
     WebSocketImpl: WebSocket,
-    getToken: () => token,
+    // 任务 3：改用 WS **握手鉴权**（upgrade 时带 Authorization 头），不再依赖 data.__token
+    getAuthHeaders: () => ({ Authorization: `Bearer ${token}` }),
     heartbeatMs: 1500,
     requestTimeoutMs: 8000,
     onLog: () => undefined,

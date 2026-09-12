@@ -10,18 +10,13 @@
  */
 import { Injectable } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { signJwt, verifyJwt, type JwtPayload } from '../../common/auth/jwt.js';
 import { DatabaseService } from '../database/database.service.js';
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-me';
-const JWT_EXPIRES_IN_SECONDS = Number(process.env.JWT_EXPIRES_IN_SECONDS ?? 604800);
 const SALT_ROUNDS = 10;
 const PASSWORD_MIN_LENGTH = 6;
 
-export interface JwtPayload {
-  id: number;
-  username: string;
-}
+export type { JwtPayload };
 
 export interface AuthUser {
   id: number;
@@ -115,15 +110,11 @@ export class AuthService {
   }
 
   generateToken(payload: JwtPayload): string {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN_SECONDS });
+    return signJwt(payload);
   }
 
   verifyToken(token: string): TokenVerifyResult {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-      return { valid: true, decoded };
-    } catch {
-      return { valid: false };
-    }
+    const decoded = verifyJwt(token);
+    return decoded ? { valid: true, decoded } : { valid: false };
   }
 }

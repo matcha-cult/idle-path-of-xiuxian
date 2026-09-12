@@ -43,14 +43,16 @@ HTTP 基础能力（`/api/auth/*`、`/api/character/*`、`/api/health`）与 WS 
 > **已支持 `reqId` 配对与 `kind` 判别**（框架 `d9a3beb`）：客户端可并发发起请求并按 `reqId` 精确配对；
 > 主动推送用 `kind: 'notification'` 与响应区分。**不带 `reqId` 的旧请求，其响应逐字节不变**（既无 `reqId` 也无 `kind`）。
 
-## 4. 鉴权
+## 4. 鉴权（WS 握手，强制）
 
-- v1 令牌承载：`data.__token`（因框架 WS 层丢弃 headers、无握手鉴权，见 P0-2/P1-2）。
-- 由 `WsAuthInOut`（`src/ionet/ws-auth.inout.ts`）在 Action 执行前校验：
-  - 校验通过 → `FlowContext.bindingUserId(BigInt(userId))`；
-  - 校验失败/缺失 → 不绑定，Action 侧 `requireUserId()` 返回 `UNAUTHORIZED`；
-  - 读取后**剥离** `data.__token`，不泄漏给业务层。
-- 免鉴权白名单：`cmd.ts` 的 `PUBLIC_ACTION_KEYS`（当前仅 `system.ping = (1,1)`）。
+- **主路径**：客户端在 upgrade 阶段带 `Authorization: Bearer <jwt>`；校验通过则**整条连接**绑定 userId，
+  框架在每次 execute 的 `onFlowContext` 中预置给 `FlowContext`（框架 `d8a4f71` 的 `wsServer.authenticate`）。
+- **浏览器路径**：无法设置握手头的客户端用 `ws://host/ws?token=<jwt>`。
+- **校验失败/缺失 → 拒绝升级（HTTP 401）**，连接根本建立不起来。
+- 服务端实现见 `app.module.ts` 的 `wsServer.authenticate`，复用 `src/common/auth/jwt.ts`（与 HTTP 侧同一密钥/语义）。
+- Action 侧仍用 `requireUserId(ctx)` 取 userId。
+- `cmd.ts` 的 `PUBLIC_ACTION_KEYS` 保留：用于**未启用握手鉴权**的部署形态；
+  启用握手鉴权后所有连接均已鉴权，原 `WsAuthInOut`（`data.__token` 兜底）已删除。
 
 ## 5. 错误码
 
