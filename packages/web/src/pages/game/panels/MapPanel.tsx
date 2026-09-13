@@ -52,8 +52,7 @@ export const MapPanel = observer(function MapPanel() {
   const gridCols = currentMap?.gridCols ?? 0;
   const gridReady = isCanvasGridReady(gridRows, gridCols);
   const debug = resolveMapDebug(import.meta.env, window.location.search);
-  // 坐标不可用（老服务端 / 手改种子）→ 强制列表视图，绝不用 NaN 去定位
-  const mode = gridReady ? view : 'list';
+  const mode = gridReady ? view : 'list'; // 坐标不可用（老服务端/手改种子）→ 列表视图，绝不用 NaN 定位
   const compact = screens.md === false; // `<md` 上下堆叠 + 详情降级为 Drawer（§12.2）；断点未就绪按桌面
 
   // 详情默认落在当前所在节点；没有位置时退回第一个已发现节点（可能是 null）。
@@ -142,7 +141,8 @@ export const MapPanel = observer(function MapPanel() {
               />
             </div>
             <Row gutter={[12, 12]} data-testid="map-main">
-              <Col xs={24} md={16} data-testid="map-route">
+              {/* 宽屏画布 ≥62%（17/24≈70.8%）：原来 16/24 时右栏仍偏挤，点阵被压小 */}
+              <Col xs={24} md={17} data-testid="map-route">
                 {mode === 'canvas' ? (
                   <MapCanvas
                     nodes={nodes}
@@ -165,7 +165,7 @@ export const MapPanel = observer(function MapPanel() {
                   />
                 )}
               </Col>
-              <Col xs={24} md={8} data-testid="map-detail">
+              <Col xs={24} md={7} data-testid="map-detail">
                 <Flex vertical gap={12}>
                   <MapCanvasLegend />
                   {compact ? (

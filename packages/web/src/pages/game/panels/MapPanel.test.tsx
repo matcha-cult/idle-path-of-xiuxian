@@ -519,29 +519,69 @@ describe('MapPanel · 协议字段不上屏', () => {
   });
 });
 
-describe('MapPanel · 开发者网格（§13）', () => {
-  it('缺省（测试环境 DEV=true）显示网格与坐标标注', () => {
+/** 在指定的 `location.search` 下跑一段断言（jsdom 的 replaceState 不更新 search，直接换属性）。 */
+function withSearch(search: string, run: () => void): void {
+  const original = Object.getOwnPropertyDescriptor(window, 'location');
+  Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, search } });
+  try {
+    run();
+  } finally {
+    if (original !== undefined) Object.defineProperty(window, 'location', original);
+  }
+}
+
+describe('MapPanel · 开发者网格（§13 + T6：缺省关）', () => {
+  it('缺省不渲染网格与坐标 —— 开发构建（测试环境 DEV=true）也关，行为与正式服一致', () => {
     const harness = setup();
     harness.render(<MapPanel />);
-    expect(screen.getByTestId('graph-canvas-grid')).toBeInTheDocument();
-    expect(screen.getByTestId('graph-canvas-item-coord-qy_gate_e')).toHaveTextContent('10,21');
+    expect(screen.queryByTestId('graph-canvas-grid')).toBeNull();
+    expect(screen.queryByTestId('graph-canvas-item-coord-qy_gate_e')).toBeNull();
+  });
+
+  it('?mapGrid=1 显式打开网格与坐标标注', () => {
+    withSearch('?mapGrid=1', () => {
+      const harness = setup();
+      harness.render(<MapPanel />);
+      expect(screen.getByTestId('graph-canvas-grid')).toBeInTheDocument();
+      expect(screen.getByTestId('graph-canvas-item-coord-qy_gate_e')).toHaveTextContent('10,21');
+    });
   });
 
   it('?mapGrid=0 关掉网格与坐标', () => {
-    // jsdom 的 history.replaceState 不更新 location.search，直接替换属性最可靠
-    const original = Object.getOwnPropertyDescriptor(window, 'location');
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { ...window.location, search: '?mapGrid=0' },
-    });
-    try {
+    withSearch('?mapGrid=0', () => {
       const harness = setup();
       harness.render(<MapPanel />);
       expect(screen.queryByTestId('graph-canvas-grid')).toBeNull();
       expect(screen.queryByTestId('graph-canvas-item-coord-qy_gate_e')).toBeNull();
-    } finally {
-      if (original !== undefined) Object.defineProperty(window, 'location', original);
-    }
+    });
+  });
+});
+
+describe('MapPanel · 画布占比（T6：宽屏 ≥62%，窄屏仍堆叠）', () => {
+  /** 读 antd Col 在 `md` 断点的 span（0~24）；没有该类名说明没设断点。 */
+  function spanOf(el: HTMLElement, breakpoint: 'xs' | 'md'): number {
+    const found = [...el.classList]
+      .map((name) => new RegExp(`^ant-col-${breakpoint}-(\\d+)$`).exec(name))
+      .find((match) => match !== null);
+    return found === undefined || found === null ? 0 : Number(found[1]);
+  }
+
+  it('宽屏：画布 Col ≥62%（15/24），且比右栏宽、两者合计 24', () => {
+    const harness = setup();
+    harness.render(<MapPanel />);
+    const route = screen.getByTestId('map-route');
+    const detail = screen.getByTestId('map-detail');
+    expect(spanOf(route, 'md') / 24).toBeGreaterThanOrEqual(0.62);
+    expect(spanOf(route, 'md')).toBeGreaterThan(spanOf(detail, 'md'));
+    expect(spanOf(route, 'md') + spanOf(detail, 'md')).toBe(24);
+  });
+
+  it('窄屏：两栏仍是 24/24 上下堆叠（不是并排）', () => {
+    setViewportWidth(393);
+    const harness = setup();
+    harness.render(<MapPanel />);
+    expect(spanOf(screen.getByTestId('map-route'), 'xs')).toBe(24);
+    expect(spanOf(screen.getByTestId('map-detail'), 'xs')).toBe(24);
   });
 });
 
