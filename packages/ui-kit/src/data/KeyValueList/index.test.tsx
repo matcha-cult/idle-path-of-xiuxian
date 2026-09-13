@@ -1,10 +1,11 @@
 /**
  * KeyValueList：键值明细。
- * 覆盖：正常渲染、空态、column/layout/bordered 透传、title、值为富节点。
+ * 覆盖：正常渲染、空态、column（数字 / 断点映射）/layout/bordered 透传、title、值为富节点。
  */
 import { render, screen } from '@testing-library/react';
 import { Tag } from 'antd';
 import { describe, expect, it } from 'vitest';
+import { setViewportWidth } from '../../testing/viewport.js';
 import { KeyValueList } from './index.js';
 
 const items = [
@@ -38,6 +39,27 @@ describe('KeyValueList', () => {
 
     expect(screen.getByText('角色详情')).toBeInTheDocument();
     expect(container.querySelector('.ant-descriptions-bordered')).not.toBeNull();
+  });
+
+  it('column 支持断点映射：窄屏单列（每条一行）、宽屏多列（并成一行）', () => {
+    // antd `Descriptions` 的响应式列数是**用 useBreakpoint 解析成数字**的（不是 CSS class），
+    // 所以只能从渲染出的行数反推：3 条 × 1 列 = 3 行；3 条 × 3 列 = 1 行。
+    const three = [
+      { key: 'a', label: '甲', value: 1 },
+      { key: 'b', label: '乙', value: 2 },
+      { key: 'c', label: '丙', value: 3 },
+    ];
+    const rowsOf = (container: HTMLElement): number =>
+      container.querySelectorAll('.ant-descriptions-view tbody tr').length;
+
+    setViewportWidth(393);
+    const narrow = render(<KeyValueList items={three} column={{ xs: 1, md: 3 }} />);
+    expect(rowsOf(narrow.container)).toBe(3);
+    narrow.unmount();
+
+    setViewportWidth(1280);
+    const wide = render(<KeyValueList items={three} column={{ xs: 1, md: 3 }} />);
+    expect(rowsOf(wide.container)).toBe(1);
   });
 
   it('layout=vertical 可渲染，值为富节点', () => {

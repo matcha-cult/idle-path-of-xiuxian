@@ -18,7 +18,14 @@ export interface StatItemProps {
   value: number | string;
   /** 前缀（图标等）。 */
   prefix?: ReactNode;
-  /** 后缀（单位等）。 */
+  /**
+   * 后缀（单位等）。
+   *
+   * ⚠️ antd v6 的 `suffix` 与 `value` **共用 `contentFontSize`**，只有 `title`(=label) 用
+   * `titleFontSize`。因此**不要拿 suffix 放说明性文字**（例如「（第 3 境 / 共 14 境）」）：
+   * 它会按主数值字号渲染，在窄列里 PC 折 2 行、手机折 7 行（一字一行）。
+   * 次要说明请并入 `label`，或另起一行小字；suffix 只放真正的单位（`个` / `%` / `次`）。
+   */
   suffix?: ReactNode;
   /** 小数位数（仅对有限数值生效）。 */
   precision?: number;
