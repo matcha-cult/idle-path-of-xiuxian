@@ -85,17 +85,21 @@ const ZONE_BY_NODE = { qy_peak_xunlian: 'zone_houshan' };
  * 列：code / name / ring / sector / kind / featureKey / level / threshold / hasWaypoint /
  * chapter / requires / description / gridRow / gridCol / idealR / idealA。
  * `idealR/idealA` 只用于质量度量（显式坐标相对理想极坐标的偏移），**不写进种子**。
+ *
+ * ⚠️ **`level` / `threshold` 只属于 `kind === 'secret_realm'` 的节点**（2026-09-14 用户判定：
+ * 「宗门内总不能天天杀同门」）。宗门里的山门 / 八峰 / 四院 / 主峰都是**职能型枢纽**，
+ * 没有怪物、也没有门槛 —— 种子里必须是 `null`（见下方映射与自检）。
  */
 const NODES = [
   // ===== 四门（最外，四正方位）=====
-  { code: 'qy_gate_n', name: '北门', ring: 'outer', sector: 'N', kind: 'route', featureKey: null, level: 2, threshold: 25, hasWaypoint: true, chapter: 1, requires: null, gridRow: 0, gridCol: 10, idealR: GATE_R, idealA: 270, description: '北门背靠雪岭，常年寒气逼人。' },
-  { code: 'qy_gate_e', name: '东门', ring: 'outer', sector: 'E', kind: 'route', featureKey: null, level: 1, threshold: 10, hasWaypoint: true, chapter: 1, requires: null, gridRow: 10, gridCol: 20, idealR: GATE_R, idealA: 0, description: '青石山门朝东，晨光最先照到这里。' },
-  { code: 'qy_gate_s', name: '南门', ring: 'outer', sector: 'S', kind: 'route', featureKey: null, level: 1, threshold: 10, hasWaypoint: true, chapter: 1, requires: null, gridRow: 20, gridCol: 10, idealR: GATE_R, idealA: 90, description: '南麓坡缓，山下香客多由此上山。' },
-  { code: 'qy_gate_w', name: '西门', ring: 'outer', sector: 'W', kind: 'route', featureKey: null, level: 2, threshold: 25, hasWaypoint: true, chapter: 1, requires: null, gridRow: 10, gridCol: 0, idealR: GATE_R, idealA: 180, description: '西门外是万丈云海，风急雾重。' },
+  { code: 'qy_gate_n', name: '北门', ring: 'outer', sector: 'N', kind: 'route', featureKey: null, hasWaypoint: true, chapter: 1, requires: null, gridRow: 0, gridCol: 10, idealR: GATE_R, idealA: 270, description: '北门背靠雪岭，常年寒气逼人。' },
+  { code: 'qy_gate_e', name: '东门', ring: 'outer', sector: 'E', kind: 'route', featureKey: null, hasWaypoint: true, chapter: 1, requires: null, gridRow: 10, gridCol: 20, idealR: GATE_R, idealA: 0, description: '青石山门朝东，晨光最先照到这里。' },
+  { code: 'qy_gate_s', name: '南门', ring: 'outer', sector: 'S', kind: 'route', featureKey: null, hasWaypoint: true, chapter: 1, requires: null, gridRow: 20, gridCol: 10, idealR: GATE_R, idealA: 90, description: '南麓坡缓，山下香客多由此上山。' },
+  { code: 'qy_gate_w', name: '西门', ring: 'outer', sector: 'W', kind: 'route', featureKey: null, hasWaypoint: true, chapter: 1, requires: null, gridRow: 10, gridCol: 0, idealR: GATE_R, idealA: 180, description: '西门外是万丈云海，风急雾重。' },
   // ===== 八峰（八卦环，整体旋转 22.5°；正北让给北门）=====
   ...PROFESSION_PEAKS.map(([code, name], i) => ({
     code, name, ring: 'peaks', sector: null, kind: 'route', featureKey: 'profession',
-    level: 2 + Math.min(i, 3), threshold: 30 + i * 10, hasWaypoint: false, chapter: i < 3 ? 1 : 2,
+    hasWaypoint: false, chapter: i < 3 ? 1 : 2,
     requires: null, gridRow: [3, 7, 13, 17, 17, 13, 7][i], gridCol: [7, 3, 3, 7, 14, 17, 17][i],
     idealR: PEAK_R, idealA: PEAK_ANGLES[i],
     description: [
@@ -111,12 +115,12 @@ const NODES = [
   // 第八峰·历练：唯一秘境（kind=secret_realm，zone_houshan），紧贴北门右侧
   { code: 'qy_peak_xunlian', name: '第八峰·历练', ring: 'peaks', sector: null, kind: 'secret_realm', featureKey: null, level: 5, threshold: 75, hasWaypoint: false, chapter: 2, requires: null, gridRow: 3, gridCol: 14, idealR: PEAK_R, idealA: PEAK_ANGLES[7], description: '后山妖兽出没，宗门以此历练门人。' },
   // ===== 四院（四象环内，四正方位）=====
-  { code: 'qy_chuanfayuan', name: '传法院', ring: 'inner', sector: 'N', kind: 'route', featureKey: 'skill', level: 3, threshold: 55, hasWaypoint: false, chapter: 2, requires: null, gridRow: 5, gridCol: 10, idealR: HALL_R, idealA: 270, description: '传功授法之地，藏经阁与传功崖皆在此院。' },
-  { code: 'qy_yulingyuan', name: '育灵院', ring: 'inner', sector: 'E', kind: 'route', featureKey: 'farm', level: 4, threshold: 65, hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 15, idealR: HALL_R, idealA: 0, description: '灵田药园与灵兽苑共处一院，草木生机最盛。' },
-  { code: 'qy_baigongyuan', name: '百工院', ring: 'inner', sector: 'S', kind: 'route', featureKey: 'alchemy', level: 5, threshold: 75, hasWaypoint: false, chapter: 2, requires: null, gridRow: 15, gridCol: 10, idealR: HALL_R, idealA: 90, description: '丹炉与锻炉同燃，是宗门的百工之所。' },
-  { code: 'qy_zhifayuan', name: '执法院', ring: 'inner', sector: 'W', kind: 'route', featureKey: 'discipline', level: 4, threshold: 70, hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 5, idealR: HALL_R, idealA: 180, description: '戒律与天刑皆归此院，法度森严。' },
+  { code: 'qy_chuanfayuan', name: '传法院', ring: 'inner', sector: 'N', kind: 'route', featureKey: 'skill', hasWaypoint: false, chapter: 2, requires: null, gridRow: 5, gridCol: 10, idealR: HALL_R, idealA: 270, description: '传功授法之地，藏经阁与传功崖皆在此院。' },
+  { code: 'qy_yulingyuan', name: '育灵院', ring: 'inner', sector: 'E', kind: 'route', featureKey: 'farm', hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 15, idealR: HALL_R, idealA: 0, description: '灵田药园与灵兽苑共处一院，草木生机最盛。' },
+  { code: 'qy_baigongyuan', name: '百工院', ring: 'inner', sector: 'S', kind: 'route', featureKey: 'alchemy', hasWaypoint: false, chapter: 2, requires: null, gridRow: 15, gridCol: 10, idealR: HALL_R, idealA: 90, description: '丹炉与锻炉同燃，是宗门的百工之所。' },
+  { code: 'qy_zhifayuan', name: '执法院', ring: 'inner', sector: 'W', kind: 'route', featureKey: 'discipline', hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 5, idealR: HALL_R, idealA: 180, description: '戒律与天刑皆归此院，法度森严。' },
   // ===== 太极居中 =====
-  { code: 'qy_summit', name: '青云主峰', ring: 'summit', sector: null, kind: 'summit', featureKey: 'quest', level: 5, threshold: 100, hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 10, idealR: 0, idealA: 0, description: '一峰独高，云海尽在脚下，宗门中枢所在。' },
+  { code: 'qy_summit', name: '青云主峰', ring: 'summit', sector: null, kind: 'summit', featureKey: 'quest', hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 10, idealR: 0, idealA: 0, description: '一峰独高，云海尽在脚下，宗门中枢所在。' },
 ];
 
 /**
@@ -154,8 +158,9 @@ const nodes = NODES.map((n, i) => ({
   sector: n.sector ?? null,
   kind: n.kind,
   featureKey: n.featureKey ?? null,
-  level: n.level,
-  threshold: n.threshold,
+  // 怪物境界 / 门槛**只写进秘境节点**：其余 16 个是职能型枢纽（宗门内不刷同门）。
+  level: n.kind === 'secret_realm' ? n.level : null,
+  threshold: n.kind === 'secret_realm' ? n.threshold : null,
   hasWaypoint: n.hasWaypoint ?? false,
   chapter: n.chapter,
   requiresNodeCode: n.requires ?? null,
@@ -218,8 +223,15 @@ for (const n of nodes) {
   if (n.kind === 'idle_spot') bad.push('不应存在 idle_spot 节点（挂机只能在历练秘境峰）: ' + n.code);
   if ('unitCode' in n) bad.push('节点不应带 unitCode（秘境产出由 zone 决定）: ' + n.code);
   if ('minRealm' in n) bad.push('节点不应带 minRealm（闸门只有 threshold）: ' + n.code);
+  // 数据分层（2026-09-14 用户判定）：只有秘境节点带怪物数据，职能型枢纽必须为 null。
+  if (n.kind === 'secret_realm') {
+    if (!Number.isInteger(n.level) || n.level < 1) bad.push('秘境节点必须带怪物境界: ' + n.code);
+    if (!Number.isInteger(n.threshold) || n.threshold <= 0) bad.push('秘境节点必须带门槛: ' + n.code);
+  } else if (n.level !== null || n.threshold !== null) {
+    bad.push('非秘境节点不得带 level/threshold（宗门内不刷同门）: ' + n.code);
+  }
 }
-const overCap = nodes.filter((n) => n.level > 5).map((n) => n.code);
+const overCap = nodes.filter((n) => n.level !== null && n.level > 5).map((n) => n.code);
 if (overCap.length > 0) bad.push('怪物境界超过本图上限（第五境）: ' + overCap.join(','));
 
 // v3 §4.2 结构硬自检：每条边必须「同环角度相邻」或「相邻环角度最近」，且派生边一条不少。
@@ -281,7 +293,7 @@ console.log(
     '四门 ' + nodes.filter((n) => n.ring === 'outer').length +
     ' + 八峰 ' + peaks.length + '（职业峰 ' + peaks.filter((n) => n.featureKey === 'profession').length +
     ' + 历练秘境峰 1）+ 四院 ' + halls.length + ' + 主峰 1；怪物境界上限 ' +
-    Math.max(...nodes.map((n) => n.level)),
+    Math.max(...nodes.filter((n) => n.level !== null).map((n) => n.level)),
 );
 console.log(
   '画布：' + GRID + '×' + GRID + ' 交叉线（' + (GRID + 1) + ' 条）/ sep=' + SEP +

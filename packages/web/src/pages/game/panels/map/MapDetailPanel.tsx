@@ -7,11 +7,15 @@
  * 唯一的规范路径是本面板里的「前往此地」按钮（PC 另有双击快捷键）。这条契约的理由是
  * 「有代价的动作必须由明确的意图触发」—— 它同时解决了 PC 误点与移动端误触，见 §12.1。
  *
+ * **数据分层（T1）**：小标题按 `node.level === null` 分流 —— 职能型枢纽不出现「难度参考」
+ * 字样（否则等于宣称宗门里天天杀同门），详见 `node-detail.ts`。
+ *
  * 本组件是纯展示 + 回调，不读 store、不发请求。
  */
 import type { MapNodeView, MapObjectView } from '@idle-path/ionet-transport';
 import { SectionCard } from '@idle-path/ui-kit';
 import { MapNodeCard } from './MapNodeCard.js';
+import { detailSubtitleTail } from './node-detail.js';
 import { nodeStateLabel, nodeVisualState } from './canvas-view.js';
 
 export interface MapDetailPanelProps {
@@ -46,7 +50,7 @@ export function MapDetailPanel(props: MapDetailPanelProps) {
   return (
     <SectionCard
       title="地点详情"
-      subtitle={`${nodeStateLabel(state)} · 难度参考 / 传送点 / 职能入口`}
+      subtitle={`${nodeStateLabel(state)} · ${detailSubtitleTail(node)}`}
     >
       <MapNodeCard
         node={node}

@@ -14,8 +14,11 @@
  *
  * ⚠️ 设计修正（用户定调，见设计追踪修订 `052b146`）：**挂机只能在秘境峰** ——
  * 地图上不再散布独立挂机节点，全图唯一的离线挂机处就是 `secret_realm` 节点
- * （青云宗 = 后山峰）。因此本域只处理 `route` / `secret_realm` / `summit` 三类节点，
- * `level` 仅作「怪物境界」展示，门槛判定只用 `threshold`。
+ * （青云宗 = 后山峰）。因此本域只处理 `route` / `secret_realm` / `summit` 三类节点。
+ *
+ * ⚠️ 数据分层（2026-09-14 用户判定「宗门内总不能天天杀同门」）：`level`（怪物境界）与
+ * `threshold`（门槛）**只属于 `kind='secret_realm'` 的节点**，其余 16 个职能型枢纽两列都是
+ * `NULL` → DTO 下发 `null` → 右栏完全不显示战斗数据（改为显示职能对象）。
  *
  * 战力复用 `character/player-power.service.ts`（与 zone 域同一实现），不在此另算一份。
  */
@@ -39,6 +42,7 @@ import {
   type NodeProgressView,
   discoveredCodes,
   objectView,
+  optionalInt,
   unlockedMapCodes,
   fail,
   progressView,
@@ -204,8 +208,9 @@ export class MapService {
       sector: node.sector,
       kind: node.kind,
       featureKey: node.feature_key,
-      level: Number(node.level),
-      threshold: Number(node.threshold),
+      // 数据分层（T1）：只有秘境节点带怪物数据；职能型枢纽为 null（不得用 Number() 变 0）
+      level: optionalInt(node.level),
+      threshold: optionalInt(node.threshold),
       hasWaypoint: Boolean(node.has_waypoint),
       chapter: Number(node.chapter),
       requiresNodeCode: node.requires_node_code,
@@ -352,9 +357,10 @@ export class MapService {
       }
     }
 
-    // 战力不再参与闸门，但仍在响应里回显（展示用；`threshold` 降级为难度参考）
+    // 战力不再参与闸门，但仍在响应里回显（展示用；`threshold` 降级为难度参考，
+    // 且**只有秘境节点才有值**：职能型枢纽回显 null，前端据此不显示战斗数据块）
     const power = await this.playerPowerService.compute(character.id, character.realm);
-    const threshold = Number(node.threshold);
+    const threshold = optionalInt(node.threshold);
     const existing = await this.progressRow(character.id, Number(node.id));
     const alreadyVisited = Boolean(existing?.visited);
     const waypointOpen = Boolean(existing?.waypoint_unlocked) || Boolean(node.has_waypoint);

@@ -452,6 +452,52 @@ describe('MapPanel · 战力只作参考（P2.0 v3 §5 + T5：不拦前往、不
   });
 });
 
+describe('MapPanel · 数据分层（T1：宗门内不显示怪物境界，防回归）', () => {
+  const HUB = makeNode({
+    id: 9,
+    code: 'qy_chuanfayuan',
+    name: '传法院',
+    ring: 'inner',
+    kind: 'route',
+    featureKey: 'skill',
+    level: null,
+    threshold: null,
+    gridRow: 5,
+    gridCol: 10,
+  });
+
+  it('职能型枢纽（level=null）右栏不出现任何「怪物境界 / 难度参考门槛 / 参考战力」', () => {
+    const harness = setup((root) => {
+      root.map.nodes = [HUB, ...NODES];
+      root.map.currentCode = 'qy_chuanfayuan';
+    });
+    harness.render(<MapPanel />);
+    const card = screen.getByTestId('map-node-card-qy_chuanfayuan');
+    expect(card).not.toHaveTextContent('怪物境界');
+    expect(card).not.toHaveTextContent('难度参考门槛');
+    expect(card).not.toHaveTextContent('参考战力');
+    expect(card).not.toHaveTextContent('第 0 境');
+    expect(screen.queryByTestId('map-node-compare-qy_chuanfayuan')).toBeNull();
+  });
+
+  it('同一面板上切到秘境节点后仍显示战斗数据（分流是逐节点的）', async () => {
+    const harness = setup((root) => {
+      root.map.nodes = [HUB, ...NODES];
+      root.map.currentCode = 'qy_chuanfayuan';
+    });
+    harness.render(<MapPanel />);
+    // 先确认枢纽卡没有战斗数据（选中态默认落在当前所在 = 传法院）
+    expect(screen.getByTestId('map-node-card-qy_chuanfayuan')).not.toHaveTextContent('怪物境界');
+    // 点画布上的灵田药园（有 level=5 / threshold=95）→ 详情切到它，战斗数据回来
+    pointer(pin('qy_lingtian'), 'pointerdown');
+    pointer(pin('qy_lingtian'), 'pointerup');
+    await waitFor(() => expect(screen.getByTestId('map-node-card-qy_lingtian')).toBeInTheDocument());
+    const realm = screen.getByTestId('map-node-card-qy_lingtian');
+    expect(realm).toHaveTextContent('怪物境界');
+    expect(realm).toHaveTextContent('参考战力 95');
+  });
+});
+
 describe('MapPanel · 未开放系统与三态（对象层）', () => {
   it('百工院 · 丹霞院（alchemy 未实现）在详情卡渲染「未开放」且入口禁用', () => {
     const harness = setup((root) => {

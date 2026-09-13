@@ -35,8 +35,13 @@ export interface MapNodeRow {
   sector: string | null;
   kind: string;
   feature_key: string | null;
-  level: number;
-  threshold: number;
+  /**
+   * 怪物境界（固定）。**只有 `kind === 'secret_realm'` 的节点有值**，
+   * 其余是职能型枢纽（宗门内不刷同门）→ `null`。右栏据此分流显示。
+   */
+  level: number | null;
+  /** 固定战力门槛（§6）。与 `level` 同口径：非秘境节点为 `null`。 */
+  threshold: number | null;
   has_waypoint: boolean;
   chapter: number;
   requires_node_code: string | null;
@@ -63,6 +68,18 @@ export function safeInt(value: unknown, fallback: number): number {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n) || n < 0) return fallback;
   return Math.trunc(n);
+}
+
+/**
+ * 可空整数列的视图转换：`null` / `undefined` / 非有限数一律保持 `null`。
+ *
+ * ⚠️ **不要用 `safeInt` / `Number()` 处理 `level` / `threshold`**：`Number(null) === 0`，
+ * 会把「此地没有怪物」静默变成「怪物境界 0 / 门槛 0」，正是 T1 要修的那个荒诞。
+ */
+export function optionalInt(value: unknown): number | null {
+  if (value == null) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
 /** `game_map_edges` 行（schema.prisma:454-463） */

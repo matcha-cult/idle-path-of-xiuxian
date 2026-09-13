@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { MapService } from '../../../src/modules/logic/map/internal/map.service.js';
 import { PlayerPowerService } from '../../../src/modules/character/player-power.service.js';
 import {
+  optionalInt,
   safeInt,
   unlockedMapCodes,
   type MapRow,
@@ -334,6 +335,44 @@ describe('MapService.panel 画布坐标映射（P1）', () => {
     assert.equal(safeInt('12', 5), 12);
     assert.equal(safeInt('', 5), 0);
     assert.equal(safeInt('abc', 5), 5);
+  });
+
+  test('optionalInt 边界：null/undefined 保持 null（绝不回落 0），小数截断，NaN/Infinity -> null', () => {
+    assert.equal(optionalInt(null), null);
+    assert.equal(optionalInt(undefined), null);
+    assert.equal(optionalInt(0), 0);
+    assert.equal(optionalInt(3.9), 3);
+    assert.equal(optionalInt('12'), 12);
+    assert.equal(optionalInt(Number.NaN), null);
+    assert.equal(optionalInt(Number.POSITIVE_INFINITY), null);
+    assert.equal(optionalInt('abc'), null);
+    assert.equal(optionalInt({}), null);
+  });
+
+  test('数据分层（T1）：level/threshold 为 null 的节点下发 null，enter 回显也是 null', async () => {
+    const hub = nodeRow({ id: 1, code: 'hub', ring: 'outer', kind: 'route', level: null, threshold: null });
+    const { db } = mapDb({ maps: [mapRow()], nodes: [hub], edges: [] });
+    const { svc } = makeService({ db });
+    const view = (await svc.panel(7)).data as { maps: Array<{ nodes: Array<Record<string, unknown>> }> };
+    const panelNode = view.maps[0].nodes[0];
+    assert.strictEqual(panelNode.level, null);
+    assert.strictEqual(panelNode.threshold, null);
+    assert.notStrictEqual(panelNode.threshold, 0, 'null 不得被 Number() 变成 0');
+    const entered = (await svc.enter(7, 'hub')).data as Record<string, unknown>;
+    assert.strictEqual(entered.threshold, null);
+  });
+
+  test('数据分层（T1）：秘境节点的 level/threshold 原样下发', async () => {
+    const realm = nodeRow({
+      id: 1, code: 'xunlian', ring: 'peaks', kind: 'secret_realm',
+      zone_code: 'zone_houshan', level: 5, threshold: 75,
+    });
+    const { db } = mapDb({ maps: [mapRow()], nodes: [realm], edges: [] });
+    const view = (await makeService({ db }).svc.panel(7)).data as {
+      maps: Array<{ nodes: Array<Record<string, unknown>> }>;
+    };
+    assert.strictEqual(view.maps[0].nodes[0].level, 5);
+    assert.strictEqual(view.maps[0].nodes[0].threshold, 75);
   });
 });
 

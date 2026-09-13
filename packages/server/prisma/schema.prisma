@@ -439,8 +439,10 @@ model game_map_nodes {
   sector             String?  @db.VarChar(4) // N/NE/E/SE/S/SW/W/NW
   kind               String   @db.VarChar(20) // route/idle_spot/secret_realm/summit
   feature_key        String?  @db.VarChar(20) // 承载的系统；null = 纯跑图
-  level              Int      @db.SmallInt // 怪物境界（固定）
-  threshold          Int // 固定战力门槛
+  // 怪物境界 / 门槛**只属于 kind=secret_realm 的节点**（宗门内是职能型枢纽，不刷同门）；
+  // 其余节点为 NULL —— 右栏据此分流：有战斗数据才显示「怪物境界 / 参考战力」。
+  level              Int?     @db.SmallInt // 怪物境界（固定）；非秘境节点为 NULL
+  threshold          Int? // 固定战力门槛（§6 确定性模型）；非秘境节点为 NULL
   has_waypoint       Boolean  @default(false)
   chapter            Int      @db.SmallInt
   requires_node_code String?  @db.VarChar(50)

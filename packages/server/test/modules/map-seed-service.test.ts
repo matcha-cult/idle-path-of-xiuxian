@@ -23,7 +23,7 @@ const read = <T>(file: string): T => JSON.parse(readFileSync(new URL(file, SEED_
 interface SeedMap { id: number; code: string; name: string; world?: string; orderIndex: number; chapterFrom: number; chapterTo: number; requiresMapCode?: string | null; description?: string | null; gridRows?: number; gridCols?: number; backgroundKey?: string | null }
 interface SeedNode {
   code: string; mapCode: string; name: string; ring: string; sector?: string | null; kind: string;
-  featureKey?: string | null; level: number; threshold: number; hasWaypoint?: boolean; chapter: number;
+  featureKey?: string | null; level: number | null; threshold: number | null; hasWaypoint?: boolean; chapter: number;
   requiresNodeCode?: string | null; zoneCode?: string | null; orderIndex: number; gridRow: number; gridCol: number; description?: string | null;
 }
 interface SeedEdge { id: number; mapCode: string; fromNodeCode: string; toNodeCode: string; bidirectional?: boolean }
@@ -114,7 +114,7 @@ function makeService(db: FakeDatabase, realm = 1) {
   return new MapService(db as never, charStub as never, power as never);
 }
 
-interface PanelNode { code: string; ring: string; adjacent: boolean; gridRow: number; gridCol: number }
+interface PanelNode { code: string; ring: string; adjacent: boolean; gridRow: number; gridCol: number; level: number | null; threshold: number | null }
 interface PanelObject { code: string; nodeCode: string; featureKey: string | null; kind: string }
 interface PanelView { code: string; gridRows: number; gridCols: number; currentNodeCode: string | null; nodes: PanelNode[]; edges: unknown[]; objects: PanelObject[] }
 
@@ -134,6 +134,18 @@ describe('地图种子 × MapService 集成（P2.0 §7）', () => {
     assert.equal(view.nodes.length, 17);
     const adjacent = view.nodes.filter((n) => n.adjacent).map((n) => n.code).sort();
     assert.deepStrictEqual(adjacent, ['qy_gate_e', 'qy_gate_n', 'qy_gate_s', 'qy_gate_w']);
+  });
+
+  test('数据分层（T1）：真种子下发后只有历练峰带 level/threshold，其余 16 个为 null', async () => {
+    const { db } = seedDb();
+    const view = await panelView(db);
+    const withData = view.nodes.filter((n) => n.level !== null || n.threshold !== null);
+    assert.deepStrictEqual(withData.map((n) => n.code), ['qy_peak_xunlian']);
+    assert.equal(withData[0]?.level, 5);
+    assert.equal(withData[0]?.threshold, 75);
+    // 反例守卫：绝不能出现 `Number(null) === 0` 造成的「怪物境界 0」
+    const zeros = view.nodes.filter((n) => n.level === 0 || n.threshold === 0);
+    assert.deepStrictEqual(zeros.map((n) => n.code), [], 'null 不得被回落成 0');
   });
 
   test('新角色 panel：11 个对象，宿主都在四院或主峰，featureKey 全非空、kind=office', async () => {

@@ -315,8 +315,8 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
   sector             VARCHAR(4),           -- N/NE/E/SE/S/SW/W/NW（八峰按方位排布）
   kind               VARCHAR(20) NOT NULL, -- route/idle_spot/secret_realm/summit
   feature_key        VARCHAR(20),          -- skill/craft/quest/alchemy/beast/farm/pvp/discipline/waypoint/profession
-  level              SMALLINT NOT NULL,    -- 怪物境界（固定，不随层数上涨）
-  threshold          INTEGER NOT NULL,     -- 固定战力门槛（§6 确定性模型）
+  level              SMALLINT,              -- 怪物境界（固定）；**只有 kind=secret_realm 有值**，其余 NULL
+  threshold          INTEGER,               -- 固定战力门槛（§6 确定性模型）；非秘境节点 NULL
   has_waypoint       BOOLEAN NOT NULL DEFAULT FALSE,
   chapter            SMALLINT NOT NULL,
   requires_node_code VARCHAR(50),
@@ -336,6 +336,13 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
 ALTER TABLE game_maps DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS unit_code;
+-- 数据分层（2026-09-14 用户判定「宗门内总不能天天杀同门」）：level/threshold 改为**可空** ——
+-- 只有 kind=secret_realm 的节点带怪物数据；老库这两列是 NOT NULL，必须先 DROP NOT NULL（幂等），
+-- 否则下面重灌种子写入 NULL 会失败。
+ALTER TABLE game_map_nodes ALTER COLUMN level DROP NOT NULL;
+ALTER TABLE game_map_nodes ALTER COLUMN threshold DROP NOT NULL;
+-- 兜底清理：即使不重灌种子，非秘境节点也不该再残留「怪物境界 / 门槛」。
+UPDATE game_map_nodes SET level = NULL, threshold = NULL WHERE kind <> 'secret_realm';
 -- P1 画布增量列（幂等）。**先建可空列**：老库里的行还没有坐标，直接上 NOT NULL 会失败。
 -- NOT NULL 由本脚本末尾「节点重灌之后」的收口步骤补上（见 promoteMapNodeGridNotNull）——
 -- 放在建表处会有一个竞态：那一刻表里还是**上一轮的旧行**（无坐标），收口被跳过，

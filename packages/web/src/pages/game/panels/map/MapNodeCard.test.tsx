@@ -23,6 +23,8 @@ function makeNode(overrides: Partial<MapNodeView> = {}): MapNodeView {
     sector: 'E',
     kind: 'route',
     featureKey: null,
+    // 默认给**战斗数据**（有 level/threshold 才渲染「怪物境界 / 参考战力」）；
+    // 职能型枢纽用下方 makeHub（level/threshold = null）。
     level: 5,
     threshold: 95,
     hasWaypoint: false,
@@ -35,6 +37,11 @@ function makeNode(overrides: Partial<MapNodeView> = {}): MapNodeView {
     adjacent: true,
     ...overrides,
   } as MapNodeView;
+}
+
+/** 职能型枢纽（山门 / 八峰 / 四院 / 主峰）：`level` / `threshold` 都是 `null`（T1 数据分层）。 */
+function makeHub(overrides: Partial<MapNodeView> = {}): MapNodeView {
+  return makeNode({ level: null, threshold: null, ...overrides });
 }
 
 function makeObject(overrides: Partial<MapObjectView> = {}): MapObjectView {
@@ -109,6 +116,56 @@ describe('MapNodeCard · 战力只作参考、不拦路、不做红绿判定（P
     const compare = screen.getByTestId('map-node-compare-n_hi');
     expect(compare).toHaveTextContent('参考战力 95 · 我的战力 120');
     expect(compare.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
+  });
+});
+
+describe('MapNodeCard · 数据分层（T1：宗门内不显示怪物数据，防回归）', () => {
+  it('职能型枢纽：整张卡不出现「怪物境界 / 难度参考门槛 / 参考战力」', () => {
+    setup(makeHub({ code: 'qy_cangjingge', name: '藏经阁' }), 42);
+    const card = screen.getByTestId('map-node-card-qy_cangjingge');
+    expect(card).not.toHaveTextContent('怪物境界');
+    expect(card).not.toHaveTextContent('难度参考门槛');
+    expect(card).not.toHaveTextContent('参考战力');
+    // 也绝不能把 null 回落成 0（Number(null) === 0 是这条要修的荒诞）
+    expect(card).not.toHaveTextContent('第 0 境');
+    expect(card).not.toHaveTextContent('参考战力 0');
+    expect(screen.queryByTestId('map-node-compare-qy_cangjingge')).toBeNull();
+    expect(screen.getByTestId('map-node-hub-qy_cangjingge')).toHaveTextContent('此地无怪物');
+  });
+
+  it('职能型枢纽：我的战力 / 节点类型 / 承载系统仍显示，职能对象照常列出', () => {
+    setup(makeHub({ code: 'qy_baigongyuan', featureKey: 'alchemy' }), 42, {
+      objects: [
+        makeObject({ id: 1, code: 'obj_danxiayuan', nodeCode: 'qy_baigongyuan', name: '丹霞院', featureKey: 'alchemy' }),
+      ],
+    });
+    const card = screen.getByTestId('map-node-card-qy_baigongyuan');
+    expect(card).toHaveTextContent('我的战力');
+    expect(card).toHaveTextContent('42');
+    expect(card).toHaveTextContent('节点类型');
+    expect(screen.getByTestId('map-objects-qy_baigongyuan')).toHaveTextContent('丹霞院');
+  });
+
+  it('秘境节点（有战斗数据）：保留「怪物境界 第 5 境 / 难度参考门槛 75 / 中性对比」', () => {
+    setup(makeNode({ ...REALM, code: 'qy_peak_xunlian' }), 100);
+    const card = screen.getByTestId('map-node-card-qy_peak_xunlian');
+    expect(card).toHaveTextContent('怪物境界');
+    expect(card).toHaveTextContent('第 5 境');
+    expect(card).toHaveTextContent('难度参考门槛');
+    expect(card).toHaveTextContent('75');
+    expect(screen.getByTestId('map-node-compare-qy_peak_xunlian')).toHaveTextContent(
+      '参考战力 75 · 我的战力 100',
+    );
+    expect(screen.queryByTestId('map-node-hub-qy_peak_xunlian')).toBeNull();
+  });
+
+  it('边界：有境界但门槛缺失（配置漂移）→ 门槛显示「未知」，不渲染对比行', () => {
+    setup(makeNode({ code: 'n_broken', level: 5, threshold: null }), 100);
+    const card = screen.getByTestId('map-node-card-n_broken');
+    expect(card).toHaveTextContent('未知');
+    expect(card).not.toHaveTextContent('参考战力');
+    expect(screen.queryByTestId('map-node-compare-n_broken')).toBeNull();
+    expect(screen.queryByTestId('map-node-hub-n_broken')).toBeNull();
   });
 });
 

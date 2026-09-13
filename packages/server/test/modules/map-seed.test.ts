@@ -53,8 +53,12 @@ interface NodeSeed {
   sector?: string | null;
   kind: string;
   featureKey?: string | null;
-  level: number;
-  threshold: number;
+  /**
+   * 怪物境界 / 门槛：**只有 `kind === 'secret_realm'` 的节点有值**，其余为 `null`
+   * （2026-09-14 用户判定「宗门内总不能天天杀同门」）。
+   */
+  level: number | null;
+  threshold: number | null;
   hasWaypoint?: boolean;
   chapter: number;
   requiresNodeCode?: string | null;
@@ -238,15 +242,39 @@ describe('地图种子 · R2 已拍板硬规则', () => {
   });
 
   /**
-   * 用户设定：青云宗这张图把玩家**历练到第五境**。
-   * 因此全图怪物境界 ≤ 5，门槛也必须落在 1~5 境的可达范围内
-   * （5 境裸装战力 = 5×20 = 100；门槛高过它就等于这张图自己把自己锁死）。
+   * 用户设定（D10 修正版）：**青云宗·历练峰**把玩家历练到第五境 —— 不是全图每个点都是怪。
+   * 只有秘境节点带怪物境界 / 门槛，且境界 ≤ 5、门槛 ≤ 100（5 境裸装战力 = 100）。
    */
-  test('本图历练到第五境：怪物境界 ≤ 5，且门槛不超 5 境裸装战力（100）', () => {
-    const overLevel = nodes.filter((n) => n.level > 5).map((n) => n.code);
-    assert.deepStrictEqual(overLevel, [], `怪物境界超过第五境：${overLevel.join(', ')}`);
-    const overGate = nodes.filter((n) => n.threshold > 100).map((n) => n.code);
-    assert.deepStrictEqual(overGate, [], `门槛超过 5 境裸装战力（100）：${overGate.join(', ')}`);
+  test('青云宗·历练峰历练到第五境：秘境怪物境界 ≤ 5，且门槛不超 5 境裸装战力（100）', () => {
+    const combat = nodes.filter((n) => n.level !== null);
+    assert.deepStrictEqual(
+      combat.filter((n) => !(n.level! >= 1 && n.level! <= 5)).map((n) => n.code),
+      [],
+      '秘境怪物境界必须落在 1~5 境',
+    );
+    const overGate = combat.filter((n) => !(n.threshold! > 0 && n.threshold! <= 100)).map((n) => n.code);
+    assert.deepStrictEqual(overGate, [], `门槛必须落在 1~100（5 境裸装战力）`);
+  });
+
+  test('数据分层：level / threshold 只属于秘境节点，职能型枢纽必须为 null', () => {
+    const withData = nodes.filter((n) => n.level !== null || n.threshold !== null);
+    for (const node of withData) {
+      assert.strictEqual(node.kind, 'secret_realm', `非秘境节点 ${node.code} 不得带怪物数据`);
+    }
+    // level 与 threshold 必须成对出现（有境界没门槛 = 半截战斗数据）
+    for (const node of nodes) {
+      assert.strictEqual(
+        node.level === null,
+        node.threshold === null,
+        `节点 ${node.code} 的 level / threshold 必须同时为空或同时有值`,
+      );
+    }
+    // 反向：秘境必须带数据
+    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
+      assert.ok(node.level !== null && node.threshold !== null, `秘境节点 ${node.code} 缺怪物数据`);
+    }
+    // 记录当前分层规模（防回归：宗门 16 个枢纽必须全部为 null）
+    assert.strictEqual(withData.length, 1, '本轮只有历练峰一个节点带怪物数据');
   });
 
   test('§5.2：每张地图至少一个传送点，否则传送体系形同虚设', () => {
@@ -268,13 +296,17 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('境界与战力区间合法（境界 1~14；threshold > 0）', () => {
-    for (const node of nodes) {
+  test('境界与战力区间合法（境界 1~14；threshold > 0）—— 仅秘境节点受约束', () => {
+    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
       assert.ok(
-        Number.isInteger(node.level) && node.level >= 1 && node.level <= 14,
-        `节点 ${node.code} 的 level 越界：${node.level}`,
+        Number.isInteger(node.level) && (node.level ?? 0) >= 1 && (node.level ?? 0) <= 14,
+        `秘境节点 ${node.code} 的 level 越界：${node.level}`,
       );
-      assert.ok(node.threshold > 0, `节点 ${node.code} 的 threshold 必须为正：${node.threshold}`);
+      assert.ok((node.threshold ?? 0) > 0, `秘境节点 ${node.code} 的 threshold 必须为正：${node.threshold}`);
+    }
+    for (const node of nodes.filter((n) => n.kind !== 'secret_realm')) {
+      assert.strictEqual(node.level, null, `职能型枢纽 ${node.code} 的 level 必须为 null`);
+      assert.strictEqual(node.threshold, null, `职能型枢纽 ${node.code} 的 threshold 必须为 null`);
     }
   });
 

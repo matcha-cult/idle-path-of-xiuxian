@@ -727,10 +727,16 @@ export interface MapNodeView {
   kind: string;
   /** skill/craft/quest/alchemy/beast/farm/pvp/discipline/waypoint/profession；null = 纯跑图 */
   featureKey: string | null;
-  /** 怪物境界（固定，不随层数变化） */
-  level: number;
-  /** 固定战力门槛（§6 确定性模型） */
-  threshold: number;
+  /**
+   * 怪物境界（固定，不随层数变化）。
+   *
+   * ⚠️ **只有 `kind === 'secret_realm'` 的节点有值**：宗门内的山门 / 八峰 / 四院 / 主峰
+   * 都是职能型枢纽（「宗门内总不能天天杀同门」），下发 `null`，前端**不得**渲染
+   * 任何「怪物境界 / 难度参考门槛」文案。
+   */
+  level: number | null;
+  /** 固定战力门槛（§6 确定性模型）；与 `level` 同口径，非秘境节点为 `null`。 */
+  threshold: number | null;
   hasWaypoint: boolean;
   chapter: number;
   requiresNodeCode: string | null;
@@ -832,7 +838,8 @@ export interface MapPanelData {
 export interface MapEnterData {
   node: MapNodeView;
   playerPower: number;
-  threshold: number;
+  /** 该节点的展示门槛；非秘境节点为 `null`（与 `MapNodeView.threshold` 同值） */
+  threshold: number | null;
   /** 本次是否为首次到达（重复 enter 同一节点幂等，第二次为 false） */
   firstVisit: boolean;
 }
