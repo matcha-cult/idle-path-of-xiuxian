@@ -76,6 +76,33 @@ describe('DropPoolTable · 正常渲染', () => {
     expect(screen.getByTestId('drop-pool-weight-a')).toHaveTextContent('3');
     expect(screen.getAllByRole('columnheader')).toHaveLength(3);
   });
+
+  it('showWeight 缺省 = 显示权重列（表头 + 每行单元格 + 小计权重）', () => {
+    renderTable();
+
+    expect(screen.getByRole('columnheader', { name: '权重' })).toBeInTheDocument();
+    expect(screen.getByTestId('drop-pool-weight-a')).toHaveTextContent('3');
+    // 小计权重：rc-table 的 Summary.Cell 不透传 data-testid，故按行文本断言（概率小计可用 testid）。
+    const weapon = screen.getByTestId('drop-pool-subtotal-weapon');
+    expect(weapon).toHaveTextContent('武器 合计');
+    expect(weapon).toHaveTextContent('4');
+    expect(within(weapon).getByTestId('drop-pool-subtotal-probability-weapon')).toHaveTextContent('50.0%');
+  });
+
+  it('showWeight=false 时权重列整体消失（表头 / 单元格 / 小计权重都不在 DOM），概率与概率小计保留', () => {
+    renderTable({ showWeight: false });
+
+    expect(screen.queryByRole('columnheader', { name: '权重' })).toBeNull();
+    expect(screen.queryByTestId('drop-pool-weight-a')).toBeNull();
+    expect(screen.queryByText('权重')).toBeNull();
+    // 小计行只剩「类别合计 + 概率合计」，不再出现权重合计数字 4。
+    expect(screen.getByTestId('drop-pool-subtotal-weapon')).not.toHaveTextContent('4');
+
+    // 名称 / 类别 / 概率三列保留。
+    expect(screen.getAllByRole('columnheader')).toHaveLength(3);
+    expect(screen.getByTestId('drop-pool-probability-a')).toHaveTextContent('37.5%');
+    expect(screen.getByTestId('drop-pool-subtotal-probability-weapon')).toHaveTextContent('50.0%');
+  });
 });
 
 describe('DropPoolTable · 边界', () => {

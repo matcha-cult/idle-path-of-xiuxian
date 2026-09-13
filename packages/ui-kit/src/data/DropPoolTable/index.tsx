@@ -8,7 +8,9 @@
  * 约定：
  * - 用 antd `Table`（`pagination={false}`），概率用 `Typography.Text` 文本展示，
  *   **不逐行放 `Progress`**（一屏几十条进度条既吵又慢）；
- * - `loading` 原样透传；颜色只用预设语义色 / token。
+ * - `loading` 原样透传；颜色只用预设语义色 / token；
+ * - `showWeight=false` 时**整列权重都不渲染**（表头 + 单元格 + 小计权重列），
+ *   只留名称 / 类别 / 概率——供「原始 weight 属协议内部值、不上屏」的域使用（§1.8）。
  *
  * 边界：
  * - `weightOf` 返回非有限数（NaN / ±Infinity）或负数 → 该行权重按 `0` 处理；
@@ -35,6 +37,8 @@ export interface DropPoolTableProps<T> {
   keyOf?: (entry: T, index: number) => string;
   /** 是否显示概率列，缺省 true。 */
   showProbability?: boolean;
+  /** 是否显示原始权重列，缺省 true；`false` 时整列（含小计权重）不渲染。 */
+  showWeight?: boolean;
   /** 空文案。 */
   emptyText?: ReactNode;
   loading?: boolean;
@@ -70,6 +74,7 @@ export function DropPoolTable<T>(props: DropPoolTableProps<T>) {
     kindLabelOf,
     keyOf,
     showProbability = true,
+    showWeight = true,
     emptyText,
     loading,
   } = props;
@@ -101,11 +106,13 @@ export function DropPoolTable<T>(props: DropPoolTableProps<T>) {
     });
   }
 
-  columns.push({
-    key: 'weight',
-    title: '权重',
-    render: (_value, row) => <span data-testid={`drop-pool-weight-${row.rowKey}`}>{row.weight}</span>,
-  });
+  if (showWeight) {
+    columns.push({
+      key: 'weight',
+      title: '权重',
+      render: (_value, row) => <span data-testid={`drop-pool-weight-${row.rowKey}`}>{row.weight}</span>,
+    });
+  }
 
   if (showProbability) {
     columns.push({
@@ -132,8 +139,14 @@ export function DropPoolTable<T>(props: DropPoolTableProps<T>) {
 
   const span = columns.length;
   const hasSubtotal = kindTotals.length > 0;
+  /** 小计行的权重单元格：仅当权重列存在且它后面还有概率列时才占一格。 */
+  const showSummaryWeight = showWeight && span > 1;
+  /** 小计行的概率权重：仅当概率列存在且不是唯一一列时才占一格。 */
+  const showSummaryProbability = showProbability && span > 1;
+  /** 概率是最后一列，索引为「实际渲染的列数 − 1」。 */
+  const probabilityCellIndex = span - 1;
 
-  /** 小计行：类别名 +（类别列时）权重合计 + 概率合计（总权重 ≤0 时概率为 `—`）。 */
+  /** 小计行：类别名 +（有类别列时）权重合计 + 概率合计（总权重 ≤0 时概率为 `—`）。 */
   const renderSummary = () => (
     <Table.Summary data-testid="drop-pool-table-summary">
       {kindTotals.map((item) => (
@@ -141,16 +154,18 @@ export function DropPoolTable<T>(props: DropPoolTableProps<T>) {
           <Table.Summary.Cell index={0}>
             {kindLabelOf ? kindLabelOf(item.kind) : item.kind} 合计
           </Table.Summary.Cell>
-          {span > 2 ? (
+          {showSummaryWeight ? (
             <Table.Summary.Cell index={1} data-testid={`drop-pool-subtotal-weight-${item.kind}`}>
               {item.weight}
             </Table.Summary.Cell>
           ) : null}
-          <Table.Summary.Cell index={span - 1}>
-            <Typography.Text strong data-testid={`drop-pool-subtotal-probability-${item.kind}`}>
-              {probabilityText(item.weight, total)}
-            </Typography.Text>
-          </Table.Summary.Cell>
+          {showSummaryProbability ? (
+            <Table.Summary.Cell index={probabilityCellIndex}>
+              <Typography.Text strong data-testid={`drop-pool-subtotal-probability-${item.kind}`}>
+                {probabilityText(item.weight, total)}
+              </Typography.Text>
+            </Table.Summary.Cell>
+          ) : null}
         </Table.Summary.Row>
       ))}
     </Table.Summary>
