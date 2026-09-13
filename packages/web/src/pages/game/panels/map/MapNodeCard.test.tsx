@@ -87,23 +87,28 @@ const REALM = makeNode({
   progress: progress({ visited: true }),
 });
 
-describe('MapNodeCard · 战力只展示、不拦路（P2.0 v3 §5）', () => {
-  it('恰好等于门槛：对比显示「战力充足」，按钮可用', () => {
+describe('MapNodeCard · 战力只作参考、不拦路、不做红绿判定（P2.0 v3 §5 + T5）', () => {
+  it('恰好等于参考线：中性文案「参考战力 95 · 我的战力 95」，按钮可用', () => {
     setup(makeNode({ code: 'n_eq', threshold: 95 }), 95);
-    expect(screen.getByTestId('map-node-compare-n_eq')).toHaveTextContent('战力充足');
+    const compare = screen.getByTestId('map-node-compare-n_eq');
+    expect(compare).toHaveTextContent('参考战力 95 · 我的战力 95');
+    expect(compare.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
     expect(screen.getByTestId('map-node-enter-n_eq')).toBeEnabled();
   });
 
-  it('战力远低于门槛：对比显示「战力偏低」，但按钮**仍然可用**（v3 防回归）', () => {
+  it('战力远低于参考线：文案仍然中性（不喊「不足 / 差 N」），按钮**仍然可用**（v3 防回归）', () => {
     setup(makeNode({ code: 'n_low', threshold: 95 }), 1);
     const compare = screen.getByTestId('map-node-compare-n_low');
-    expect(compare).toHaveTextContent('战力偏低');
+    expect(compare).toHaveTextContent('参考战力 95 · 我的战力 1');
+    expect(compare.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
     expect(screen.getByTestId('map-node-enter-n_low')).toBeEnabled();
   });
 
-  it('超出门槛：对比显示「战力充足」', () => {
+  it('超出参考线：文案同口径（不做「充足」红绿判定）', () => {
     setup(makeNode({ code: 'n_hi', threshold: 95 }), 120);
-    expect(screen.getByTestId('map-node-compare-n_hi')).toHaveTextContent('战力充足');
+    const compare = screen.getByTestId('map-node-compare-n_hi');
+    expect(compare).toHaveTextContent('参考战力 95 · 我的战力 120');
+    expect(compare.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
   });
 });
 

@@ -422,29 +422,32 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
   });
 });
 
-describe('MapPanel · 战力门槛只做展示（P2.0 v3 §5：不再拦前往）', () => {
-  it('恰好等于门槛显示「战力充足」', () => {
+describe('MapPanel · 战力只作参考（P2.0 v3 §5 + T5：不拦前往、不喊「不足」）', () => {
+  it('恰好等于参考线：中性文案「参考战力 95 · 我的战力 95」', () => {
     const harness = setup((root) => {
       root.map.playerPower = 95;
       root.map.currentCode = 'qy_lingtian';
     });
     harness.render(<MapPanel />);
     const card = screen.getByTestId('map-node-card-qy_lingtian');
-    expect(card).toHaveTextContent('95 / 95');
-    expect(card).toHaveTextContent('战力充足');
+    expect(card).toHaveTextContent('参考战力 95 · 我的战力 95');
+    // 不得出现失败语义（「不足」/「差 N」）与红绿判定词
+    expect(card.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
   });
 
-  it('差 1 只显示「战力偏低」，前往按钮**仍然可用**（防回归）', async () => {
+  it('战力远低于参考线：文案仍中性，前往按钮**仍然可用**（防回归）', async () => {
     const harness = setup((root) => {
       root.map.playerPower = 1;
       root.map.currentCode = 'qy_gate_s';
     });
     harness.render(<MapPanel />);
-    // 选中灵田药园（非当前所在、相邻）——战力远低于门槛也必须可前往
+    // 选中灵田药园（非当前所在、相邻）——战力远低于参考线也必须可前往
     pointer(pin('qy_lingtian'), 'pointerdown');
     pointer(pin('qy_lingtian'), 'pointerup');
     await waitFor(() => expect(screen.getByTestId('map-node-card-qy_lingtian')).toBeInTheDocument());
-    expect(screen.getByTestId('map-node-card-qy_lingtian')).toHaveTextContent('战力偏低');
+    const card = screen.getByTestId('map-node-card-qy_lingtian');
+    expect(card).toHaveTextContent('参考战力 95 · 我的战力 1');
+    expect(card.textContent ?? '').not.toMatch(/不足|差\s*\d|偏低|充足/);
     expect(screen.getByTestId('map-node-enter-qy_lingtian')).toBeEnabled();
   });
 });

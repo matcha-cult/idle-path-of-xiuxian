@@ -3,7 +3,7 @@
  *
  * 只做「把服务端给的值翻译成玩家看得懂的分组/文案/可达性」，**不含任何业务规则**：
  * - 哪些节点可见：服务端已过滤（只下发已发现），这里绝不自行造节点；
- * - 战力门槛：只用服务端 `threshold` 与 `playerPower` 比较（恰好等于 = 可进入）；
+ * - 战力：`threshold` 只是**参考**（v3 §5 已删「前往」的战力限制），比较结果不上屏为告警；
  * - 邻接：只用服务端下发的边，且必须过滤「引用了未下发节点」的悬挂边。
  */
 import type { MapEdgeView, MapNodeView } from '@idle-path/ionet-transport';
@@ -143,11 +143,11 @@ export function enterActionLabel(node: MapNodeView): string {
   return '前往';
 }
 
-/** 「我的战力 vs 门槛」的补充说明：达标时为空串（StatCompare 已给结论）。 */
-export function thresholdHint(playerPower: number, threshold: number): string {
-  if (isPowerEnough(playerPower, threshold)) return '';
-  return `战力不足：还差 ${powerShortfall(playerPower, threshold)}`;
-}
+/**
+ * ⚠️ 这里曾有一个 `thresholdHint()`（「战力不足：还差 N」）。它在 v3 起是**死代码**
+ * （没有任何生产调用方），且文案与「战力只作参考、不拦前往」自相矛盾 —— 已删除，
+ * 不要再以任何形式把「不足 / 差 N」这种失败语义加回地图面板。
+ */
 
 /** 承载系统一句话文案（协议 key 原文不上屏；未知 key 走兜底名）。 */
 export function featureTextOf(featureKey: string | null): string {

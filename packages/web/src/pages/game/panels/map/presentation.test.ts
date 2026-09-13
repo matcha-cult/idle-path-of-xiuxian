@@ -15,7 +15,6 @@ import {
   nodeKindLabel,
   powerShortfall,
   ringLabel,
-  thresholdHint,
 } from './presentation.js';
 
 function progress(overrides: Partial<NodeProgressView> = {}): NodeProgressView {
@@ -87,16 +86,14 @@ describe('presentation · 环层分组', () => {
   });
 });
 
-describe('presentation · 战力门槛（§6.1 是 ≥）', () => {
-  it('恰好等于门槛 = 可进入', () => {
+describe('presentation · 战力对比（§6.1 是 ≥；只作参考，不是门槛）', () => {
+  it('恰好等于门槛 = 达到参考线', () => {
     expect(isPowerEnough(95, 95)).toBe(true);
-    expect(thresholdHint(95, 95)).toBe('');
   });
 
-  it('差 1 = 不足，并给出差额', () => {
+  it('低于门槛 1 点 = 未达参考线，差额为 1', () => {
     expect(isPowerEnough(94, 95)).toBe(false);
     expect(powerShortfall(94, 95)).toBe(1);
-    expect(thresholdHint(94, 95)).toBe('战力不足：还差 1');
   });
 
   it('超出门槛达标且差额为 0', () => {

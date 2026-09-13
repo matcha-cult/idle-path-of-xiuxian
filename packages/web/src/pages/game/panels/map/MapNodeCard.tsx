@@ -6,6 +6,7 @@
  *
  * 口径（P2.0 v3 §3 / §5）：
  * - **战力只展示、不拦路**：`threshold` 降级为「难度参考」，`前往此地` 只看 `node.adjacent`；
+ *   对比用**中性文案**（「参考战力 N · 我的战力 M」），不做红绿判定、不喊「不足 / 差 N」；
  * - **前往**：相邻（服务端 `adjacent`，山门恒为相邻）且不是当前所在才可点；
  * - **传送**：`hasWaypoint` 且传送点已点亮才可点（语义一个字未改）；
  * - 一院多职能走 `MapObjectList`（节点 `featureKey` 是摘要，对象表是明细）；
@@ -14,7 +15,7 @@
  */
 import { Button, Card, Flex, Tag, Tooltip, Typography } from 'antd';
 import type { MapNodeView, MapObjectView } from '@idle-path/ionet-transport';
-import { KeyValueList, StatCompare, Toolbar, type KeyValueEntry } from '@idle-path/ui-kit';
+import { KeyValueList, Toolbar, type KeyValueEntry } from '@idle-path/ui-kit';
 import { MapNodeBadge } from './MapNodeBadge.js';
 import { MapObjectList } from './MapObjectList.js';
 import {
@@ -98,15 +99,13 @@ export function MapNodeCard(props: MapNodeCardProps) {
           idleUnlocked={node.progress.idleUnlocked}
         />
 
-        <div data-testid={`map-node-compare-${node.code}`}>
-          <StatCompare
-            label="战力门槛（仅参考）"
-            current={playerPower}
-            target={node.threshold}
-            okText="战力充足"
-            failText="战力偏低"
-          />
-        </div>
+        {/*
+          战力**只是参考，不是门槛**（v3 §5 已删「前往」的战力限制：打不过也能进去送人头）。
+          所以这里既不做红绿判定、也不喊「不足 / 差 N」—— 那是与「仅参考」自相矛盾的告警文案。
+        */}
+        <Typography.Text type="secondary" data-testid={`map-node-compare-${node.code}`}>
+          参考战力 {node.threshold} · 我的战力 {playerPower}
+        </Typography.Text>
 
         <KeyValueList column={{ xs: 1, sm: 2 }} items={detailEntries(node, playerPower)} />
 
