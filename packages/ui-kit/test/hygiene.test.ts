@@ -97,8 +97,15 @@ describe('红线 3/4/5 · 样式与反馈 API 纪律', () => {
   });
 
   it('不得使用 antd 静态反馈 API（须走 App.useApp()）', () => {
-    const STATIC_API = /\b(?:Modal\.(?:confirm|info|success|error|warning)|message\.(?:success|error|info|warning|loading)|notification\.(?:success|error|info|warning|open))\s*\(/;
-    const offenders = CODE.filter((f) => STATIC_API.test(read(f)));
+    // 精确判定：从 antd **静态导入** `message`/`notification`（或调用 `Modal.confirm` 等静态方法）
+    // 才会脱离 ConfigProvider 上下文。经 `App.useApp()` 解构得到的实例不算违规
+    // （例如容器组件里的 `const { message } = App.useApp();`）。
+    const STATIC_IMPORT = /import\s*\{[^}]*\b(?:message|notification)\b[^}]*\}\s*from\s*['"]antd['"]/;
+    const MODAL_STATIC = /\bModal\.(?:confirm|info|success|error|warning)\s*\(/;
+    const offenders = CODE.filter((f) => {
+      const code = read(f);
+      return MODAL_STATIC.test(code) || STATIC_IMPORT.test(code);
+    });
     expect(offenders).toEqual([]);
   });
 });

@@ -19,7 +19,11 @@ export interface SubmitButtonProps {
   loading?: boolean;
   /** 禁用。 */
   disabled?: boolean;
-  /** 原生按钮类型，缺省交给 antd（button）；表单内提交需显式传 submit。 */
+  /**
+   * 原生按钮类型，**缺省 `submit`**（组件名即语义：它就是表单提交按钮；
+   * 缺省 `button` 会让「放进 `Form` 却按不动」成为静默陷阱）。
+   * 非表单场景请显式传 `'button'`。
+   */
   htmlType?: 'submit' | 'button' | 'reset';
   /** 撑满一行。 */
   block?: boolean;
@@ -30,7 +34,7 @@ export interface SubmitButtonProps {
 }
 
 export function SubmitButton(props: SubmitButtonProps) {
-  const { children, loading, disabled, htmlType, block, danger, onClick } = props;
+  const { children, loading, disabled, htmlType = 'submit', block, danger, onClick } = props;
   // false || false || undefined -> undefined：保留 DisabledContext 的继承能力。
   const mergedDisabled = disabled || loading ? true : undefined;
 

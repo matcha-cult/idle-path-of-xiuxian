@@ -31,12 +31,12 @@ src/
 ├── pluggable/panel-registry/     PanelRegistry（纯 TS，config 驱动的可插拔入口）
 ├── data/                         DataTable<T> / ResourceGrid<T> / KeyValueList / StatItem / StatGrid
 ├── feedback/                     AsyncBoundary / ConfirmAction / SubmitButton
-├── form/                         TextField / NumberField / SelectField / SwitchField / ActionForm / ModalForm
+├── form/                         TextField / PasswordField / NumberField / SelectField / SwitchField / ActionForm / ModalForm
 ├── game/                         RarityTag / ItemCard / ResourceBar / QuantityInput / EmptyHint / ActionBar
 └── index.ts                      barrel：按分组 re-export 公开组件与类型
 ```
 
-## 组件清单（31 个 + 1 注册表）
+## 组件清单（32 个 + 1 注册表）
 
 | 分组 | 组件 | 关键 props |
 |---|---|---|
@@ -52,8 +52,8 @@ src/
 | data | `StatItem` / `StatGrid` | `label, value, prefix, suffix, precision, loading` / `items, column, loading, bordered` |
 | feedback | `AsyncBoundary` | `loading, error, empty, emptyText, skeletonRows, onRetry, retryText`（优先级 loading>error>empty） |
 | feedback | `ConfirmAction` | `title, description, onConfirm, okText, cancelText, danger, disabled, children` |
-| feedback | `SubmitButton` | `children, loading, disabled, htmlType, block, danger, onClick` |
-| form | `TextField` / `NumberField` / `SelectField` / `SwitchField` | `name, label, required, rules, help, …`（Switch 自动 `valuePropName="checked"`） |
+| feedback | `SubmitButton` | `children, loading, disabled, htmlType`（**缺省 `submit`**）, `block, danger, onClick` |
+| form | `TextField` / `PasswordField` / `NumberField` / `SelectField` / `SwitchField` | `name, label, required, rules, help, …`（PasswordField 用 `Input.Password`；Switch 自动 `valuePropName="checked"`） |
 | form | `ActionForm` | `fields, initialValues, submitText, cancelText, loading, disabled, layout, onFinish, onCancel` |
 | form | `ModalForm` | `open, title, fields, initialValues, confirmText, cancelText, loading, width, onCancel, onFinish` |
 | game | `RarityTag` | `rarity`(clamp 0..3)、`labels`、`showLabel`、`bordered`；导出 `RARITY_LABELS` |
@@ -78,7 +78,8 @@ src/
 
 1. `src` 不得 import `@idle-path/*` / `mobx` / `node:`，且 `package.json` 也不得声明它们；
 2. 颜色不得内联 hex（唯一例外 `theme/types.ts` 的主题色常量，且断言只有一处）；
-3. 不得 `!important`；4. 不得组件内 `<style>`；5. 不得 `Modal.confirm` / `message.*` 静态反馈 API；
+3. 不得 `!important`；4. 不得组件内 `<style>`；5. 不得**静态导入** antd 的 `message`/`notification`，也不得调用 `Modal.confirm` 等静态方法
+   （`const { message } = App.useApp()` 是正解，不算违规）；
 6. 每个组件目录必须有同目录测试；7. 一个 `.tsx` 只导出一个组件（常量/类型不受限）；8. 不得 `export default`；
 9. 单文件 ≤200 行。
 

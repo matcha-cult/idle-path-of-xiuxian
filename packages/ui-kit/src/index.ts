@@ -59,6 +59,7 @@ export * from './feedback/SubmitButton/index.js';
 
 // ===== form =====
 export * from './form/TextField/index.js';
+export * from './form/PasswordField/index.js';
 export * from './form/NumberField/index.js';
 export * from './form/SelectField/index.js';
 export * from './form/SwitchField/index.js';

@@ -1,6 +1,6 @@
 /**
  * SubmitButton：表单提交按钮。
- * 覆盖：默认文案、自定义文案、loading 时不可点击、htmlType 透传（原生 type 属性）、
+ * 覆盖：默认文案、自定义文案、loading 时不可点击、htmlType 缺省 submit 且可覆盖（原生 type 属性）、
  * disabled / block / danger 与 onClick。
  */
 import { render, screen } from '@testing-library/react';
@@ -31,15 +31,14 @@ describe('SubmitButton', () => {
     expect(button).toHaveClass('ant-btn-loading');
   });
 
-  it('htmlType 透传为原生 type 属性', () => {
-    const { rerender } = render(<SubmitButton htmlType="submit" />);
+  it('htmlType 缺省为 submit，显式传值可覆盖', () => {
+    const { rerender } = render(<SubmitButton />);
     expect(screen.getByRole('button')).toHaveAttribute('type', 'submit');
 
     rerender(<SubmitButton htmlType="reset" />);
     expect(screen.getByRole('button')).toHaveAttribute('type', 'reset');
 
-    // 未传时交给 antd 默认（button），不应被本组件改写成 submit。
-    rerender(<SubmitButton />);
+    rerender(<SubmitButton htmlType="button" />);
     expect(screen.getByRole('button')).toHaveAttribute('type', 'button');
   });
 
