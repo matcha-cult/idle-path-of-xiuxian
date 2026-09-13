@@ -46,6 +46,7 @@ export * from './layout/AppShell/index.js';
 export * from './layout/SideNav/index.js';
 export * from './layout/HudBar/index.js';
 export * from './layout/NavBrand/index.js';
+export * from './layout/SlotBoard/index.js';
 
 // ===== pluggable =====
 export * from './pluggable/panel-registry/index.js';
@@ -58,6 +59,7 @@ export * from './data/StatItem/index.js';
 export * from './data/StatGrid/index.js';
 export * from './data/StatCompare/index.js';
 export * from './data/PagedGrid/index.js';
+export * from './data/DropPoolTable/index.js';
 
 // ===== feedback =====
 export * from './feedback/AsyncBoundary/index.js';
@@ -83,3 +85,7 @@ export * from './game/QuantityInput/index.js';
 export * from './game/EmptyHint/index.js';
 export * from './game/ActionBar/index.js';
 export * from './game/SettlementSummary/index.js';
+export * from './game/CraftOpPicker/index.js';
+export * from './game/ItemPickerModal/index.js';
+export * from './game/AffixList/index.js';
+export * from './game/StoryTimeline/index.js';
