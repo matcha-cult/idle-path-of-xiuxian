@@ -152,7 +152,7 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 | 里程碑 | 内容 | 提交 | 验收 |
 |---|---|---|---|
 | **M1** | T-A 基建 + T-C 主题/紧凑 + T-B 包骨架 | ✅ 2026-09-13 完成 | 主题切换可用；既有测试零回归 |
-| **M2** | T-D 通用组件层（约 22 个组件 + 22 个测试） | 按分组 3~4 个 commit | ui-kit 覆盖率 ≥90% |
+| **M2** | T-D 通用组件层（约 22 个组件 + 22 个测试） | ✅ 2026-09-13 完成 | ui-kit 覆盖率 ≥90% |
 | **M3** | T-E 页面与 11 面板拆分 | 2 个 commit | 无 >200 行文件；页面测试全绿 |
 | **M4** | T-F 全量验收 + 文档 | 1 个 commit | 全部命令绿 + 浏览器人工确认 |
 
@@ -160,6 +160,14 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 > `pnpm -r run build` exit 0；`styles.css` 硬编码色值 0 命中；ui-kit 源码业务/mobx/node 依赖 0 命中；
 > Vite dev 实测首帧防闪烁脚本、`/api` 代理、`/ws` 无 token 401 均正常。
 > 遗留：antd 全量引入后 bundle 618KB（gz 199KB），M4 用 `manualChunks` 拆 vendor 并复测。
+>
+> **M2 已交付实测（2026-09-13）**：`packages/ui-kit` 共 **31 个组件 + 1 个注册表 + 3 个主题纯模块**，
+> 分 6 组（theme/layout/pluggable/data/feedback/form/game）；**单测 225 例**（31 文件）全绿，
+> 覆盖率 statements/lines **99.54%**、functions **96.92%**、branches **95.81%**（门槛 90/90/85）；
+> 红线门禁 `test/hygiene.test.ts` **11 条**可执行（禁业务/mobx/node 依赖、禁内联 hex、禁 `!important`、
+> 禁组件内 `<style>`、禁 antd 静态反馈 API、每组件目录须有测试、一文件一组件、禁 default 导出、单文件 ≤200 行）；
+> web 侧 `typecheck`/`build`/`test`（75 例，含真后端 e2e）零回归。
+> 已知偏差（接口不变，仅 v6 API 差异）与唯一 props 豁免见 `packages/ui-kit/README.md`。
 
 ---
 
