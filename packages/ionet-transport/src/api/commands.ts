@@ -80,6 +80,10 @@ export const ZONE_CMD = {
   progress: 2,
   enter: 3,
   challenge: 4,
+  /** 在线历练实况（P3.0）；同一路由也是服务端推送的 subCmd */
+  online: 5,
+  /** 页面可见性上报（P3.0 T2）：只报可见性，不报时长 */
+  visibility: 6,
 } as const;
 
 export const QUEST_CMD = {

@@ -145,14 +145,28 @@ describe('RealmLogicService / CombatLogicService 转发边界', () => {
 });
 
 describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicService 转发边界', () => {
-  test('zone', async () => {
+  test('zone（含 P3.0 在线历练转发）', async () => {
     const zone = { catalog: stub(() => 'C'), progress: stub(() => 'P'), enter: stub(() => 'E'), challenge: stub(() => 'H') };
-    const svc = new ZoneLogicService(zone as never);
+    const explore = {
+      snapshot: stub(async () => ({ online: true })),
+      setVisibility: stub(() => undefined),
+    };
+    const svc = new ZoneLogicService(zone as never, explore as never);
     assert.equal(await svc.catalog(1), 'C');
     assert.equal(await svc.progress(1), 'P');
     assert.equal(await svc.enter(1, 'z'), 'E');
     assert.equal(await svc.challenge(1, 'z'), 'H');
     assert.deepEqual(zone.challenge.last, [1, 'z']);
+    // online：成功信封 + 一帧 data（离线也是成功，不是业务失败）
+    const online = await svc.online(1);
+    assert.equal(online.success, true);
+    assert.deepEqual(online.data, { online: true });
+    assert.deepEqual(explore.snapshot.last, [1]);
+    // visibility：只透传 boolean 可见位，不接收时长
+    const marked = svc.setVisibility(1, false);
+    assert.equal(marked.success, true);
+    assert.deepEqual(marked.data, { visible: false });
+    assert.deepEqual(explore.setVisibility.last, [1, false]);
   });
   test('quest（含章节并入）', async () => {
     const quest = { list: stub(() => 1), detail: stub(() => 2), sync: stub(() => 3) };

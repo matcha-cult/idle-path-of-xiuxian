@@ -71,7 +71,9 @@ import type {
   UnitSpawnData,
   ZoneChallengeData,
   ZoneEnterData,
+  ZoneOnlineData,
   ZoneProgressData,
+  ZoneVisibilityData,
   ZonesData,
 } from './dto.js';
 
@@ -767,6 +769,32 @@ export class ZoneApi {
       ZONE_CMD.cmd,
       ZONE_CMD.challenge,
       zoneCode === undefined ? {} : { zoneCode },
+      expectedBusinessFailure(options),
+    );
+  }
+
+  /**
+   * 在线历练实况（P3.0 T5/T6）：一帧「此刻」的服务端权威状态。
+   *
+   * 无业务失败码：离线 / 未进秘境 / 不在秘境峰都是**成功信封**，用 `data.reason` 区分，
+   * 因此**不加** `allowBusinessFailure`。同一 `(100,5)` 也是服务端推送的路由
+   * （`root-store` 会把 `ZONE_CMD.cmd` 的推送转给 zone store 的 `handleNotification`）。
+   */
+  online(options?: SendOptions): Promise<ActionResult<ZoneOnlineData>> {
+    return this.transport.request<ZoneOnlineData>(ZONE_CMD.cmd, ZONE_CMD.online, {}, options);
+  }
+
+  /**
+   * 页面可见性上报（P3.0 T2）：`visibilitychange` 时调用。
+   *
+   * ⚠️ 只上报「可见 / 不可见」，**不上报任何时长**（时长可伪造，R2 §4.2 红线）。
+   * 失败码：`INVALID_PARAM`（visible 非 boolean）、`UNAUTHORIZED`。
+   */
+  visibility(visible: boolean, options?: SendOptions): Promise<ActionResult<ZoneVisibilityData>> {
+    return this.transport.request<ZoneVisibilityData>(
+      ZONE_CMD.cmd,
+      ZONE_CMD.visibility,
+      { visible },
       expectedBusinessFailure(options),
     );
   }

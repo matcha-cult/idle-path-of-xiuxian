@@ -14,6 +14,8 @@ function makeAction(): { action: ZoneAction; facade: Record<string, ReturnType<t
     progress: stub(() => 'PROGRESS'),
     enter: stub(() => 'ENTER'),
     challenge: stub(() => 'CHALLENGE'),
+    online: stub(() => 'ONLINE'),
+    setVisibility: stub(() => 'VISIBILITY'),
   };
   return { action: new ZoneAction(facade as never), facade };
 }
@@ -113,5 +115,67 @@ describe('ZoneAction.challenge 参数边界', () => {
     const res = await action.challenge(ctx(ZONE_CMD.challenge), { zoneCode: '  z9 ' });
     assert.deepEqual(facade.challenge.last, [1, 'z9']);
     assert.equal(res, 'CHALLENGE');
+  });
+});
+
+// ===== P3.0：在线历练实况 / 可见性上报 =====
+
+describe('ZoneAction.online（P3.0 T5）', () => {
+  test('online -> online(userId)，忽略请求体', async () => {
+    const { action, facade } = makeAction();
+    const res = await action.online(ctx(ZONE_CMD.online), { garbage: 1 });
+    assert.deepEqual(facade.online.last, [1]);
+    assert.equal(res, 'ONLINE');
+  });
+
+  test('未鉴权 -> UNAUTHORIZED 且不触达门面', async () => {
+    const { action, facade } = makeAction();
+    const res = await action.online(flowContext({ cmd: ZONE_CMD.cmd, subCmd: ZONE_CMD.online }), {});
+    assert.equal(codeOf(res), 'UNAUTHORIZED');
+    assert.equal(facade.online.callCount, 0);
+  });
+});
+
+describe('ZoneAction.visibility 参数边界（P3.0 T2）', () => {
+  const bad: unknown[] = [
+    undefined,
+    null,
+    '',
+    '   ',
+    'true',
+    'false',
+    0,
+    1,
+    {},
+    [],
+    Number.NaN,
+  ];
+  for (const visible of bad) {
+    test('visible=' + JSON.stringify(visible) + ' -> INVALID_PARAM', async () => {
+      const { action, facade } = makeAction();
+      const res = await action.visibility(ctx(ZONE_CMD.visibility), { visible });
+      assert.equal(codeOf(res), 'INVALID_PARAM');
+      assert.equal(facade.setVisibility.callCount, 0);
+    });
+  }
+
+  for (const visible of [true, false]) {
+    test('visible=' + visible + ' -> 透传 boolean（不接受时长字段）', async () => {
+      const { action, facade } = makeAction();
+      const res = await action.visibility(ctx(ZONE_CMD.visibility), { visible, onlineSeconds: 999 });
+      assert.deepEqual(facade.setVisibility.last, [1, visible]);
+      assert.equal(res, 'VISIBILITY');
+      // 时长字段必须被彻底忽略（R2 §4.2：禁止客户端上报在线时长）
+      assert.equal((facade.setVisibility.last as unknown[]).length, 2);
+    });
+  }
+
+  test('未鉴权 -> UNAUTHORIZED 且不触达门面', async () => {
+    const { action, facade } = makeAction();
+    const res = await action.visibility(flowContext({ cmd: ZONE_CMD.cmd, subCmd: ZONE_CMD.visibility }), {
+      visible: true,
+    });
+    assert.equal(codeOf(res), 'UNAUTHORIZED');
+    assert.equal(facade.setVisibility.callCount, 0);
   });
 });

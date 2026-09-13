@@ -13,6 +13,7 @@ import {
 } from '../../../src/modules/logic/zone/internal/online-explore.service.js';
 import { ONLINE_TICK } from '../../../src/modules/logic/zone/internal/online-tick.config.js';
 import type { ZoneOnlineContext } from '../../../src/modules/logic/zone/internal/zone.types.js';
+import { OnlineNotifyService } from '../../../src/modules/logic/zone/internal/online-notify.service.js';
 import { OnlineSessionService } from '../../../src/modules/online/online-session.service.js';
 import { stub } from '../../helpers/stub.js';
 
@@ -52,6 +53,8 @@ interface MakeOptions {
   now?: () => number;
   /** settleKills 的返回；缺省成功且给 3 灵韵 */
   settle?: unknown;
+  /** 推送服务替身；缺省记录调用的 stub */
+  notifier?: unknown;
 }
 
 function makeService(options: MakeOptions = {}) {
@@ -62,6 +65,7 @@ function makeService(options: MakeOptions = {}) {
     sessions = new OnlineSessionService(null, { heartbeatTtlMs: 60_000 }),
     now,
     settle = { ok: true, data: { lingyunGained: 3 } },
+    notifier = { record: stub(() => true), flush: stub(() => false), forget: stub(() => undefined) },
   } = options;
   const characterService = {
     findByUserId: stub(async (_userId: number) =>
@@ -83,9 +87,10 @@ function makeService(options: MakeOptions = {}) {
     zoneService as never,
     combatLogic as never,
     mapLogic as never,
+    notifier as never,
     now === undefined ? {} : { now },
   );
-  return { service, sessions, characterService, zoneService, combatLogic, mapLogic };
+  return { service, sessions, characterService, zoneService, combatLogic, mapLogic, notifier };
 }
 
 /**
@@ -587,5 +592,46 @@ describe('OnlineExploreService · 步 3/4：涨层与 Boss 层闸门（T4）', (
     const frame = await built.service.runOne(7, 11, 5, 1_000);
     assert.ok((frame?.kills ?? 0) <= 1);
     assert.equal(frame?.stuck, false);
+  });
+});
+
+// ===== T5：推送接线与节流 =====
+
+describe('OnlineExploreService · 把帧交给推送服务（T5）', () => {
+  test('每拍有产出就把帧交给 notifier（含 userId / characterId / 时钟）', async () => {
+    const { service, sessions, notifier } = makeService();
+    sessions.touch(7, 0);
+    await service.runTick(1_000);
+    const record = (notifier as { record: ReturnType<typeof stub> }).record;
+    assert.equal(record.callCount, 1);
+    const [userId, characterId, frame, at] = record.last as [number, number, { kills: number }, number];
+    assert.equal(userId, 7);
+    assert.equal(characterId, 11);
+    assert.equal(frame.kills, 1);
+    assert.equal(at, 1_000);
+  });
+
+  test('不推进（离线 / hidden）时完全不碰 notifier', async () => {
+    const { service, sessions, notifier } = makeService();
+    sessions.touch(7, 0);
+    sessions.setVisible(7, false, 0);
+    await service.runTick(1_000);
+    assert.equal((notifier as { record: ReturnType<typeof stub> }).record.callCount, 0);
+  });
+
+  test('端到端节流：1 秒 tick 跑 10 秒，真实 OnlineNotifyService 只发 ≤4 次', async () => {
+    const port = { broadcast: () => undefined, sendTo: () => true };
+    const notifier = new OnlineNotifyService(port as never);
+    const { service, sessions } = makeService({ notifier });
+    sessions.touch(7, 0);
+    for (let t = 0; t < 10_000; t += 1_000) await service.runTick(t);
+    assert.ok(notifier.sentCount <= 4, `实际 ${notifier.sentCount} 次`);
+    assert.ok(notifier.sentCount >= 3, `至少每 3 秒一帧，实际 ${notifier.sentCount}`);
+  });
+
+  test('未接推送服务（null）也不炸（@Optional 的降级路径）', async () => {
+    const { service, sessions } = makeService({ notifier: null });
+    sessions.touch(7, 0);
+    await assert.doesNotReject(() => service.runTick(1_000));
   });
 });

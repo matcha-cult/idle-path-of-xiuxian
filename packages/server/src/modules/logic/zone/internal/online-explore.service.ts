@@ -7,6 +7,7 @@
  * - **掉落怎么抽**：`CombatLogicService.settleKills`（既有辨宝法阵）；
  * - **涨层怎么落库**：`ZoneService.advanceFloor`（与 `challenge` 同表同口径）；
  * - **击败 Boss 解锁挂机**：`MapLogicService.onZoneFloorPassed`（既有 D2 钩子，幂等）；
+ * - **推送怎么发**：`OnlineNotifyService`（既有 NotificationPort + 节流）；
  * - **本服务只做**：节拍、击杀速率→击杀数、层内累计、事件归纳。
  *
  * ⚠️ R2 §4.2 的两条硬红线：
@@ -17,11 +18,12 @@
  * ⚠️ 层内击杀累计**刻意只放内存**（不落库）：它是「本次在线会话的临时进度」，
  * 落库会引入「离线期间它还在那儿」的歧义；进程重启后重新从 0 累计是本设计的预期代价。
  */
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { OnlineSessionService } from '../../../online/online-session.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
 import { MapLogicService } from '../../map/map.logic.service.js';
+import { OnlineNotifyService } from './online-notify.service.js';
 import { ZoneService } from './zone.service.js';
 import { ONLINE_TICK, killRatePerSecond, killsForTick, powerRatio } from './online-tick.config.js';
 import type { ZoneOnlineEvent, ZoneOnlineFrame, ZoneOnlineReason } from './online.types.js';
@@ -66,6 +68,7 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     private readonly zoneService: ZoneService,
     private readonly combatLogic: CombatLogicService,
     private readonly mapLogic: MapLogicService,
+    @Optional() private readonly notifier: OnlineNotifyService | null = null,
     options: { now?: () => number } = {},
   ) {
     this.now = options.now ?? Date.now;
@@ -126,10 +129,20 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       }
       if (seen.has(character.id)) continue; // 同角色多会话：只推进一次
       seen.add(character.id);
-      await this.tickCharacter(userId, character.id, character.realm, at);
+      const frame = await this.tickCharacter(userId, character.id, character.realm, at);
+      // 推送节流在 OnlineNotifyService 内：没内容不发、未到 pushEveryMs 合并
+      if (frame !== null) this.notifier?.record(userId, character.id, frame, at);
     }
     this.pruneStates(at);
     return { at, onlineUsers: userIds.length, processed: seen.size, noCharacter };
+  }
+
+  /**
+   * 页面可见性上报转发（P3.0 T2）：唯一登记处是 `OnlineSessionService`。
+   * 本方法只是让 zone 门面不必再依赖第二个服务。
+   */
+  setVisibility(userId: number, visible: boolean, at: number = this.now()): void {
+    this.onlineSessions.setVisible(userId, visible, at);
   }
 
   /** 当前内存里的会话进度（测试 / 面板读接口用）。 */

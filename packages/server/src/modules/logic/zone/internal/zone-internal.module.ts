@@ -11,10 +11,11 @@ import { CombatLogicModule } from '../../combat/combat-logic.module.js';
 import { MapLogicModule } from '../../map/map-logic.module.js';
 import { ZoneService } from './zone.service.js';
 import { OnlineExploreService } from './online-explore.service.js';
+import { OnlineNotifyService } from './online-notify.service.js';
 
 @Module({
   imports: [CharacterModule, CombatLogicModule, MapLogicModule],
-  providers: [ZoneService, OnlineExploreService],
-  exports: [ZoneService, OnlineExploreService],
+  providers: [ZoneService, OnlineExploreService, OnlineNotifyService],
+  exports: [ZoneService, OnlineExploreService, OnlineNotifyService],
 })
 export class ZoneModule {}

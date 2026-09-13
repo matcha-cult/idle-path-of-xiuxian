@@ -667,6 +667,68 @@ export interface ZoneChallengeData {
   rewards: ZoneChallengeRewards;
 }
 
+// ===== 在线历练（P3.0 T5/T6；R2 §4.2 的 tick 模型）=====
+
+/**
+ * 在线结算事件（`online.types.ts:ZoneOnlineEvent`）。
+ *
+ * `stuck` 是**边沿触发**（只在刚被打回卡层时出现一次），其余事件在发生的当帧出现。
+ */
+export type ZoneOnlineEvent =
+  | 'floor_up'
+  | 'boss_floor'
+  | 'boss_defeated'
+  | 'idle_unlocked'
+  | 'stuck';
+
+/**
+ * 不推进的原因：
+ * - `ok` 正在历练；
+ * - `hidden` 会话活着但页面不可见（切后台不算在线）；
+ * - `no_session` 没有活着的 WS 会话；
+ * - `no_realm` 还没进入任何秘境；
+ * - `not_map_realm` 当前秘境没挂在地图节点上（不是「历练秘境峰」）。
+ */
+export type ZoneOnlineReason = 'ok' | 'hidden' | 'no_session' | 'no_realm' | 'not_map_realm';
+
+/**
+ * `zone.online` 成功 data，也是 `zone.online` **推送帧**的 data（同一形状）。
+ *
+ * ⚠️ 客户端**只渲染**这一帧：**不本地涨层、不本地算产出**（R2 §4.2 明确不做）。
+ * `kills` / `lingyunGained` 是「自上次推送以来」的累计；读接口恒为 0。
+ * `tickMs` / `pushEveryMs` 只用于向玩家解释节奏，**不得**据此本地推进。
+ */
+export interface ZoneOnlineData {
+  online: boolean;
+  exploring: boolean;
+  reason: ZoneOnlineReason;
+  zone: { code: string; name: string } | null;
+  nodeCode: string | null;
+  nodeName: string | null;
+  floor: number;
+  maxFloor: number;
+  bestFloor: number;
+  cleared: boolean;
+  isBossFloor: boolean;
+  playerPower: number;
+  floorRequirement: number;
+  floorKills: number;
+  killsPerFloor: number;
+  stuck: boolean;
+  shortfall: number;
+  idleUnlocked: boolean;
+  kills: number;
+  lingyunGained: number;
+  events: ZoneOnlineEvent[];
+  tickMs: number;
+  pushEveryMs: number;
+}
+
+/** `zone.visibility` 成功 data（P3.0 T2；只回显可见位）。 */
+export interface ZoneVisibilityData {
+  visible: boolean;
+}
+
 /**
  * zone 段四个「非 `{code}` 单键」失败码的 data 联合（07 §5.9、§2.9 注）。
  *

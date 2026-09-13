@@ -131,6 +131,16 @@ export const ZONE_CMD = {
   progress: 2,
   enter: 3,
   challenge: 4,
+  /**
+   * (100,5) 在线历练状态（P3.0 T5/T6）：读一帧当前实况；同时是**推送路由**
+   * （服务端 tick 用 `cmd=100, subCmd=5` 推涨层/Boss/解锁/卡层）。
+   */
+  online: 5,
+  /**
+   * (100,6) 页面可见性上报（P3.0 T2）：`{ visible: boolean }`。
+   * ⚠️ 只上报「可见 / 不可见」，**禁止**上报任何时长（时长可伪造，R2 §4.2）。
+   */
+  visibility: 6,
 } as const;
 
 /** 任务段（L3，依赖 zone, combat, item）—— 旧 REST: /api/game/quests*、/api/game/quest/sync、/api/game/chapters*、/api/game/chapter/sync */
