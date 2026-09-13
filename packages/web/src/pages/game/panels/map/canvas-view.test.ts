@@ -7,7 +7,9 @@
 import { describe, expect, it } from 'vitest';
 import type { MapNodeView, NodeProgressView } from '@idle-path/ionet-transport';
 import {
+  LOCKED_HINT,
   isCanvasGridReady,
+  isNodeInteractive,
   isNodeOnGrid,
   nodeStateLabel,
   nodeVisualState,
@@ -106,5 +108,31 @@ describe('pinTooltipText', () => {
 
   it('未知环层回退「其他」，不回声协议原文', () => {
     expect(pinTooltipText(node({ ring: 'weird' }), 'known')).toContain('其他');
+  });
+});
+
+describe('isNodeInteractive · 两态（P2.0 v3 §5）', () => {
+  it('相邻 → 可交互（可直接前往）', () => {
+    expect(isNodeInteractive(node({ adjacent: true }))).toBe(true);
+  });
+
+  it('不相邻但传送点已点亮 → 可交互（可传送）', () => {
+    expect(
+      isNodeInteractive(node({ adjacent: false, progress: progress({ waypointUnlocked: true }) })),
+    ).toBe(true);
+  });
+
+  it('既不相邻、传送点又未点亮 → 不可交互（暗色 disabled）', () => {
+    expect(isNodeInteractive(node({ adjacent: false }))).toBe(false);
+  });
+
+  it('战力不参与判定：threshold 高得离谱也照样可交互（v3 已删战力限制）', () => {
+    expect(isNodeInteractive(node({ adjacent: true, threshold: 999999 }))).toBe(true);
+  });
+
+  it('L 提示文案存在且不含协议字段名', () => {
+    expect(LOCKED_HINT).toContain('相邻');
+    expect(LOCKED_HINT).not.toContain('adjacent');
+    expect(LOCKED_HINT).not.toContain('waypointUnlocked');
   });
 });

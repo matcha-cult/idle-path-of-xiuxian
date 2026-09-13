@@ -16,6 +16,8 @@ import type { MapEdgeView, MapNodeView } from '@idle-path/ionet-transport';
 import { GraphCanvas, type GraphCanvasItem, type GraphCanvasLink } from '@idle-path/ui-kit';
 import { MapNodePin, ICON_PX } from './MapNodePin.js';
 import {
+  LOCKED_HINT,
+  isNodeInteractive,
   isNodeOnGrid,
   nodeVisualState,
   pinTooltipText,
@@ -91,14 +93,18 @@ export function MapCanvas(props: MapCanvasProps) {
     () =>
       onGrid.map((node) => {
         const state: NodeVisualState = nodeVisualState(node, currentCode);
+        // P2.0 v3 §5：既不相邻、传送点又未点亮 -> 暗色 disabled（GraphCanvas 会跳过 onSelect，
+        // 因此点击不改变选中态，双击也不会移动）。
+        const disabled = !isNodeInteractive(node);
         return {
           key: node.code,
           row: node.gridRow,
           col: node.gridCol,
-          title: pinTooltipText(node, state),
+          title: disabled ? `${pinTooltipText(node, state)} · ${LOCKED_HINT}` : pinTooltipText(node, state),
           selected: node.code === selectedCode,
+          disabled,
           content: (
-            <MapNodePin node={node} state={state} emphasized={state === 'current'} />
+            <MapNodePin node={node} state={state} emphasized={state === 'current'} disabled={disabled} />
           ),
           onSelect: (source) => onSelect(node.code, source),
         };

@@ -48,7 +48,8 @@ function makeNode(overrides: Partial<MapNodeView> = {}): MapNodeView {
     gridRow: 5,
     gridCol: 5,
     description: null,
-    adjacent: false,
+    // 默认「可交互」（相邻）；不可交互的用例显式 adjacent:false + 未点亮传送点
+    adjacent: true,
     progress: progress(),
     ...overrides,
   };
@@ -288,6 +289,26 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
     pointer(pin('qy_lingtian'), 'pointerup');
 
     await waitFor(() => expect(screen.getByTestId('map-node-card-qy_lingtian')).toBeInTheDocument());
+    expect(harness.requests).toHaveLength(0);
+  });
+
+  it('不可交互枢纽（不相邻 + 传送点未点亮）：点击不改变选中态', async () => {
+    const harness = setup((root) => {
+      root.map.nodes = root.map.nodes.map((node) =>
+        node.code === 'qy_lingtian' ? { ...node, adjacent: false, progress: progress() } : node,
+      );
+    });
+    harness.render(<MapPanel />);
+    await harness.connect();
+
+    const locked = pin('qy_lingtian');
+    expect(locked).toHaveAttribute('aria-disabled', 'true');
+    pointer(locked, 'pointerdown');
+    pointer(locked, 'pointerup');
+
+    // 详情仍是默认的东门，没有切到灵田药园
+    expect(screen.getByTestId('map-node-card-qy_gate_e')).toBeInTheDocument();
+    expect(screen.queryByTestId('map-node-card-qy_lingtian')).toBeNull();
     expect(harness.requests).toHaveLength(0);
   });
 

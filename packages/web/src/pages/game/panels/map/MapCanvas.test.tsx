@@ -48,7 +48,8 @@ function node(overrides: Partial<MapNodeView> = {}): MapNodeView {
     gridRow: 5,
     gridCol: 5,
     description: null,
-    adjacent: false,
+    // 默认「可交互」（相邻）；不可交互的用例显式 adjacent:false + 未点亮传送点
+    adjacent: true,
     progress: progress(),
     ...overrides,
   };
@@ -153,6 +154,47 @@ describe('MapCanvas · 交互与调试开关', () => {
     pointer(host, 'pointerdown');
     pointer(host, 'pointerup');
     expect(onBackgroundClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('不可交互节点 disabled：点击不触发 onSelect（点击不改变选中态）', () => {
+    const locked = node({ id: 9, code: 'locked', name: '锁', adjacent: false });
+    const { onSelect } = setup({ nodes: [A, locked], edges: [] });
+    const pin = screen.getByTestId('graph-canvas-item-locked');
+    expect(pin).toHaveAttribute('aria-disabled', 'true');
+    expect(pin).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByTestId('map-node-pin-locked')).toHaveAttribute('data-disabled', 'true');
+    pointer(pin, 'pointerdown');
+    pointer(pin, 'pointerup');
+    expect(onSelect).not.toHaveBeenCalled();
+    // 悬停提示补充「为什么点不动」
+    expect(pin.getAttribute('title')).toContain('不可直达');
+  });
+
+  it('不相邻但传送点已点亮 → 仍可点击（可传送至此）', () => {
+    const tele = node({
+      id: 9,
+      code: 'tele',
+      name: '传送点',
+      adjacent: false,
+      hasWaypoint: true,
+      progress: progress({ waypointUnlocked: true }),
+    });
+    const { onSelect } = setup({ nodes: [tele], edges: [] });
+    const pin = screen.getByTestId('graph-canvas-item-tele');
+    expect(pin).not.toHaveAttribute('aria-disabled');
+    pointer(pin, 'pointerdown');
+    pointer(pin, 'pointerup');
+    expect(onSelect).toHaveBeenCalledWith('tele', 'tap');
+  });
+
+  it('战力不参与两态：门槛极高但相邻 → 仍可点击（v3 已删战力限制）', () => {
+    const weak = node({ id: 9, code: 'weak', name: '强敌', adjacent: true, threshold: 999999 });
+    const { onSelect } = setup({ nodes: [weak], edges: [] });
+    const pin = screen.getByTestId('graph-canvas-item-weak');
+    expect(pin).not.toHaveAttribute('aria-disabled');
+    pointer(pin, 'pointerdown');
+    pointer(pin, 'pointerup');
+    expect(onSelect).toHaveBeenCalledWith('weak', 'tap');
   });
 
   it('showGrid 透传：出网格层与每个枢纽的坐标标注', () => {

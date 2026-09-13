@@ -64,3 +64,19 @@ export function isNodeOnGrid(node: MapNodeView, gridRows: number, gridCols: numb
 export function pinTooltipText(node: MapNodeView, state: NodeVisualState): string {
   return `${node.name} · ${ringLabel(node.ring)} · ${nodeStateLabel(state)}`;
 }
+
+/**
+ * 节点是否**可交互**（P2.0 v3 §5）：
+ * - 与当前所在**相邻**（服务端按 `game_map_edges` 判定，`node.adjacent`）→ 可直接前往；
+ * - 或**传送点已点亮**（`progress.waypointUnlocked`）→ 可传送至此。
+ *
+ * 两者都不满足 → 画布画成暗色并 `disabled`，点击不改变选中态。
+ * ⚠️ **战力不参与**（v3 已删「前往」的战力限制，`threshold` 只作展示）。
+ */
+export function isNodeInteractive(node: MapNodeView): boolean {
+  return node.adjacent || node.progress.waypointUnlocked;
+}
+
+/** 不可交互节点的悬停补充说明（`pinTooltipText` 之后的第二句）。 */
+export const LOCKED_HINT = '不可直达：需先到相邻地点，或点亮传送点';
+

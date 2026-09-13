@@ -8,8 +8,10 @@
  * - `enter` / `waypoint` 的业务失败（`NODE_LOCKED` / `NODE_POWER_NOT_ENOUGH` /
  *   `WAYPOINT_NOT_UNLOCKED` …）是**预期分支**：只走 toast 出口并 return，
  *   **不写进 `error`** —— `error` 只表示「面板数据没拉到」，避免一次跑图失败把整张线路图清空。
- * - 协议没有「当前所在节点」字段：`currentCode` 是**会话内**位置，由 `enter` / `waypoint`
- *   的成功响应写入，首屏为 null（面板据此不高亮任何节点）。
+ * - 协议自 P2.0 v3 起带「当前所在」字段（`MapView.currentNodeCode`，服务端持久化在
+ *   `game_map_state`）：`currentCode` 首屏即来自服务端，`enter` / `waypoint` 成功后也会被
+ *   随后的 `load()` 刷新为服务端真值（不再只是会话内状态）。
+ * - 「能否前往」由服务端下发的 `node.adjacent` 决定（拓扑权威），**前端不做本地邻接推断**。
  *
  * 挂载时不拉取：首屏由 `RootStore.loadPanel()` 并发加载。
  */
@@ -62,14 +64,24 @@ export class MapStore {
     return this.nodes.map((node) => node.progress);
   }
 
-  /** 切换地图：只重算节点/边，不重新请求（`maps` 已含各图节点）。 */
+  /** 切换地图：只重算节点/边/当前所在，不重新请求（`maps` 已含各图节点）。 */
   selectMap(code: string): void {
     runInAction(() => {
-      const selected = this.maps.find((entry) => entry.code === code) ?? null;
-      this.selectedMapCode = selected?.code ?? null;
-      this.nodes = selected?.nodes ?? [];
-      this.edges = selected?.edges ?? [];
+      this.applySelected(this.maps.find((entry) => entry.code === code) ?? null);
     });
+  }
+
+  /**
+   * 应用选中地图：节点 / 边 / **当前所在**。
+   *
+   * `currentCode` 以服务端 `currentNodeCode` 为准（P2.0 v3 §5 已持久化到 `game_map_state`），
+   * 不再只是会话内状态 —— 刷新后仍能高亮「我在哪」。
+   */
+  private applySelected(selected: MapView | null): void {
+    this.selectedMapCode = selected?.code ?? null;
+    this.nodes = selected?.nodes ?? [];
+    this.edges = selected?.edges ?? [];
+    this.currentCode = selected?.currentNodeCode ?? null;
   }
 
   /** 拉取地图列表（无业务码）。 */
@@ -87,9 +99,7 @@ export class MapStore {
         this.playerPower = data.playerPower;
         const selected =
           data.maps.find((entry) => entry.code === this.selectedMapCode) ?? data.maps[0] ?? null;
-        this.selectedMapCode = selected?.code ?? null;
-        this.nodes = selected?.nodes ?? [];
-        this.edges = selected?.edges ?? [];
+        this.applySelected(selected);
       });
     } catch (error) {
       if (!this.guard.isCurrent(token)) return;

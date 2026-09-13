@@ -21,6 +21,11 @@ export interface MapNodePinProps {
   state: NodeVisualState;
   /** 当前所在节点额外放大（§11.1 第 11 条：状态靠尺寸/亮度区分）。 */
   emphasized?: boolean;
+  /**
+   * 不可交互（P2.0 v3 §5）：既不相邻、传送点又未点亮。
+   * 画成**暗色**（灰描边 + 透明底 + 虚线），配合 `GraphCanvas` 的 `disabled`（跳过 onSelect）。
+   */
+  disabled?: boolean;
 }
 
 /** `kind` → glyph（四类；未知 kind 用空以免上屏协议原文）。 */
@@ -32,26 +37,36 @@ function glyphOf(kind: string): string {
 }
 
 export function MapNodePin(props: MapNodePinProps) {
-  const { node, state, emphasized = false } = props;
+  const { node, state, emphasized = false, disabled = false } = props;
   const { token } = theme.useToken();
   const size = emphasized ? ICON_PX + 8 : ICON_PX;
 
-  const ring =
-    state === 'current'
+  const ring = disabled
+    ? token.colorTextQuaternary
+    : state === 'current'
       ? token.colorPrimary
       : state === 'visited'
         ? token.colorSuccess
         : state === 'unknown'
           ? token.colorTextQuaternary
           : token.colorTextTertiary;
-  const fill = state === 'visited' ? token.colorSuccessBg : token.colorBgElevated;
-  const textColor = state === 'current' ? token.colorPrimary : token.colorTextSecondary;
+  const fill = disabled
+    ? token.colorFillQuaternary
+    : state === 'visited'
+      ? token.colorSuccessBg
+      : token.colorBgElevated;
+  const textColor = disabled
+    ? token.colorTextQuaternary
+    : state === 'current'
+      ? token.colorPrimary
+      : token.colorTextSecondary;
 
   return (
     <div
       data-testid={`map-node-pin-${node.code}`}
       data-state={state}
       data-kind={node.kind}
+      data-disabled={disabled ? 'true' : undefined}
       style={{
         position: 'relative',
         width: MARKER_PX,
@@ -67,8 +82,8 @@ export function MapNodePin(props: MapNodePinProps) {
           height: size,
           borderRadius: '50%',
           background: fill,
-          border: `${emphasized ? 3 : 2}px ${state === 'known' ? 'dashed' : 'solid'} ${ring}`,
-          boxShadow: state === 'current' ? `0 0 12px ${token.colorPrimaryBorder}` : undefined,
+          border: `${emphasized ? 3 : 2}px ${disabled || state === 'known' ? 'dashed' : 'solid'} ${ring}`,
+          boxShadow: state === 'current' && !disabled ? `0 0 12px ${token.colorPrimaryBorder}` : undefined,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
