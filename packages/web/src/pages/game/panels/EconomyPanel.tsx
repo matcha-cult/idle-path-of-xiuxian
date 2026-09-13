@@ -3,6 +3,8 @@
  *
  * 容器模式：两张 `DataTable` 展示持有量，`ActionForm` 驱动炼器，`lastCraft` 用 `KeyValueList`
  * 展示（含瓦尔摧毁分支）；开发注入改动持有量，用 `ConfirmAction` 包裹。三态交给 `AsyncBoundary`。
+ * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
+ * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex, Input, Space } from 'antd';

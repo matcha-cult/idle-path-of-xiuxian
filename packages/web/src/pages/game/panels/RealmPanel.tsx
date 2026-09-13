@@ -4,6 +4,8 @@
  * 容器模式：`StatGrid` 展示当前境界 / 灵韵 / 下一境消耗，`ResourceBar` 展示灵韵进度；
  * 突破是不可逆操作，用 `ConfirmAction` 二次确认，封顶（`isMax`）时禁用触发。
  * 三态交给 `AsyncBoundary`，本面板不在挂载时自动拉取。
+ * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
+ * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex } from 'antd';

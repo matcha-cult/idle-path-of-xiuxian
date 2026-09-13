@@ -41,6 +41,9 @@ export * from './layout/PageShell/index.js';
 export * from './layout/SectionCard/index.js';
 export * from './layout/Toolbar/index.js';
 export * from './layout/PanelTabs/index.js';
+export * from './layout/AppShell/index.js';
+export * from './layout/SideNav/index.js';
+export * from './layout/HudBar/index.js';
 
 // ===== pluggable =====
 export * from './pluggable/panel-registry/index.js';
@@ -56,6 +59,7 @@ export * from './data/StatGrid/index.js';
 export * from './feedback/AsyncBoundary/index.js';
 export * from './feedback/ConfirmAction/index.js';
 export * from './feedback/SubmitButton/index.js';
+export * from './feedback/PanelPlaceholder/index.js';
 
 // ===== form =====
 export * from './form/TextField/index.js';

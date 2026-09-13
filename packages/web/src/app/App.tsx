@@ -14,11 +14,13 @@ import { GameShellPage } from '../pages/game/GameShellPage.js';
  */
 export const App = observer(function App() {
   const root = useRootStore();
+  const inGame = root.session.isAuthenticated && root.session.hasCharacter;
 
   return (
-    <div className="app">
+    <div className={inGame ? 'app app--game' : 'app'}>
       <ToastBridge />
-      <AppThemeToggle />
+      {/* 游戏外壳的 HUD 里已有主题切换按钮；未进游戏时用悬浮按钮（登录页也能换肤） */}
+      {inGame ? null : <AppThemeToggle />}
       {!root.session.isAuthenticated ? (
         <LoginPage />
       ) : !root.session.hasCharacter ? (

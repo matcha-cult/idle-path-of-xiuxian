@@ -1,30 +1,32 @@
 /**
- * GameShellPage —— 游戏面板壳（**只做装配**，目标 ≤80 行）。
+ * GameShellPage —— 游戏外壳（**只做装配**）。
  *
- * 职责边界：
- * - 页头（角色摘要）/ 工具条（连接状态）/ 内容（配置驱动的页签）三段，全部来自 ui-kit `PageShell` + `PanelTabs`；
- * - 面板清单来自 `panel-registry`：新增游戏域不需要改本文件；
- * - 首屏数据并发加载由 `RootStore.loadPanel()` 负责，面板自身不在挂载时拉取。
+ * 结构：`AppShell`（Sider + Header + Content）
+ *   ├─ `nav`       `SideNav`（分组侧栏，配置来自 `panel-registry`）
+ *   ├─ `header`    角色名 + 全量刷新
+ *   ├─ `hud`       `GameHud`（境界/资源 + 连接状态 + 主题切换）
+ *   └─ `children`  当前域内容（注册表决定：已实现 → 面板；待重做 → 占位）
+ *
+ * 新增游戏域不需要改本文件（只改 `panel-registry.tsx`）。
+ * 首屏数据由 `RootStore.loadPanel()` 并发加载；面板自身不在挂载时拉取。
  */
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Space } from 'antd';
-import { REALMS } from '@idle-path/ionet-transport';
-import { PageShell, PanelTabs } from '@idle-path/ui-kit';
-import { ConnectionStatus } from '../../components/ConnectionStatus.js';
+import { Button, Space, Typography } from 'antd';
+import { AppShell, SideNav } from '@idle-path/ui-kit';
 import { useRootStore } from '../../app/root-context.js';
-import { createGamePanelRegistry } from './panel-registry.js';
-
-function realmNameOf(realm: number | undefined): string {
-  if (realm === undefined) return '—';
-  return REALMS[realm - 1] ?? `第 ${realm} 境`;
-}
+import { GameHud } from '../../components/GameHud.js';
+import {
+  createGamePanelGroups,
+  listGameDomainKeys,
+  renderGameDomainContent,
+} from './panel-registry.js';
 
 export const GameShellPage = observer(function GameShellPage() {
   const root = useRootStore();
-  const registry = useMemo(() => createGamePanelRegistry(), []);
-  const panels = registry.list();
-  const [activeKey, setActiveKey] = useState(() => panels[0]?.key ?? '');
+  const groups = useMemo(() => createGamePanelGroups(), []);
+  const [activeKey, setActiveKey] = useState(() => listGameDomainKeys()[0] ?? '');
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     void root.loadPanel();
@@ -33,25 +35,33 @@ export const GameShellPage = observer(function GameShellPage() {
   const character = root.session.character;
 
   return (
-    <PageShell
-      title={character?.nickname ?? '—'}
-      subtitle={
-        <Space separator="·" wrap data-testid="shell-character-summary">
-          <span>{character?.title ?? '散修'}</span>
-          <span>{realmNameOf(character?.realm)}</span>
-          <span>灵石 {character?.spiritStones ?? 0}</span>
-          <span>灵韵 {character?.lingyun ?? 0}</span>
-          <span>玉简 {character?.jadeSlips ?? 0}</span>
+    <AppShell
+      collapsed={collapsed}
+      onCollapse={setCollapsed}
+      nav={
+        <SideNav
+          groups={groups}
+          selectedKey={activeKey}
+          onSelect={setActiveKey}
+          collapsed={collapsed}
+          title={
+            <Typography.Text strong data-testid="shell-title">
+              {character?.nickname ?? '—'}
+            </Typography.Text>
+          }
+        />
+      }
+      header={<Typography.Text type="secondary">放置·修仙之路</Typography.Text>}
+      headerExtra={
+        <Space>
+          <Button onClick={() => void root.loadPanel()} data-testid="shell-refresh-all">
+            全量刷新
+          </Button>
         </Space>
       }
-      extra={
-        <Button type="primary" onClick={() => void root.loadPanel()} data-testid="shell-refresh-all">
-          全量刷新
-        </Button>
-      }
-      toolbar={<ConnectionStatus />}
+      hud={<GameHud />}
     >
-      <PanelTabs items={panels} activeKey={activeKey} onChange={setActiveKey} />
-    </PageShell>
+      <div data-testid="shell-content">{renderGameDomainContent(activeKey)}</div>
+    </AppShell>
   );
 });

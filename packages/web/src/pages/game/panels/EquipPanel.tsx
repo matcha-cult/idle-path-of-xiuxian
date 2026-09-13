@@ -4,6 +4,8 @@
  * 容器模式（与 `BagPanel` 一致）：只做「store 状态 → ui-kit 组件 props」映射，不写业务规则；
  * **不在挂载时自动拉取**（首屏由 `RootStore.loadPanel()` 并发加载）；三态交给 `AsyncBoundary`。
  * 卸下是破坏性操作，用 `ConfirmAction` 二次确认。
+ * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
+ * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex } from 'antd';

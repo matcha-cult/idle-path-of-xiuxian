@@ -23,11 +23,18 @@ body {
   background: var(--app-bg);
 }
 
-/* 内容最大宽度（PC 端可读性；移动端自适应） */
+/* 登录/建角页：内容居中且限宽（游戏外壳自带 Layout，不需要这两条） */
 .app {
   max-width: 1180px;
   margin: 0 auto;
   padding: 16px;
+}
+
+/* 游戏外壳：占满视口，由 AppShell 的 Layout/Sider 负责布局与内边距 */
+.app--game {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 @media (max-width: 640px) {

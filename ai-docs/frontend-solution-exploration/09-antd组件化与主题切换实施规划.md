@@ -154,7 +154,23 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 | **M1** | T-A 基建 + T-C 主题/紧凑 + T-B 包骨架 | ✅ 2026-09-13 完成 | 主题切换可用；既有测试零回归 |
 | **M2** | T-D 通用组件层（约 22 个组件 + 22 个测试） | ✅ 2026-09-13 完成 | ui-kit 覆盖率 ≥90% |
 | **M3** | T-E 页面与 11 面板拆分 | ✅ 2026-09-13 完成 | 无 >200 行文件；页面测试全绿 |
-| **M4** | T-F 全量验收 + 文档 | 1 个 commit | 全部命令绿 + 浏览器人工确认 |
+| **M4** | T-F 全量验收 + 文档 | 🚧 2026-09-13 起分阶段 | 全部命令绿 + 浏览器人工确认 |
+
+### M4 分阶段（2026-09-13 起，用户已点过 M3 面板）
+
+> 用户结论：M3 的 11 个面板「把 DTO 字段照搬成表格」，**全部需要按实际玩法重做**。
+> 因此 M4 拆两步，先壳后面板：
+
+**阶段一 · 外壳（已完成）**：`AppShell`（attn `Layout`+可折叠 `Sider`+`Header`+`Content`）+
+`SideNav`（配置驱动分组菜单）+ `HudBar`（常驻信息条）+ `PanelPlaceholder`（待重做占位）
+四个新 ui-kit 通用件（各带测试）；web 侧 `GameShellPage` 改为外壳装配，
+`panel-registry` 增加 `group` 与 `status`（当前 11 域全部 `pending`），
+HUD 内建连接状态与一键换肤（游戏态不再用悬浮按钮）。
+
+**阶段二 · 面板按玩法重做（待开工）**：以
+`ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md` 为规格，
+逐个替换 `panel-registry` 里的 `status: 'pending'` → `'ready'`，并删除对应旧版面板文件。
+另需处理：JS bundle 拆包（`manualChunks` + 面板 `React.lazy`）。
 
 > **M1 已交付实测（2026-09-13）**：ui-kit 单测 31 例、web 单测 67 例 + 真后端 e2e 1 例全绿；
 > `pnpm -r run build` exit 0；`styles.css` 硬编码色值 0 命中；ui-kit 源码业务/mobx/node 依赖 0 命中；

@@ -6,6 +6,8 @@
  * - **不在挂载时自动拉取**：首屏数据由 `RootStore.loadPanel()` 统一并发加载，面板只管展示与交互；
  * - 视觉原语全部来自 `@idle-path/ui-kit` + antd：不写裸 div 布局、不写内联颜色、不传 `size`（紧凑全局生效）；
  * - 空/加载/错误三态一律交给 `AsyncBoundary`，不要在面板里再写一套。
+ * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
+ * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex, Pagination, Space } from 'antd';

@@ -42,15 +42,20 @@ src/
 │   ├── LoginPage.tsx            登录 / 注册（antd Form + ui-kit 字段）
 │   ├── CharacterCreatePage.tsx  建角
 │   └── game/
-│       ├── GameShellPage.tsx    壳：PageShell + PanelTabs（只装配，77 行）
-│       ├── panel-registry.tsx   ★ 可插拔注册表：新增游戏域只改这里
-│       └── panels/              11 个域面板（每个 ≤150 行 + 同目录测试）
+│       ├── GameShellPage.tsx    壳：AppShell(Sider+Header+Content) + SideNav + GameHud（只装配）
+│       ├── panel-registry.tsx   ★ 可插拔注册表：分组导航 + 内容 + status(ready/pending)
+│       └── panels/              11 个域面板 —— ⚠️ 旧版（M3 交付，已判定不合格）
+│                                  仅保留测试覆盖 store 契约；新版按玩法重做后逐个替换/删除
 ├── stores/         11 个域 Store + Theme/Session/Connection/Toast + load-guard（竞态守卫）
 ├── services/       GameClient / NotificationBus / storage（唯一存储抽象）
 └── theme/          ThemeStore / ThemeRoot / token-css-vars / document-theme
 ```
 
-**面板铁律**（新增面板照抄 `panels/BagPanel.tsx`）：
+**外壳现状（M4 阶段一）**：侧栏分组导航（养成/资源/战斗/冒险/系统）+ 顶部 HUD（境界·灵石·灵韵·玉简 + 连接状态 + 一键换肤）；
+11 个域当前 `status: 'pending'` → 内容区渲染 `PanelPlaceholder` 占位。面板重做以
+`ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md` 为准（按实际玩法而非 DTO 字段）。
+
+**面板铁律**（新版面板沿用；旧版 `panels/BagPanel.tsx` 可作**代码结构**参考，但呈现形态以玩法规格为准）：
 1. 只做「store 状态 → ui-kit props」映射，不写业务规则/公式/数值文案；
 2. **不在挂载时拉取**——首屏由 `RootStore.loadPanel()` 并发加载；
 3. 三态（loading/error/empty）一律交给 `AsyncBoundary`；

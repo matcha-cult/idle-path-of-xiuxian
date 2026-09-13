@@ -27,20 +27,23 @@ src/
 │   ├── ThemeProvider/            ConfigProvider + App + zhCN
 │   ├── ThemeToggle/              一键亮/暗切换（Button + Tooltip，图标型）
 │   └── ThemeFloatButton/         同一语义的悬浮呈现（FloatButton）
-├── layout/                       PageShell / SectionCard / Toolbar / PanelTabs
+├── layout/                       AppShell / SideNav / HudBar / PageShell / SectionCard / Toolbar / PanelTabs
 ├── pluggable/panel-registry/     PanelRegistry（纯 TS，config 驱动的可插拔入口）
 ├── data/                         DataTable<T> / ResourceGrid<T> / KeyValueList / StatItem / StatGrid
-├── feedback/                     AsyncBoundary / ConfirmAction / SubmitButton
+├── feedback/                     AsyncBoundary / ConfirmAction / SubmitButton / PanelPlaceholder
 ├── form/                         TextField / PasswordField / NumberField / SelectField / SwitchField / ActionForm / ModalForm
 ├── game/                         RarityTag / ItemCard / ResourceBar / QuantityInput / EmptyHint / ActionBar
 └── index.ts                      barrel：按分组 re-export 公开组件与类型
 ```
 
-## 组件清单（32 个 + 1 注册表）
+## 组件清单（36 个 + 1 注册表）
 
 | 分组 | 组件 | 关键 props |
 |---|---|---|
 | theme | `ThemeProvider` / `ThemeToggle` / `ThemeFloatButton` | `mode`、`primaryColor`、`value`+`onChange` |
+| layout | `AppShell` | `nav, header, headerExtra, hud, collapsible, collapsed, defaultCollapsed, onCollapse, siderWidth, children` |
+| layout | `SideNav` | `groups, selectedKey, onSelect, collapsed, title, footer`（配置驱动分组菜单） |
+| layout | `HudBar` | `items({key,label,value,icon?,tooltip?}), extra, loading, wrap` |
 | layout | `PageShell` | `title, subtitle, extra, toolbar, children` |
 | layout | `SectionCard` | `title, subtitle, extra, loading, children` |
 | layout | `Toolbar` | `left, right, children` |
@@ -53,6 +56,7 @@ src/
 | feedback | `AsyncBoundary` | `loading, error, empty, emptyText, skeletonRows, onRetry, retryText`（优先级 loading>error>empty） |
 | feedback | `ConfirmAction` | `title, description, onConfirm, okText, cancelText, danger, disabled, children` |
 | feedback | `SubmitButton` | `children, loading, disabled, htmlType`（**缺省 `submit`**）, `block, danger, onClick` |
+| feedback | `PanelPlaceholder` | `title, description?, status?('pending'\|'planned'), highlights?, icon?` |
 | form | `TextField` / `PasswordField` / `NumberField` / `SelectField` / `SwitchField` | `name, label, required, rules, help, …`（PasswordField 用 `Input.Password`；Switch 自动 `valuePropName="checked"`） |
 | form | `ActionForm` | `fields, initialValues, submitText, cancelText, loading, disabled, layout, onFinish, onCancel` |
 | form | `ModalForm` | `open, title, fields, initialValues, confirmText, cancelText, loading, width, onCancel, onFinish` |

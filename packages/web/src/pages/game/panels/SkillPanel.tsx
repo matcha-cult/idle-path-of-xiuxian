@@ -3,6 +3,8 @@
  *
  * 容器模式：上半概要用 `KeyValueList`，下半图鉴用 `DataTable`；参悟与开发注入是
  * 不可逆/资源消耗操作，用 `ConfirmAction` 二次确认。三态交给 `AsyncBoundary`。
+ * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
+ * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex, Space } from 'antd';
