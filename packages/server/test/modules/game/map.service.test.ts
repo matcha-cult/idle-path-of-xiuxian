@@ -429,12 +429,12 @@ describe('MapService.enter 边界（§5.2 + §6.2）', () => {
     }
   });
 
-  test('未发现（前置未访问）-> NODE_LOCKED，且 data 带 requiresNodeCode', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [N1, N2] });
+  test('requires_node_code 本轮不再是进入闸门：山门节点即使带前置也可直接进', async () => {
+    // P2.0 §5：进入闸门改为「相邻 / 山门」，requires 字段保留但不再拦截
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1, N2], equip: '12' });
     const res = await makeService({ db }).svc.enter(7, 'n2');
-    assert.equal(failingCode(res), 'NODE_LOCKED');
-    assert.deepEqual(res.data, { code: 'NODE_LOCKED', nodeCode: 'n2', requiresNodeCode: 'n1' });
-    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+    assert.equal(res.success, true);
+    assert.equal(failingCode(res), undefined);
   });
 
   test('战力恰好等于门槛 -> 通过；差 1 -> NODE_POWER_NOT_ENOUGH', async () => {
@@ -514,6 +514,90 @@ describe('MapService.enter 边界（§5.2 + §6.2）', () => {
     const res = await makeService({ db }).svc.enter(7, 'n2');
     assert.equal(res.success, true);
     assert.deepEqual(progress.map((p) => [p.node_id, p.visited]), [[1, true], [2, true]]);
+  });
+});
+
+// ===== 相邻移动闸门（P2.0 §5：相邻可直接前往）=====
+
+describe('MapService.enter 相邻闸门（P2.0 §5）', () => {
+  const GATE = nodeRow({ id: 1, code: 'gate', ring: 'outer', threshold: 10, has_waypoint: true });
+  const H1 = nodeRow({ id: 2, code: 'h1', ring: 'inner', threshold: 10 });
+  const H2 = nodeRow({ id: 3, code: 'h2', ring: 'inner', threshold: 10 });
+  const H3 = nodeRow({ id: 4, code: 'h3', ring: 'inner', threshold: 10 });
+  const H1H2 = edgeRow({ id: 1, from_node_id: 2, to_node_id: 3 });
+  const NODES = [GATE, H1, H2, H3];
+  /** 4 级角色的裸装战力 (realm×20) 足以过 threshold=10。 */
+  const CHAR = makeChar({ realm: 2 });
+
+  test('相邻（有边）-> 成功且 current_node_id 更新', async () => {
+    const { db, state } = mapDb({
+      maps: [mapRow()],
+      nodes: NODES,
+      edges: [H1H2],
+      state: [{ character_id: 11, current_node_id: 2 }],
+    });
+    const res = await makeService({ db, character: CHAR }).svc.enter(7, 'h2');
+    assert.equal(res.success, true);
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 3 }]);
+  });
+
+  test('不相邻且非山门 -> NODE_NOT_ADJACENT（防回归核心）', async () => {
+    const { db, state, progress } = mapDb({
+      maps: [mapRow()],
+      nodes: NODES,
+      edges: [H1H2],
+      state: [{ character_id: 11, current_node_id: 2 }],
+    });
+    const res = await makeService({ db, character: CHAR }).svc.enter(7, 'h3');
+    assert.equal(failingCode(res), 'NODE_NOT_ADJACENT');
+    assert.deepEqual(res.data, { code: 'NODE_NOT_ADJACENT', nodeCode: 'h3' });
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+    assert.equal(progress.length, 0);
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 2 }]);
+  });
+
+  test('相邻但战力不足 -> 仍 NODE_POWER_NOT_ENOUGH（相邻不豁免门槛）', async () => {
+    const tough = nodeRow({ id: 3, code: 'h2', ring: 'inner', threshold: 100 });
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [GATE, H1, tough],
+      edges: [H1H2],
+      state: [{ character_id: 11, current_node_id: 2 }],
+    });
+    const res = await makeService({ db, character: CHAR }).svc.enter(7, 'h2');
+    assert.equal(failingCode(res), 'NODE_POWER_NOT_ENOUGH');
+  });
+
+  test('新角色（current=null）：四门可进，非山门 NODE_NOT_ADJACENT', async () => {
+    const gate = mapDb({ maps: [mapRow()], nodes: NODES, state: [] });
+    assert.equal((await makeService({ db: gate.db, character: CHAR }).svc.enter(7, 'gate')).success, true);
+
+    const inner = mapDb({ maps: [mapRow()], nodes: NODES, state: [] });
+    const res = await makeService({ db: inner.db, character: CHAR }).svc.enter(7, 'h1');
+    assert.equal(failingCode(res), 'NODE_NOT_ADJACENT');
+  });
+
+  test('current_node_id 指向已删节点（配置漂移）-> 不崩，退化为「只有四门可进」', async () => {
+    const drift = mapDb({
+      maps: [mapRow()],
+      nodes: NODES,
+      edges: [H1H2],
+      state: [{ character_id: 11, current_node_id: 999 }],
+    });
+    const svc = makeService({ db: drift.db, character: CHAR }).svc;
+    assert.equal(failingCode(await svc.enter(7, 'h1')), 'NODE_NOT_ADJACENT');
+    assert.equal((await svc.enter(7, 'gate')).success, true);
+  });
+
+  test('山门始终放行（即使与当前所在地不相邻）', async () => {
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: NODES,
+      edges: [H1H2],
+      state: [{ character_id: 11, current_node_id: 3 }],
+    });
+    const res = await makeService({ db, character: CHAR }).svc.enter(7, 'gate');
+    assert.equal(res.success, true);
   });
 });
 

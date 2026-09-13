@@ -169,6 +169,26 @@ export class MapService {
     );
   }
 
+  /**
+   * 是否山门（入口）：`ring = 'outer'` 的四门。
+   * 山门**始终**放行 —— 新角色由此入图，`current_node_id` 漂移到已删节点时也由此兜底。
+   */
+  private isGate(node: MapNodeRow): boolean {
+    return node.ring === 'outer';
+  }
+
+  /** 与 `nodeId` 相邻的节点 id 集合（双向边对称；单向边只认 from → to）。 */
+  private adjacentNodeIds(edges: readonly MapEdgeRow[], nodeId: number): Set<number> {
+    const adjacent = new Set<number>();
+    for (const edge of edges) {
+      const from = Number(edge.from_node_id);
+      const to = Number(edge.to_node_id);
+      if (from === nodeId) adjacent.add(to);
+      else if (Boolean(edge.bidirectional) && to === nodeId) adjacent.add(from);
+    }
+    return adjacent;
+  }
+
   /** 节点视图（协议 dto.ts 的 `MapNodeView`） */
   private nodeView(node: MapNodeRow, progress: NodeProgressView) {
     return {
@@ -267,11 +287,20 @@ export class MapService {
   }
 
   /**
-   * 跑图：移动到目标节点。
+   * 跑图：移动到目标节点（P2.0 §5：**相邻可直接前往**）。
    *
-   * 顺序（§5.2 + §6.2）：节点存在 → 已发现（否则 NODE_LOCKED）→ 战力达标（否则
-   * NODE_POWER_NOT_ENOUGH；恰好等于门槛视为通过）→ 首次到达写进度。
-   * 幂等：已 `visited` 且传送点状态一致时不产生任何写库。
+   * 顺序：节点存在 → **相邻闸门**（非山门且与当前所在地不相邻 → `NODE_NOT_ADJACENT`）
+   * → 战力达标（否则 `NODE_POWER_NOT_ENOUGH`；恰好等于门槛视为通过）→ 写进度 + 当前所在。
+   *
+   * **相邻 = `game_map_edges` 有边**（拓扑权威，服务端判定）。客户端闸门等于没有，
+   * 所以这条必须在服务端。
+   *
+   * **入口规则**：`current_node_id = null`（新角色）时只有四门可进；四门也**始终**放行
+   * （「非相邻且非山门」才拒绝），这样即使 `current_node_id` 指向已删节点（配置漂移）
+   * 也只是退化为「只有四门可进」，而不是把角色永久锁死。
+   *
+   * ⚠️ `requires_node_code` 本轮**不再作为进入闸门**（字段保留，仍随 DTO 下发）。
+   * 幂等：已 `visited` 且传送点状态一致时不产生进度写库（当前所在仍幂等 upsert）。
    */
   async enter(userId: number, nodeCode: string): Promise<MapActionResult> {
     const { character, error } = await this.resolveCharacter(userId);
@@ -279,15 +308,20 @@ export class MapService {
     const node = await this.nodeByCode(nodeCode);
     if (!node) return this.nodeNotFound(nodeCode);
 
-    const [nodes, progressRows] = await Promise.all([this.allNodes(), this.progressRows(character.id)]);
-    const byNodeId = this.progressMap(progressRows);
-    const discovered = discoveredCodes(nodes, byNodeId);
-    if (!discovered.has(node.code)) {
-      return {
-        success: false,
-        message: '节点尚未发现：' + node.name,
-        data: { code: 'NODE_LOCKED', nodeCode: node.code, requiresNodeCode: node.requires_node_code },
-      };
+    if (!this.isGate(node)) {
+      const [currentId, allEdges] = await Promise.all([
+        this.currentNodeId(character.id),
+        this.allEdges(),
+      ]);
+      const adjacent =
+        currentId !== null && this.adjacentNodeIds(allEdges, currentId).has(Number(node.id));
+      if (!adjacent) {
+        return {
+          success: false,
+          message: '与当前所在地不相邻：' + node.name,
+          data: { code: 'NODE_NOT_ADJACENT', nodeCode: node.code },
+        };
+      }
     }
 
     const power = await this.playerPowerService.compute(character.id, character.realm);
@@ -300,7 +334,7 @@ export class MapService {
       };
     }
 
-    const existing = byNodeId.get(Number(node.id)) ?? null;
+    const existing = await this.progressRow(character.id, Number(node.id));
     const alreadyVisited = Boolean(existing?.visited);
     const waypointOpen = Boolean(existing?.waypoint_unlocked) || Boolean(node.has_waypoint);
     // 首次到达（visit=false）或传送点待补齐时才写库：重复 enter 无副作用
