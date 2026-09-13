@@ -10,12 +10,18 @@ import { CharacterModule } from '../../../character/character.module.js';
 import { CombatLogicModule } from '../../combat/combat-logic.module.js';
 import { MapLogicModule } from '../../map/map-logic.module.js';
 import { ZoneService } from './zone.service.js';
-import { OnlineExploreService } from './online-explore.service.js';
+import { ONLINE_EXPLORE_OPTIONS, OnlineExploreService } from './online-explore.service.js';
 import { OnlineNotifyService } from './online-notify.service.js';
 
 @Module({
   imports: [CharacterModule, CombatLogicModule, MapLogicModule],
-  providers: [ZoneService, OnlineExploreService, OnlineNotifyService],
+  providers: [
+    ZoneService,
+    OnlineExploreService,
+    OnlineNotifyService,
+    // 生产走默认值；仅为让 Nest 能解析构造选项（见 token 注释）
+    { provide: ONLINE_EXPLORE_OPTIONS, useValue: {} },
+  ],
   exports: [ZoneService, OnlineExploreService, OnlineNotifyService],
 })
 export class ZoneModule {}

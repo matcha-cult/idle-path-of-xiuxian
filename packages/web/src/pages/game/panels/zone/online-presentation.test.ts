@@ -111,6 +111,12 @@ describe('floorLabel / floorKillsLabel', () => {
     expect(floorLabel(null)).toBe('—');
   });
 
+  it('floor<=0 / 非有限 → 占位符（绝不显示「第 0 层」）', () => {
+    expect(floorLabel(frame({ floor: 0, maxFloor: 3 }))).toBe('—');
+    expect(floorLabel(frame({ floor: -1 }))).toBe('—');
+    expect(floorLabel(frame({ floor: Number.NaN }))).toBe('—');
+  });
+
   it('本层击杀文案', () => {
     expect(floorKillsLabel(frame({ floorKills: 12, killsPerFloor: 30 }))).toBe('12 / 30');
     expect(floorKillsLabel(null)).toBe('—');
@@ -146,7 +152,7 @@ describe('事件标签与产出摘要', () => {
     expect(eventLabelOf('idle_unlocked')).toBe('解锁离线挂机');
     expect(eventLabelOf('stuck')).toBe('战力不足');
     expect(eventLabelOf('mystery_event')).toBeNull();
-    expect(eventLabelsOf(frame({ events: ['floor_up', 'mystery_event', 'stuck'] }))).toEqual([
+    expect(eventLabelsOf(frame({ events: ['floor_up', 'mystery_event' as never, 'stuck'] }))).toEqual([
       '涨层',
       '战力不足',
     ]);

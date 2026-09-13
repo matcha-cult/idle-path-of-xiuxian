@@ -17,6 +17,16 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { IONET_WS_SERVER } from '@nbb-ionet/extension-nestjs';
 
+/**
+ * 构造选项的 DI token。
+ *
+ * ⚠️ 必须有显式 token：`options: {…} = {}` 这类「普通对象参数」在 `emitDecoratorMetadata`
+ * 下被记录成 `Object`，Nest 会当成一个待注入的 provider 而启动失败（实测：
+ * `Nest can't resolve dependencies of the OnlineSessionService (Symbol(IONET_WS_SERVER), ?)`）。
+ * 单测可以直接按位置传（`new OnlineSessionService(null, { heartbeatTtlMs: 1000 })`）。
+ */
+export const ONLINE_SESSION_OPTIONS = Symbol('ONLINE_SESSION_OPTIONS');
+
 /** 应用层心跳 TTL：客户端 15s 一发，留 3 次容错（未挂连接注册表时的判活依据）。 */
 export const DEFAULT_HEARTBEAT_TTL_MS = 45_000;
 
@@ -48,6 +58,8 @@ export class OnlineSessionService {
 
   constructor(
     @Optional() @Inject(IONET_WS_SERVER) private readonly wsServer: OnlineWsServerLike | null = null,
+    @Optional()
+    @Inject(ONLINE_SESSION_OPTIONS)
     options: { heartbeatTtlMs?: number; now?: () => number } = {},
   ) {
     this.heartbeatTtlMs = options.heartbeatTtlMs ?? DEFAULT_HEARTBEAT_TTL_MS;

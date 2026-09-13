@@ -7,6 +7,7 @@
  * 与真实 fetch，Store 层与浏览器运行的是同一份代码。
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { ZONE_CMD, type ZoneOnlineData } from '@idle-path/ionet-transport';
 import { RootStore } from '../src/app/root-store.js';
 import type { StorageLike } from '../src/stores/session-store.js';
 
@@ -125,6 +126,17 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
       // 已发现列表本轮必含新结构的四个环层
     }
 
+    // T1 数据分层：17 个枢纽里只有历练峰带怪物数据，其余在协议里必须是 null（不是 0）
+    const withCombat = root.map.nodes.filter((n) => n.level !== null || n.threshold !== null);
+    expect(withCombat.map((n) => n.code)).toEqual(['qy_peak_xunlian']);
+    expect(withCombat[0]?.level).toBe(5);
+    expect(withCombat[0]?.threshold).toBe(75);
+    for (const node of root.map.nodes) {
+      if (node.code === 'qy_peak_xunlian') continue;
+      expect(node.level, `${node.name} 的怪物境界应为 null`).toBeNull();
+      expect(node.threshold, `${node.name} 的门槛应为 null`).toBeNull();
+    }
+
     // 新角色：currentNodeCode=null，可前往的恰好 4 个山门（入口规则）
     expect(map?.currentNodeCode ?? root.map.currentCode).toBeNull();
     const adjacentCodes = root.map.nodes.filter((n) => n.adjacent).map((n) => n.code).sort();
@@ -151,4 +163,138 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     await root.map.waypoint('qy_gate_e');
     expect(root.map.currentCode).toBe('qy_gate_e');
   }, 45_000);
+
+  /**
+   * P3.0 在线历练端到端（T8 实测口径）。
+   *
+   * 覆盖任务书 §9 第 6 条要的全部数字：连续 10 tick 的击杀累计、涨层时刻、
+   * 离线（hidden）时 tick 不推进、推送次数（证明节流）、idle_unlocked 置位前后。
+   * 用 5 境裸装战力 100：层门槛 75/87/99 → r = 1.33 / 1.15 / 1.01，全程可推进。
+   */
+  it('历练峰在线打怪升阶（P3.0）：10 tick 击杀 / 涨层 / 节流 / 离线暂停 / 解锁离线挂机', async () => {
+    const username = `webonline_${Date.now()}`;
+    root = new RootStore({
+      wsUrl: `ws://127.0.0.1:${port}/ws`,
+      apiBaseUrl: `http://127.0.0.1:${port}/api`,
+      storage: new MemoryStorage(),
+      heartbeat: { intervalMs: 1000, timeoutMs: 2000 },
+      reconnect: { enabled: true, baseDelayMs: 100, maxDelayMs: 500 },
+      autoRefreshMetricsMs: 0,
+    });
+    await expect(root.register(username, 'secret123')).resolves.toBe(true);
+    await expect(root.createCharacter('历练道友', 'male')).resolves.toBe(true);
+
+    // 推送帧计数（证明节流：不该每 tick 一条）
+    const pushed: ZoneOnlineData[] = [];
+    root.client.notifications.onAny((frame) => {
+      if (frame.cmd === ZONE_CMD.cmd && frame.subCmd === ZONE_CMD.online) {
+        pushed.push(frame.data as ZoneOnlineData);
+      }
+    });
+
+    // 1) 练到 5 境（裸装战力 100）：注入灵韵 + 连续突破
+    await root.skill.grantLingyun(20000);
+    for (let i = 0; i < 6 && (root.session.character?.realm ?? 1) < 5; i++) {
+      await root.realm.breakthrough();
+    }
+    expect(root.session.character?.realm).toBe(5);
+
+    // 2) 进入历练峰（zone.enter 才会写 game_zone_state；在线历练只认它）
+    await root.zone.enter('zone_houshan');
+    await root.zone.loadOnline();
+    expect(root.zone.online?.reason).toBe('ok');
+    expect(root.zone.online?.nodeName).toBe('第八峰·历练');
+    expect(root.zone.online?.floorRequirement).toBe(75);
+    expect(root.zone.online?.playerPower).toBe(100);
+    expect(root.zone.online?.idleUnlocked).toBe(false);
+
+    // 3) 连续 10 个 tick：每 tick 采样一次 floorKills（1s 节拍）
+    const samples: number[] = [root.zone.online?.floorKills ?? 0];
+    for (let i = 0; i < 10; i++) {
+      await sleep(1000);
+      await root.zone.loadOnline();
+      samples.push(root.zone.online?.floorKills ?? 0);
+    }
+    const kills10 = (samples.at(-1) ?? 0) - (samples[0] ?? 0);
+    console.log('[P3.0 实测] 10 tick 采样 floorKills:', samples.join(' → '), '⇒ 累计击杀', kills10);
+    expect(kills10).toBeGreaterThanOrEqual(12); // r=1.33：10 秒约 13 只
+    expect(kills10).toBeLessThanOrEqual(14);
+    console.log('[P3.0 实测] 10 秒内推送帧数:', pushed.length, '（节流上限 4）');
+    expect(pushed.length).toBeLessThanOrEqual(Math.ceil(10_000 / 3000));
+
+    // 4) 离线不推进（硬证据）：此刻第 1 层正以约 1.33 只/秒累计，
+    //    页面不可见（hidden 上报）后 6 秒，本层击杀必须一动不动
+    const beforeHiddenKills = root.zone.online?.floorKills ?? 0;
+    const beforeHiddenFloor = root.zone.online?.floor ?? 0;
+    expect(beforeHiddenKills).toBeGreaterThan(0);
+    root.zone.reportVisibility(false);
+    await sleep(1500);
+    await root.zone.loadOnline();
+    expect(root.zone.online?.reason).toBe('hidden');
+    expect(root.zone.online?.online).toBe(false);
+    await sleep(6000);
+    await root.zone.loadOnline();
+    const afterHiddenKills = root.zone.online?.floorKills ?? -1;
+    console.log(
+      '[P3.0 实测] hidden 6 秒前后：本层击杀',
+      beforeHiddenKills,
+      '→',
+      afterHiddenKills,
+      '/ 层',
+      beforeHiddenFloor,
+      '→',
+      root.zone.online?.floor,
+      '/ online=',
+      root.zone.online?.online,
+    );
+    expect(afterHiddenKills).toBe(beforeHiddenKills);
+    expect(root.zone.online?.floor).toBe(beforeHiddenFloor);
+    // 切回可见 → 立刻恢复推进
+    root.zone.reportVisibility(true);
+    await sleep(2500);
+    await root.zone.loadOnline();
+    expect(root.zone.online?.reason).toBe('ok');
+    expect(root.zone.online?.floorKills ?? 0).toBeGreaterThanOrEqual(beforeHiddenKills);
+
+    // 5) 涨层：从第 1 层打到通关（3 层），记录每次涨层的耗时
+    const start = Date.now();
+    const floorMarks: string[] = [];
+    let lastFloor = root.zone.online?.floor ?? 1;
+    for (let i = 0; i < 150 && (root.zone.online?.idleUnlocked ?? false) === false; i++) {
+      await sleep(1000);
+      await root.zone.loadOnline();
+      const frame = root.zone.online;
+      if (frame === null) continue;
+      if (frame.floor !== lastFloor || frame.cleared) {
+        floorMarks.push(`第${frame.floor}层@${Math.round((Date.now() - start) / 1000)}s`);
+        lastFloor = frame.floor;
+      }
+      if (i % 15 === 0) {
+        console.log(
+          `[P3.0 实测] 涨层循环 +${i}s 层=${frame.floor}/${frame.maxFloor} 本层击杀=${frame.floorKills}/${frame.killsPerFloor} 门槛=${frame.floorRequirement} 卡层=${frame.stuck}`,
+        );
+      }
+    }
+    console.log('[P3.0 实测] 涨层/通关时刻:', floorMarks.join(', '));
+
+    // 5) 解锁离线挂机（D2）：Boss 层通过后置位
+    expect(root.zone.online?.cleared).toBe(true);
+    expect(root.zone.online?.idleUnlocked).toBe(true);
+    console.log('[P3.0 实测] idle_unlocked 置位后：', JSON.stringify({
+      floor: root.zone.online?.floor,
+      cleared: root.zone.online?.cleared,
+      idleUnlocked: root.zone.online?.idleUnlocked,
+    }));
+
+    // 6) 解锁事件在推送帧里出现过（前端据此弹提示）。
+    //    读接口先于推送看到 DB 变化，而推送按 pushEveryMs 节流 —— 必须等一个节流窗口。
+    await sleep(4000);
+    const eventHistogram = pushed.flatMap((f) => f.events).reduce<Record<string, number>>((acc, e) => {
+      acc[e] = (acc[e] ?? 0) + 1;
+      return acc;
+    }, {});
+    console.log('[P3.0 实测] 推送帧总数:', pushed.length, '/ 事件直方图:', JSON.stringify(eventHistogram));
+    expect(pushed.some((f) => f.events.includes('idle_unlocked'))).toBe(true);
+    expect(eventHistogram.idle_unlocked).toBe(1); // 幂等：解锁只推一次
+  }, 300_000);
 });

@@ -74,9 +74,12 @@ export function statusText(frame: ZoneOnlineData | null): string {
   }
 }
 
-/** 层数文案：「第 N / M 层」；`maxFloor` 非法时退化为「第 N 层」。 */
+/**
+ * 层数文案：「第 N / M 层」；`maxFloor` 非法时退化为「第 N 层」。
+ * `floor <= 0`（还没读到 / 未进入秘境）→ `—`，绝不显示「第 0 层」。
+ */
 export function floorLabel(frame: ZoneOnlineData | null): string {
-  if (frame === null) return '—';
+  if (frame === null || !Number.isFinite(frame.floor) || frame.floor <= 0) return '—';
   const max = frame.maxFloor;
   if (!Number.isFinite(max) || max <= 0) return `第 ${frame.floor} 层`;
   return `第 ${Math.min(frame.floor, max)} / ${max} 层`;

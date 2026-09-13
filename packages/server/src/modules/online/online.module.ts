@@ -5,11 +5,15 @@
  * 而它**不依赖任何业务域**，所以不构成跨逻辑服依赖。
  */
 import { Global, Module } from '@nestjs/common';
-import { OnlineSessionService } from './online-session.service.js';
+import { ONLINE_SESSION_OPTIONS, OnlineSessionService } from './online-session.service.js';
 
 @Global()
 @Module({
-  providers: [OnlineSessionService],
+  providers: [
+    OnlineSessionService,
+    // 生产走默认值；存在这个 provider 是为了让 Nest 能解析构造选项（见 token 的注释）
+    { provide: ONLINE_SESSION_OPTIONS, useValue: {} },
+  ],
   exports: [OnlineSessionService],
 })
 export class OnlineModule {}

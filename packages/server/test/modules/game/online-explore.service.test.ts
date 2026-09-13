@@ -12,6 +12,7 @@ import {
   type OnlineCharacterState,
 } from '../../../src/modules/logic/zone/internal/online-explore.service.js';
 import { ONLINE_TICK } from '../../../src/modules/logic/zone/internal/online-tick.config.js';
+import type { ZoneOnlineFrame } from '../../../src/modules/logic/zone/internal/online.types.js';
 import type { ZoneOnlineContext } from '../../../src/modules/logic/zone/internal/zone.types.js';
 import { OnlineNotifyService } from '../../../src/modules/logic/zone/internal/online-notify.service.js';
 import { OnlineSessionService } from '../../../src/modules/online/online-session.service.js';
@@ -258,23 +259,43 @@ describe('OnlineExploreService · 在线枚举与去重（T3）', () => {
 });
 
 describe('OnlineExploreService · 面板读帧 snapshot（T3/T5）', () => {
-  test('会话判死 → reason=no_session、online=false', async () => {
+  test('会话判死 → reason=no_session、online=false，但仍带「上次打到哪」', async () => {
     const { service } = makeService();
     const frame = await service.snapshot(7, 1_000);
     assert.equal(frame.online, false);
     assert.equal(frame.exploring, false);
     assert.equal(frame.reason, 'no_session');
-    assert.equal(frame.zone, null);
-    assert.equal(frame.floor, 0);
+    // 不是「第 0 层」：离线帧保留服务端内存里的最后进度
+    assert.equal(frame.zone?.code, 'zone_houshan');
+    assert.equal(frame.floor, 1);
+    assert.equal(frame.floorRequirement, 75);
   });
 
-  test('会话活着但页面不可见 → reason=hidden、online=false', async () => {
+  test('会话活着但页面不可见 → reason=hidden、online=false，进度同样保留', async () => {
     const { service, sessions } = makeService();
     sessions.touch(7, 0);
     sessions.setVisible(7, false, 0);
     const frame = await service.snapshot(7, 1_000);
     assert.equal(frame.online, false);
     assert.equal(frame.reason, 'hidden');
+    assert.equal(frame.floor, 1);
+  });
+
+  test('离线 + 未进任何秘境 → 空帧（zone=null、floor=0）', async () => {
+    const { service } = makeService({ context: null });
+    const frame = await service.snapshot(7, 1_000);
+    assert.equal(frame.reason, 'no_session');
+    assert.equal(frame.zone, null);
+    assert.equal(frame.floor, 0);
+    assert.equal(frame.nodeName, null);
+  });
+
+  test('无角色 → 空帧，不查秘境上下文', async () => {
+    const { service, zoneService } = makeService({ characterId: null });
+    const frame = await service.snapshot(7, 1_000);
+    assert.equal(frame.reason, 'no_session');
+    assert.equal(frame.zone, null);
+    assert.equal(zoneService.onlineContext.callCount, 0);
   });
 
   test('在线但未进入秘境 → reason=no_realm', async () => {
@@ -553,6 +574,11 @@ describe('OnlineExploreService · 步 3/4：涨层与 Boss 层闸门（T4）', (
     assert.equal(harness.floor, 1, 'maxFloor=1：floor 保持 1');
     assert.equal(last?.cleared, true);
     assert.equal(built.combatLogic.settleKills.callCount, 40, '通关后仍原地刷（r=4/3 每拍都有产出）');
+    assert.ok((last?.floorKills ?? 0) <= 30, '通关后层内击杀不超过 killsPerFloor');
+    // 再跑一段：夹取后稳定停在 killsPerFloor（面板不会出现「45 / 30」）
+    let tail: ZoneOnlineFrame | null = last;
+    for (let i = 40; i < 80; i++) tail = await built.service.runOne(7, 11, 5, i * 1_000);
+    assert.equal(tail?.floorKills, 30);
   });
 
   test('maxFloor=1 且无普通层：直接通关，不出现 boss_floor（bossEvery=3 > maxFloor）', async () => {

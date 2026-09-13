@@ -18,7 +18,7 @@
  * ⚠️ 层内击杀累计**刻意只放内存**（不落库）：它是「本次在线会话的临时进度」，
  * 落库会引入「离线期间它还在那儿」的歧义；进程重启后重新从 0 累计是本设计的预期代价。
  */
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { OnlineSessionService } from '../../../online/online-session.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
@@ -27,6 +27,12 @@ import { OnlineNotifyService } from './online-notify.service.js';
 import { ZoneService } from './zone.service.js';
 import { ONLINE_TICK, killRatePerSecond, killsForTick, powerRatio } from './online-tick.config.js';
 import type { ZoneOnlineEvent, ZoneOnlineFrame, ZoneOnlineReason } from './online.types.js';
+
+/**
+ * 构造选项的 DI token（与 `ONLINE_SESSION_OPTIONS` 同理：普通对象参数必须给显式 token，
+ * 否则 Nest 会把 `Object` 当 provider 解析而启动失败）。
+ */
+export const ONLINE_EXPLORE_OPTIONS = Symbol('ONLINE_EXPLORE_OPTIONS');
 import type { ZoneOnlineContext } from './zone.types.js';
 
 /** 每个在线角色的**会话内**进度（只存内存，进程重启即归零）。 */
@@ -68,7 +74,9 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     private readonly zoneService: ZoneService,
     private readonly combatLogic: CombatLogicService,
     private readonly mapLogic: MapLogicService,
-    @Optional() private readonly notifier: OnlineNotifyService | null = null,
+    @Optional() @Inject(OnlineNotifyService) private readonly notifier: OnlineNotifyService | null = null,
+    @Optional()
+    @Inject(ONLINE_EXPLORE_OPTIONS)
     options: { now?: () => number } = {},
   ) {
     this.now = options.now ?? Date.now;
@@ -153,19 +161,26 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
   /**
    * 面板读接口（`zone.online`）：给该角色此刻的**真实状态**（不消费产出摘要）。
    *
-   * 离线时也返回一帧（`online=false`），面板据此显示「历练已暂停」而不是空白。
+   * 离线（断线 / 页面切后台）时同样返回一帧 `online=false`，但**仍带上「上次打到哪」**
+   * （层数 / 门槛 / 本层击杀）—— 否则切回前台会看到「第 0 层」，玩家以为进度丢了。
+   * 这不构成任何离线补算：帧里的数字只是服务端内存里停住的那一份。
    */
   async snapshot(userId: number, at: number = this.now()): Promise<ZoneOnlineFrame> {
     const character = await this.characterService.findByUserId(userId);
     if (!character) return this.idleFrame('no_session');
-    if (!this.onlineSessions.isOnline(userId, at)) {
-      return this.idleFrame(this.onlineSessions.isSessionAlive(userId, at) ? 'hidden' : 'no_session');
-    }
+    const alive = this.onlineSessions.isSessionAlive(userId, at);
+    const online = alive && this.onlineSessions.isVisible(userId);
     const context = await this.zoneService.onlineContext(character.id, character.realm);
-    if (!context) return this.idleFrame('no_realm');
-    const node = await this.mapLogic.secretRealmNodeView(character.id, context.zoneCode);
-    if (!node) return this.idleFrame('not_map_realm', context);
-    return this.frameOf(context, node, this.ensureState(character.id, at));
+    const node = context === null ? null : await this.mapLogic.secretRealmNodeView(character.id, context.zoneCode);
+    if (online) {
+      if (context === null) return this.idleFrame('no_realm');
+      if (node === null) return this.idleFrame('not_map_realm', context);
+      return this.frameOf(context, node, this.ensureState(character.id, at));
+    }
+    return this.idleFrame(alive ? 'hidden' : 'no_session', context ?? undefined, {
+      node,
+      floorKills: this.states.get(character.id)?.floorKills ?? 0,
+    });
   }
 
   /** 一个角色的一拍（T4：击杀 → 产出 → 涨层 → Boss 解锁）。 */
@@ -252,6 +267,9 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       node = { ...node, idleUnlocked };
     }
 
+    // 通关后层内击杀不再有意义（进度已到底）：夹在 killsPerFloor，避免面板出现「45 / 30」
+    if (current.cleared) state.floorKills = Math.min(state.floorKills, ONLINE_TICK.killsPerFloor);
+
     return this.frameOf(current, node, state, { kills, lingyunGained, events, idleUnlocked });
   }
 
@@ -302,27 +320,41 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  /** 离线 / 无秘境 / 非秘境峰时的空帧。 */
-  protected idleFrame(reason: ZoneOnlineReason, context?: ZoneOnlineContext): ZoneOnlineFrame {
+  /**
+   * 离线 / 未进秘境 / 非秘境峰时的帧。
+   *
+   * `extras` 让「已暂停」的帧也能带上**上次打到哪**（层数 / 本层击杀 / 节点 / 解锁态），
+   * 面板切回前台时不会显示成「第 0 层」。这些数字只来自服务端内存快照，**不含离线补算**。
+   */
+  protected idleFrame(
+    reason: ZoneOnlineReason,
+    context?: ZoneOnlineContext,
+    extras: {
+      node?: { nodeCode: string; nodeName: string; idleUnlocked: boolean } | null;
+      floorKills?: number;
+    } = {},
+  ): ZoneOnlineFrame {
+    const node = extras.node ?? null;
+    const floorKills = extras.floorKills ?? 0;
     return {
       online: reason !== 'no_session' && reason !== 'hidden',
       exploring: false,
       reason,
       zone: context ? { code: context.zoneCode, name: context.zoneName } : null,
-      nodeCode: null,
-      nodeName: null,
+      nodeCode: node?.nodeCode ?? null,
+      nodeName: node?.nodeName ?? null,
       floor: context?.floor ?? 0,
       maxFloor: context?.maxFloor ?? 0,
       bestFloor: context?.bestFloor ?? 0,
       cleared: context?.cleared ?? false,
-      isBossFloor: false,
+      isBossFloor: context?.isBossFloor ?? false,
       playerPower: context?.playerPower ?? 0,
       floorRequirement: context?.floorRequirement ?? 0,
-      floorKills: 0,
+      floorKills: Number.isFinite(floorKills) ? floorKills : 0,
       killsPerFloor: ONLINE_TICK.killsPerFloor,
       stuck: false,
       shortfall: 0,
-      idleUnlocked: false,
+      idleUnlocked: node?.idleUnlocked ?? false,
       kills: 0,
       lingyunGained: 0,
       events: [],
