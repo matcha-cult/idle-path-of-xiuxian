@@ -99,6 +99,7 @@ export {
   QUEST_CMD,
   STORY_CMD,
   IDLE_CMD,
+  MAP_CMD,
   PUBLIC_ACTION_KEYS,
   HEARTBEAT_ROUTE,
 } from './api/commands.js';
@@ -141,6 +142,7 @@ export {
   QuestApi,
   StoryApi,
   IdleApi,
+  MapApi,
   type GameApiTransport,
   type InventoryQuery,
   type BasesQuery,

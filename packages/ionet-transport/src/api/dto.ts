@@ -693,6 +693,124 @@ export type ZoneFailData =
     }
   | { code: string };
 
+// ===== WS：map（map.service.ts，settings-revision-2 §5.2/§5.3/§7）=====
+
+/**
+ * 单节点进度（`game_node_progress` → `map.service.ts` 的 `NodeProgressView`）。
+ *
+ * `visited`=跑图到达（到达即发现，§5.2）；`waypointUnlocked`=首次到达即点亮（§5.2）；
+ * `idleUnlocked`=击败该秘境第一个 Boss 后解锁离线挂机（§5.5 / D2）。
+ */
+export interface NodeProgressView {
+  visited: boolean;
+  waypointUnlocked: boolean;
+  idleUnlocked: boolean;
+  cleared: boolean;
+}
+
+/**
+ * 线路图节点视图（`game_map_nodes`）。
+ *
+ * ⚠️ 服务端**只下发已发现的节点**（§5.2「到达即发现」）：`requires_node_code` 为 null 的
+ * 入口节点，或前置节点已 `visited` 的节点；其余节点在图上不存在（未发现 = 不显示）。
+ * `featureKey` 原样下发，**服务端不判断该承载系统是否已实现**（未实现系统的可见性
+ * 由客户端 registry 决定，见 §7.3）。
+ */
+export interface MapNodeView {
+  id: number;
+  code: string;
+  name: string;
+  /** outer / approach / peaks / inner / summit */
+  ring: string;
+  sector: string | null;
+  /** route / secret_realm / summit */
+  kind: string;
+  /** skill/craft/quest/alchemy/beast/farm/pvp/discipline/waypoint/profession；null = 纯跑图 */
+  featureKey: string | null;
+  /** 怪物境界（固定，不随层数变化） */
+  level: number;
+  /** 固定战力门槛（§6 确定性模型） */
+  threshold: number;
+  hasWaypoint: boolean;
+  chapter: number;
+  requiresNodeCode: string | null;
+  /** kind=secret_realm 时指向 game_zones.code，否则 null */
+  zoneCode: string | null;
+  orderIndex: number;
+  progress: NodeProgressView;
+}
+
+/**
+ * 线路图边（`game_map_edges`）。
+ *
+ * ⚠️ 服务端只下发**两端节点都已发现**的边；未发现节点不出现在图上，也不泄露其邻接关系。
+ */
+export interface MapEdgeView {
+  fromNodeCode: string;
+  toNodeCode: string;
+  bidirectional: boolean;
+}
+
+/** 单张地图（`game_maps` + 该角色可见的节点/边）。 */
+export interface MapView {
+  id: number;
+  code: string;
+  name: string;
+  /** 世界标识（本世界青云宗 = `world_qingyun`；异界/混沌海预留，§5.6） */
+  world: string;
+  orderIndex: number;
+  chapterFrom: number;
+  chapterTo: number;
+  requiresMapCode: string | null;
+  description: string | null;
+  nodes: MapNodeView[];
+  edges: MapEdgeView[];
+}
+
+/** map.list 成功 data（`map.service.ts` 的 `panel`）。 */
+export interface MapPanelData {
+  total: number;
+  playerPower: number;
+  maps: MapView[];
+}
+
+/** map.enter 成功 data（`map.service.ts` 的 `enter`）。 */
+export interface MapEnterData {
+  node: MapNodeView;
+  playerPower: number;
+  threshold: number;
+  /** 本次是否为首次到达（重复 enter 同一节点幂等，第二次为 false） */
+  firstVisit: boolean;
+}
+
+/** map.waypoint 成功 data（`map.service.ts` 的 `waypoint`）。 */
+export interface MapWaypointData {
+  node: MapNodeView;
+}
+
+/** map.enter / map.waypoint 请求体。 */
+export interface MapNodeInput {
+  nodeCode: string;
+}
+
+/**
+ * map 段失败 data 联合（`map.service.ts` 内联构造，非 `fail()` 单键）。
+ *
+ * - `NODE_NOT_FOUND`：nodeCode 无对应节点；
+ * - `NODE_LOCKED`：节点存在但尚未发现（前置未 visited，或 `requires_node_code` 指向不存在节点）；
+ * - `NODE_POWER_NOT_ENOUGH`：已发现但 `playerPower < threshold`（恰好等于门槛应通过）；
+ * - `NODE_NOT_VISITED`：传送时该节点从未到达过；
+ * - `WAYPOINT_NOT_UNLOCKED`：到达过但传送点未点亮 / 该节点没有传送点。
+ * 其余（含 `INVALID_PARAM` / `CHARACTER_NOT_FOUND` / `ZONE_NOT_IDLE_UNLOCKED`）落最后兜底成员。
+ */
+export type MapFailData =
+  | { code: 'NODE_NOT_FOUND'; nodeCode: string }
+  | { code: 'NODE_LOCKED'; nodeCode: string; requiresNodeCode: string | null }
+  | { code: 'NODE_POWER_NOT_ENOUGH'; nodeCode: string; playerPower: number; threshold: number }
+  | { code: 'NODE_NOT_VISITED'; nodeCode: string }
+  | { code: 'WAYPOINT_NOT_UNLOCKED'; nodeCode: string; hasWaypoint: boolean }
+  | { code: string };
+
 // ===== WS：quest（quest.service.ts:132-331 / quest.types.ts:30-57）=====
 
 /** 任务触发条件（`quest.types.ts:30-33`）。⚠️ 07 §6-2：值来自 DB JSON，可能含其它键。 */

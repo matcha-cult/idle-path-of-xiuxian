@@ -2,7 +2,7 @@
  * 业务错误码文案表（来源：`ai-docs/frontend-solution-exploration/07-后端API面清单.md` §3）。
  *
  * 后端把业务失败放在 Action 结果体的 `data.data.code`（07 §0.3），码值为大写下划线字符串；
- * 本文件把 51 个码映射为可展示的中文文案，供 UI 在 `BusinessError` 文案缺失或需要本地化时兜底。
+ * 本文件把 57 个码（07 §3 的 51 个 + R2 地图域 6 个）映射为可展示的中文文案，供 UI 在 `BusinessError` 文案缺失或需要本地化时兜底。
  *
  * 口径（与 07 §3 一致）：
  * - 「默认/代表文案」取该码在服务端源码中的代表文案；带 `{}` 的是模板串，**保留占位符**，
@@ -17,7 +17,7 @@
  */
 
 /**
- * 全部 51 个业务错误码的字面量联合（07 §3）。
+ * 全部 57 个业务错误码的字面量联合（07 §3 的 51 个 + R2 地图域 6 个）。
  * 与 `BUSINESS_ERROR_TABLE` 的键集合由 `satisfies` 在编译期强制一一对应。
  */
 export type ActionErrorCode =
@@ -70,11 +70,18 @@ export type ActionErrorCode =
   | 'ZONE_LOCKED'
   | 'ALREADY_CLEARED'
   | 'CHALLENGE_FAILED'
+  // ===== R2 地图域（map.service.ts，settings-revision-2 §5）=====
+  | 'NODE_NOT_FOUND'
+  | 'NODE_LOCKED'
+  | 'NODE_POWER_NOT_ENOUGH'
+  | 'NODE_NOT_VISITED'
+  | 'WAYPOINT_NOT_UNLOCKED'
+  | 'ZONE_NOT_IDLE_UNLOCKED'
   | 'QUEST_NOT_FOUND'
   | 'CHAPTER_NOT_FOUND';
 
 /**
- * 业务码 → 中文文案（07 §3 的 51 行逐条）。
+ * 业务码 → 中文文案（07 §3 的 51 行逐条 + R2 地图域 6 个）。
  * `{}` 占位由服务端 `message` 提供具体值；此表只做兜底。
  */
 const BUSINESS_ERROR_TABLE = {
@@ -145,12 +152,20 @@ const BUSINESS_ERROR_TABLE = {
   ALREADY_CLEARED: '该秘境已通关：{name}',
   CHALLENGE_FAILED: '挑战失败：战力不足（{power} < {req}）',
 
+  // ===== 地图 / 线路图（map.service.ts，settings-revision-2 §5.2/§5.3）=====
+  NODE_NOT_FOUND: '节点不存在：{code}',
+  NODE_LOCKED: '节点尚未发现：{name}',
+  NODE_POWER_NOT_ENOUGH: '战力不足：{name}（{power} < {req}）',
+  NODE_NOT_VISITED: '尚未到达过：{name}',
+  WAYPOINT_NOT_UNLOCKED: '传送点未点亮：{name}',
+  ZONE_NOT_IDLE_UNLOCKED: '秘境未解锁离线挂机：{name}',
+
   // ===== 任务 / 章节（quest.service.ts、chapter.service.ts、story.service.ts）=====
   QUEST_NOT_FOUND: '任务不存在：{code}',
   CHAPTER_NOT_FOUND: '章节不存在：{key}',
 } as const satisfies Record<ActionErrorCode, string>;
 
-/** 业务码 → 中文兜底文案（51 码，07 §3）。未命中码请用 `businessErrorMessage` 取 `'操作失败'`。 */
+/** 业务码 → 中文兜底文案（57 码，07 §3 + R2 地图域）。未命中码请用 `businessErrorMessage` 取 `'操作失败'`。 */
 export const BUSINESS_ERROR_MESSAGES: Record<string, string> = BUSINESS_ERROR_TABLE;
 
 /** `businessErrorMessage` 未命中且无 fallback 时的最终兜底文案。 */

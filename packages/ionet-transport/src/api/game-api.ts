@@ -1,5 +1,5 @@
 /**
- * 游戏 Action API 层（12 个逻辑服段，共 46 个 Action）—— 07 §2 的逐 Action 收口。
+ * 游戏 Action API 层（13 个逻辑服段，共 49 个 Action）—— 07 §2 的逐 Action 收口。
  *
  * 设计约束：
  * - 路由 `(cmd, subCmd)` **只引用 `commands.ts` 常量**，禁止字面量数字（唯一真相在后端 `cmd.ts`）。
@@ -18,6 +18,7 @@ import {
   EQUIP_CMD,
   IDLE_CMD,
   ITEM_CMD,
+  MAP_CMD,
   PROP_CMD,
   QUEST_CMD,
   REALM_CMD,
@@ -48,6 +49,9 @@ import type {
   InventoryDetailData,
   JadeGrantData,
   LingyunGrantData,
+  MapEnterData,
+  MapPanelData,
+  MapWaypointData,
   PickupRuleData,
   PickupRuleDeleteData,
   PickupRulesData,
@@ -768,8 +772,61 @@ export class ZoneApi {
   }
 }
 
-// ===== quest 段（cmd 110）=====
+// ===== map 段（cmd 140）=====
 
+/**
+ * map 段：地图线路图 / 跑图进入 / 传送点直达（settings-revision-2 §5.2/§5.3/§7）。
+ *
+ * 服务端只下发**已发现**的节点与两端均已发现的边（§5.2「到达即发现」）；
+ * `featureKey` 原样透传，是否「未开放」由客户端 registry 判断（§7.3）。
+ */
+export class MapApi {
+  constructor(private readonly transport: GameApiTransport) {}
+
+  /**
+   * 地图列表（线路图节点 + 边 + 该角色进度）。无业务码。
+   * 出处：`map.action.ts` 的 `list`、`map.service.ts` 的 `panel`。
+   */
+  list(options?: SendOptions): Promise<ActionResult<MapPanelData>> {
+    return this.transport.request<MapPanelData>(MAP_CMD.cmd, MAP_CMD.list, {}, options);
+  }
+
+  /**
+   * 跑图：从当前节点移动到目标节点。
+   *
+   * 业务失败是**预期分支**（`{ allowBusinessFailure: true }`）：
+   * `INVALID_PARAM`、`NODE_NOT_FOUND`、`NODE_LOCKED`（data 含 requiresNodeCode）、
+   * `NODE_POWER_NOT_ENOUGH`（data 含 playerPower/threshold）——按 `MapFailData` 解析。
+   * 出处：`map.action.ts` 的 `enter`、`map.service.ts` 的 `enter`。
+   */
+  enter(nodeCode: string, options?: SendOptions): Promise<ActionResult<MapEnterData>> {
+    return this.transport.request<MapEnterData>(
+      MAP_CMD.cmd,
+      MAP_CMD.enter,
+      { nodeCode },
+      expectedBusinessFailure(options),
+    );
+  }
+
+  /**
+   * 传送：直达任意已点亮传送点的节点（§5.2，跳过跑图）。
+   *
+   * 业务失败是**预期分支**（`{ allowBusinessFailure: true }`）：
+   * `INVALID_PARAM`、`NODE_NOT_FOUND`、`NODE_NOT_VISITED`、`WAYPOINT_NOT_UNLOCKED`
+   * （后两者按 `MapFailData` 解析）。
+   * 出处：`map.action.ts` 的 `waypoint`、`map.service.ts` 的 `waypoint`。
+   */
+  waypoint(nodeCode: string, options?: SendOptions): Promise<ActionResult<MapWaypointData>> {
+    return this.transport.request<MapWaypointData>(
+      MAP_CMD.cmd,
+      MAP_CMD.waypoint,
+      { nodeCode },
+      expectedBusinessFailure(options),
+    );
+  }
+}
+
+// ===== quest 段（cmd 110）=====
 /** quest 段：任务 / 章节 + 一次性补发同步（07 §2.10）。 */
 export class QuestApi {
   constructor(private readonly transport: GameApiTransport) {}
@@ -925,6 +982,7 @@ export class GameApi {
   readonly quest: QuestApi;
   readonly story: StoryApi;
   readonly idle: IdleApi;
+  readonly map: MapApi;
 
   constructor(transport: GameApiTransport) {
     this.system = new SystemApi(transport);
@@ -939,5 +997,6 @@ export class GameApi {
     this.quest = new QuestApi(transport);
     this.story = new StoryApi(transport);
     this.idle = new IdleApi(transport);
+    this.map = new MapApi(transport);
   }
 }

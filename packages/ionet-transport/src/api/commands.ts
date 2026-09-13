@@ -20,6 +20,7 @@ export const CMD_SEGMENTS = {
   quest: 110,
   story: 120,
   idle: 130,
+  map: 140,
 } as const;
 
 export const SYSTEM_CMD = { cmd: CMD_SEGMENTS.system, ping: 1 } as const;
@@ -94,6 +95,8 @@ export const QUEST_CMD = {
 export const STORY_CMD = { cmd: CMD_SEGMENTS.story, chapter: 1, quest: 2, seen: 3 } as const;
 
 export const IDLE_CMD = { cmd: CMD_SEGMENTS.idle, status: 1, settle: 2 } as const;
+
+export const MAP_CMD = { cmd: CMD_SEGMENTS.map, list: 1, enter: 2, waypoint: 3 } as const;
 
 /** 免鉴权 Action 白名单（PROTOCOL.md §7：心跳可免鉴权）。 */
 export const PUBLIC_ACTION_KEYS: ReadonlySet<string> = new Set<string>([
