@@ -344,17 +344,26 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('青云宗实践样板的结构特征（回归护栏：27 节点 / 7 传送点 / 1 历练秘境峰）', () => {
+  test('青云宗实践样板的结构特征（回归护栏：17 枢纽 / 4 传送点 / 1 历练秘境峰）', () => {
     const qingyun = nodes.filter((n) => n.mapCode === 'map_qingyun');
-    assert.strictEqual(qingyun.length, 27, '青云宗节点数变化了 —— 若是有意调整，请同步 §7.4 的节点表');
-    assert.strictEqual(qingyun.filter((n) => n.hasWaypoint === true).length, 7);
+    assert.strictEqual(qingyun.length, 17, '青云宗节点数变化了 —— 若是有意调整，请同步任务书 §0 的结构表');
+    assert.strictEqual(
+      qingyun.filter((n) => n.hasWaypoint === true).length,
+      4,
+      '只有四门挂传送点（相邻可直达，传送点是最外的兜底）',
+    );
     // 挂机只能在历练秘境峰 → 全图只有 1 个秘境、0 个挂机点
     assert.strictEqual(qingyun.filter((n) => n.kind === 'idle_spot').length, 0);
     assert.strictEqual(qingyun.filter((n) => n.kind === 'secret_realm').length, 1);
-    // 八峰：七职业峰 + 一历练秘境峰（用户构想的核心结构特征）
+    // 结构：四门 4 + 八峰 8（七职业峰 + 一历练秘境峰）+ 四院 4 + 主峰 1
+    assert.strictEqual(qingyun.filter((n) => n.ring === 'outer').length, 4);
     const peaks = qingyun.filter((n) => n.ring === 'peaks');
     assert.strictEqual(peaks.length, 8);
     assert.strictEqual(peaks.filter((n) => n.featureKey === 'profession').length, 7);
+    assert.strictEqual(qingyun.filter((n) => n.ring === 'inner').length, 4);
+    assert.strictEqual(qingyun.filter((n) => n.ring === 'summit').length, 1);
+    // 外门接引区已删除（用户拍板：天下第一宗门，只有下宗，不设外门）
+    assert.ok(!qingyun.some((n) => n.ring === 'approach'), '不应再存在 approach 环层节点');
   });
 
   /**

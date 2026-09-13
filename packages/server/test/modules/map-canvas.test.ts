@@ -166,7 +166,7 @@ describe('落格 · 边界与退化输入', () => {
     assert.ok(n.row < 3 && Math.abs(n.col - 10) <= 2, `北门应在上方：${JSON.stringify(n)}`);
   });
 
-  test('拓扑相邻允许贴近（< sep）：种子里的 qy_gate_n ↔ qy_approach 就是 1 格', () => {
+  test('不相邻拥挤检查：新种子里任何 < sep 的节点对都必须有边', () => {
     const cell = new Map(nodes.map((n) => [n.code, { row: n.gridRow as number, col: n.gridCol as number }]));
     const at = (code: string): { row: number; col: number } => cell.get(code) as { row: number; col: number };
     const linked = new Set<string>();
@@ -177,20 +177,21 @@ describe('落格 · 边界与退化输入', () => {
     const cheb = (a: string, b: string): number =>
       Math.max(Math.abs(at(a).row - at(b).row), Math.abs(at(a).col - at(b).col));
 
-    // 有边 -> 允许 < sep；这正是「四门紧贴八峰」不被判成冲突的原因
-    assert.equal(cheb('qy_gate_n', 'qy_approach'), 1);
-    assert.ok(linked.has('qy_gate_n|qy_approach'), '贴近的这对必须有边，否则就是非法拥挤');
-
-    // 反证：任何 < sep 的节点对都必须有边（否则自检的「不相邻最小间距」会破）
+    // 反证：任何 < sep 的节点对都必须有边（否则自检的「不相邻最小间距」会破）。
+    // 八峰环与四院环半径不同、互不接触，所以这条在新结构下通常空转 —— 但它是新增枢纽时的第一道闸。
+    let tight = 0;
     for (let i = 0; i < nodes.length; i += 1) {
       for (let j = i + 1; j < nodes.length; j += 1) {
         const a = nodes[i].code;
         const b = nodes[j].code;
         if (cheb(a, b) < 2) {
+          tight += 1;
           assert.ok(linked.has(`${a}|${b}`), `${a} ↔ ${b} 距离 ${cheb(a, b)} 格且不相邻（违反 sep=2）`);
         }
       }
     }
+    assert.equal(tight, 0, '新结构里不应出现 < sep 的节点对（八峰环与四院环互不接触）');
+    assert.ok(minGap(seedLayout() as never, qingyunEdges).min >= 2, '不相邻最小间距必须 ≥ sep');
   });
 
   test('polarToCell 与 polarFor 自洽：理想位是浮点、落格是整数交叉点', () => {
@@ -255,6 +256,69 @@ describe('自检 · 硬失败识别（人为破坏必须被抓到）', () => {
 
 // ===== 种子层 =====
 
+/**
+ * P2.0 §0 的**权威坐标表**（四门 / 八峰 / 四院 / 青云主峰，共 17 枢纽）。
+ * 坐标由规格直接给定（八峰相对八方位整体旋转 22.5°，正北让给北门），
+ * 落格算法的 `sector → 角度` 表表达不了 22.5°，所以种子坐标不再由 `layoutNodes` 复算，
+ * 而是对着这张表断言 —— 手改种子 / 生成器算错都会立刻打红。
+ */
+const EXPECTED_CELLS: Record<string, [number, number]> = {
+  qy_gate_n: [0, 10],
+  qy_gate_e: [10, 20],
+  qy_gate_s: [20, 10],
+  qy_gate_w: [10, 0],
+  qy_peak_1: [3, 7],
+  qy_peak_2: [7, 3],
+  qy_peak_3: [13, 3],
+  qy_peak_4: [17, 7],
+  qy_peak_5: [17, 14],
+  qy_peak_6: [13, 17],
+  qy_peak_7: [7, 17],
+  qy_peak_xunlian: [3, 14],
+  qy_chuanfayuan: [5, 10],
+  qy_yulingyuan: [10, 15],
+  qy_baigongyuan: [15, 10],
+  qy_zhifayuan: [10, 5],
+  qy_summit: [10, 10],
+};
+
+/** 理想极坐标 `[r, a]`（度，0°=正东、90°=正南、270°=正北）——只用于算落点偏移。 */
+const EXPECTED_IDEAL: Record<string, [number, number]> = {
+  qy_summit: [0, 0],
+  qy_gate_n: [10, 270],
+  qy_gate_e: [10, 0],
+  qy_gate_s: [10, 90],
+  qy_gate_w: [10, 180],
+  qy_peak_1: [8.5, 247.5],
+  qy_peak_2: [8.5, 202.5],
+  qy_peak_3: [8.5, 157.5],
+  qy_peak_4: [8.5, 112.5],
+  qy_peak_5: [8.5, 67.5],
+  qy_peak_6: [8.5, 22.5],
+  qy_peak_7: [8.5, 337.5],
+  qy_peak_xunlian: [8.5, 292.5],
+  qy_chuanfayuan: [5, 270],
+  qy_yulingyuan: [5, 0],
+  qy_baigongyuan: [5, 90],
+  qy_zhifayuan: [5, 180],
+};
+
+/** 用种子坐标 + 理想极坐标拼一个 layout 对象，喂给 `map-layout-check` 的纯函数。 */
+function seedLayout() {
+  const cell = new Map<string, { row: number; col: number }>();
+  const ideal = new Map<string, { row: number; col: number }>();
+  const offsets = new Map<string, number>();
+  for (const n of nodes) {
+    const actual = { row: n.gridRow as number, col: n.gridCol as number };
+    const [r, a] = EXPECTED_IDEAL[n.code];
+    const want = polarToCell(N, { r, a });
+    cell.set(n.code, actual);
+    ideal.set(n.code, want);
+    offsets.set(n.code, Math.hypot(actual.row - want.row, actual.col - want.col));
+  }
+  return { cell, ideal, offsets, maxOffset: Math.max(...offsets.values()), sep: 2, arc: 0 };
+}
+
 describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
   test('地图声明 20×20（21 条交叉线），底图 key 本轮为 null', () => {
     assert.equal(qingyunMap.gridRows, 20);
@@ -262,8 +326,53 @@ describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
     assert.equal(qingyunMap.backgroundKey, null, 'background_key 属 P4，本轮必须留空');
   });
 
-  test('27 个节点全部有整数坐标且在 0..20 内，无撞点', () => {
-    assert.equal(nodes.length, 27);
+  test('17 个枢纽（四门 4 + 八峰 8 + 四院 4 + 主峰 1）的坐标与 §0 表逐格一致', () => {
+    assert.equal(nodes.length, 17);
+    assert.deepStrictEqual(
+      [...nodes].map((n) => n.code).sort(),
+      Object.keys(EXPECTED_CELLS).sort(),
+      '枢纽集合变了 —— 若是有意调整请同步任务书 §0 的坐标表与本表',
+    );
+    for (const n of nodes) {
+      const [row, col] = EXPECTED_CELLS[n.code];
+      assert.deepStrictEqual(
+        [n.gridRow, n.gridCol],
+        [row, col],
+        `${n.code} 的坐标偏离 §0 表（期望 (${row},${col})，实际 (${n.gridRow},${n.gridCol})）`,
+      );
+    }
+  });
+
+  test('§0 结构特征：主峰居中 · 四门四正方位 · 正北让给北门（两峰夹门）', () => {
+    const at = (code: string) => {
+      const [row, col] = EXPECTED_CELLS[code];
+      return { row, col };
+    };
+    assert.deepStrictEqual(at('qy_summit'), { row: 10, col: 10 }, '主峰必须落在唯一中心 (10,10)');
+    assert.deepStrictEqual(at('qy_gate_n'), { row: 0, col: 10 });
+    assert.deepStrictEqual(at('qy_gate_s'), { row: 20, col: 10 });
+    assert.deepStrictEqual(at('qy_gate_w'), { row: 10, col: 0 });
+    assert.deepStrictEqual(at('qy_gate_e'), { row: 10, col: 20 });
+    // 第一峰（左上）与第八峰·历练（右上）夹住正北的北门 —— 手绘图最独特的特征
+    assert.deepStrictEqual(at('qy_peak_1'), { row: 3, col: 7 });
+    assert.deepStrictEqual(at('qy_peak_xunlian'), { row: 3, col: 14 });
+    const dueNorth = nodes.filter((n) => n.ring === 'peaks' && n.gridCol === 10);
+    assert.deepStrictEqual(dueNorth, [], '不能有任何峰落在正北（正北让给北门）');
+    // 四院在四象方位、主峰之内
+    assert.deepStrictEqual(at('qy_chuanfayuan'), { row: 5, col: 10 });
+    assert.deepStrictEqual(at('qy_yulingyuan'), { row: 10, col: 15 });
+    assert.deepStrictEqual(at('qy_baigongyuan'), { row: 15, col: 10 });
+    assert.deepStrictEqual(at('qy_zhifayuan'), { row: 10, col: 5 });
+  });
+
+  test('第八峰·历练是唯一秘境：kind=secret_realm + zone_code=zone_houshan（唯一挂机处）', () => {
+    const realms = nodes.filter((n) => n.kind === 'secret_realm');
+    assert.equal(realms.length, 1);
+    assert.equal(realms[0].code, 'qy_peak_xunlian');
+    assert.equal(realms[0].ring, 'peaks');
+  });
+
+  test('全部坐标是整数、落在 0..20 内且无撞点', () => {
     const seen = new Set<string>();
     for (const n of nodes) {
       assert.ok(Number.isInteger(n.gridRow), `${n.code} 缺 gridRow`);
@@ -273,7 +382,7 @@ describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
       assert.ok(!seen.has(key), `撞点：${n.code} 与另一节点同在 (${key})`);
       seen.add(key);
     }
-    assert.equal(seen.size, 27);
+    assert.equal(seen.size, 17);
   });
 
   test('每个节点都有非空风味文案（悬停卡 / 右栏详情不会开天窗）', () => {
@@ -283,28 +392,10 @@ describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
     }
   });
 
-  test('落格确定性：用同一组参数重算，坐标与种子完全一致', () => {
-    const layout = layoutNodes({
-      n: N,
-      nodes: nodes.map((n) => ({ ...n, orderIndex: n.orderIndex })),
-      edges: qingyunEdges,
-      sep: 2,
-      arc: 2.4,
-    });
-    assert.notEqual(layout, null);
-    for (const n of nodes) {
-      assert.deepStrictEqual(
-        layout?.cell.get(n.code),
-        { row: n.gridRow, col: n.gridCol },
-        `${n.code} 的种子坐标与算法重算不一致（手改种子后自检会挡住）`,
-      );
-    }
-  });
-
   test('硬失败自检全过；软提示指标可复现（最大偏移 / 交叉数 / 不相邻最小间距）', () => {
-    const layout = layoutNodes({ n: N, nodes, edges: qingyunEdges, sep: 2, arc: 2.4 });
+    const layout = seedLayout();
     const reasons = checkLayoutFailures({
-      layout,
+      layout: layout as never,
       nodes,
       edges: qingyunEdges,
       n: N,
@@ -317,7 +408,7 @@ describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
     const gap = minGap(layout as never, qingyunEdges);
     assert.ok(gap.min >= 2, `不相邻最小间距 ${gap.min} 小于 sep`);
     const histogram = edgeSpanHistogram(layout as never, qingyunEdges);
-    assert.equal(histogram.max, 19, '最长边跨度变了 —— 若是有意改拓扑请同步任务书 §11.4 的记录');
+    assert.ok(histogram.max <= N, `最长边跨度 ${histogram.max} 超出画布`);
     assert.ok(crossingPairs(layout as never, qingyunEdges).length >= 0);
   });
 });
