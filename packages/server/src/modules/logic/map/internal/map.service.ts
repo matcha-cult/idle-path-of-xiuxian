@@ -467,6 +467,23 @@ export class MapService {
   }
 
   /**
+   * 在线历练白名单判定（P3.0 T4）：该秘境是否挂在某个 `secret_realm` 地图节点上，
+   * 并带上该角色的 `idle_unlocked`（面板要显示「已解锁离线挂机」，推送要判幂等）。
+   *
+   * 与 `zoneIdleGate` 的区别：本方法只回答「这张图上的秘境峰在哪、解锁了没」，**不带离线
+   * 闸门的过渡语义**（`enforced` 那段是临时规则，退场后会删除，不能拿来做在线判定）。
+   */
+  async secretRealmNodeView(
+    characterId: number,
+    zoneCode: string,
+  ): Promise<{ nodeCode: string; nodeName: string; idleUnlocked: boolean } | null> {
+    const node = await this.secretRealmNodeByZoneCode(zoneCode);
+    if (!node) return null;
+    const progress = progressView(await this.progressRow(characterId, Number(node.id)));
+    return { nodeCode: node.code, nodeName: node.name, idleUnlocked: progress.idleUnlocked };
+  }
+
+  /**
    * 离线挂机闸门（§2 第 2 步 / R2-3）。
    *
    * **过渡规则**：只有挂在某个地图节点上的秘境才受闸门约束。5 个遗留秘境

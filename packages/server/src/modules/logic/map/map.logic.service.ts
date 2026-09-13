@@ -44,4 +44,15 @@ export class MapLogicService {
   zoneIdleGate(characterId: number, zoneCode: string): Promise<ZoneIdleGate> {
     return this.mapService.zoneIdleGate(characterId, zoneCode);
   }
+
+  /**
+   * 供 zone 复用（P3.0 T4）：该秘境是否是「地图上的历练秘境峰」（附带该角色的解锁态）。
+   * 返回 `null` 表示没挂在任何 `secret_realm` 地图节点上（遗留秘境 / 未归属）。
+   */
+  secretRealmNodeView(
+    characterId: number,
+    zoneCode: string,
+  ): Promise<{ nodeCode: string; nodeName: string; idleUnlocked: boolean } | null> {
+    return this.mapService.secretRealmNodeView(characterId, zoneCode);
+  }
 }

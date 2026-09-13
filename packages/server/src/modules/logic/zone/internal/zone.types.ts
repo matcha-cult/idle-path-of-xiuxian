@@ -65,3 +65,31 @@ export function tierOffsetBonusFor(zone: ZoneRow, floor: number): number {
 export function dropDrawBonusFor(zone: ZoneRow, floor: number): number {
   return zone.drop_bonus_every_floors > 0 ? Math.floor((floor - 1) / zone.drop_bonus_every_floors) : 0;
 }
+
+/**
+ * 在线历练上下文（P3.0 T4）：把「打一层」需要的既有派生量一次性打包。
+ *
+ * 目的：在线 tick **不重写任何公式** —— 门槛走 {@link floorRequirement}、Boss 层走
+ * {@link isBossFloor}、掉落深度走 {@link tierOffsetBonusFor} / {@link dropDrawBonusFor}，
+ * 与 `zone.challenge` 用的是同一组函数。
+ */
+export interface ZoneOnlineContext {
+  /** `game_zones.id`（层推进落库用，与 `challenge` 同一列） */
+  zoneId: number;
+  zoneCode: string;
+  zoneName: string;
+  maxFloor: number;
+  floor: number;
+  bestFloor: number;
+  cleared: boolean;
+  playerPower: number;
+  /** 本层门槛 = base_power + (floor-1) × power_step（既有公式） */
+  floorRequirement: number;
+  isBossFloor: boolean;
+  /** 本层遭遇单位（Boss 层取 boss_code，缺省回落 unit_code） */
+  unitCode: string;
+  /** 层灵韵加成 = floor × lingyun_bonus_per_floor（既有口径） */
+  lingyunBonusFlat: number;
+  tierOffsetBonus: number;
+  dropDrawBonus: number;
+}

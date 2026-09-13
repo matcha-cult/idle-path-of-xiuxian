@@ -20,6 +20,7 @@ import {
   type ZoneProgressRow,
   type ZoneRow,
   type ZoneStateRow,
+  type ZoneOnlineContext,
   fail,
   dropDrawBonusFor,
   floorRequirement,
@@ -177,6 +178,63 @@ export class ZoneService {
     const boss = isBossFloor(zone, progress.floor);
     const unitCode = boss && zone.boss_code ? zone.boss_code : zone.unit_code;
     return { zoneCode: zone.code, zoneName: zone.name, floor: progress.floor, isBoss: boss, unitCode };
+  }
+
+  /**
+   * 在线历练上下文（P3.0 T4）：当前秘境 + 层进度 + 战力 + 本层门槛 / 遭遇单位 / 层加成。
+   *
+   * 全部走既有派生函数（`floorRequirement` / `isBossFloor` / `tierOffsetBonusFor` /
+   * `dropDrawBonusFor`），**不另写一套战力检定**；无当前秘境返回 `null`。
+   */
+  async onlineContext(characterId: number, realm: number): Promise<ZoneOnlineContext | null> {
+    const zoneId = await this.currentZoneId(characterId, realm);
+    if (zoneId == null) return null;
+    const zone = await this.zoneById(zoneId);
+    if (!zone) return null;
+    const progress = progressOf(await this.progressRow(characterId, zone.id));
+    const power = await this.playerPower(characterId, realm);
+    const { boss, tierOffset, extraDraws } = this.depth(zone, progress.floor);
+    return {
+      zoneId: Number(zone.id),
+      zoneCode: zone.code,
+      zoneName: zone.name,
+      maxFloor: Number(zone.max_floor),
+      floor: progress.floor,
+      bestFloor: progress.bestFloor,
+      cleared: progress.cleared,
+      playerPower: power,
+      floorRequirement: floorRequirement(zone, progress.floor),
+      isBossFloor: boss,
+      unitCode: boss && zone.boss_code ? zone.boss_code : zone.unit_code,
+      lingyunBonusFlat: progress.floor * Number(zone.lingyun_bonus_per_floor),
+      tierOffsetBonus: tierOffset,
+      dropDrawBonus: extraDraws,
+    };
+  }
+
+  /**
+   * 在线历练的层推进落库（P3.0 T4）：与 `challenge` 同一张表、同一 `GREATEST` 口径。
+   *
+   * 差异只有一处（刻意）：**通关时不把 `floor` 写超过 `max_floor`** —— 在线面板要显示
+   * 「第 3 / 3 层」，而 `challenge`（已降级为开发者工具，R2 §4.3）保留原行为写 floor+1。
+   * `cleared` / `best_floor` 语义与 `challenge` 完全一致。
+   *
+   * @returns 落库后的 `{ floor, bestFloor, cleared }`
+   */
+  async advanceFloor(
+    characterId: number,
+    zoneId: number,
+    input: { floor: number; bestFloor: number; maxFloor: number },
+  ): Promise<{ floor: number; bestFloor: number; cleared: boolean }> {
+    const nextFloor = input.floor + 1;
+    const cleared = nextFloor > input.maxFloor;
+    const storedFloor = cleared ? input.maxFloor : nextFloor;
+    const nextBest = Math.max(input.bestFloor, input.floor);
+    await this.gameDb.query(
+      'INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (character_id, zone_id) DO UPDATE SET floor = EXCLUDED.floor, best_floor = GREATEST(game_zone_progress.best_floor, EXCLUDED.best_floor), cleared = EXCLUDED.cleared, updated_at = CURRENT_TIMESTAMP',
+      [characterId, zoneId, storedFloor, nextBest, cleared],
+    );
+    return { floor: storedFloor, bestFloor: nextBest, cleared };
   }
 
   async catalog(userId: number): Promise<{ success: boolean; message: string; data?: unknown }> {
