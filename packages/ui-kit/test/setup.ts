@@ -9,26 +9,15 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach } from 'vitest';
+import { installViewportMock, resetViewport } from '../src/testing/viewport.js';
 
 const hasDom = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 if (hasDom) {
-  // antd（响应式栅格、主题）会读 matchMedia；jsdom 不实现它。
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    configurable: true,
-    value: (query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }),
-  });
+  // antd 的响应式（Grid.useBreakpoint / Sider breakpoint / Drawer）全读 matchMedia；
+  // jsdom 不实现它。用**可控视口** mock：默认 1280（桌面），测试可切到手机宽度断言移动布局。
+  installViewportMock(window);
 
   // jsdom 的 getComputedStyle 不支持伪元素参数，会走「Not implemented」分支并经 virtualConsole
   // 逐次打印错误 —— rc-table 等组件高频调用，实测拖慢整个套件且污染输出。
@@ -53,5 +42,6 @@ if (hasDom) {
 
   afterEach(() => {
     cleanup();
+    resetViewport();
   });
 }

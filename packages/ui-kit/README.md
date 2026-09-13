@@ -41,9 +41,9 @@ src/
 | 分组 | 组件 | 关键 props |
 |---|---|---|
 | theme | `ThemeProvider` / `ThemeToggle` / `ThemeFloatButton` | `mode`、`primaryColor`、`value`+`onChange` |
-| layout | `AppShell` | `nav, header, headerExtra, hud, collapsible, collapsed, defaultCollapsed, onCollapse, siderWidth, children` |
+| layout | `AppShell` | `nav, header, headerExtra, hud, collapsible, collapsed, onCollapse, siderWidth, mobile, children`（**响应式**：lg 以上 Sider、以下 Drawer） |
 | layout | `SideNav` | `groups, selectedKey, onSelect, collapsed, title, footer`（配置驱动分组菜单） |
-| layout | `HudBar` | `items({key,label,value,icon?,tooltip?}), extra, loading, wrap` |
+| layout | `HudBar` | `items({key,label,value,icon?,tooltip?}), extra, loading`（紧凑聚类 + 自动换行） |
 | layout | `PageShell` | `title, subtitle, extra, toolbar, children` |
 | layout | `SectionCard` | `title, subtitle, extra, loading, children` |
 | layout | `Toolbar` | `left, right, children` |
@@ -75,6 +75,28 @@ src/
 - **紧凑恒开**：`theme.compactAlgorithm` 永远在 algorithm 数组里；**不提供开关**
   （开关会导致布局错位与 PC/移动端双份适配成本）。因此组件级也不要再各自设 `size`。
 - 主题色是**常量**（`DEFAULT_PRIMARY_COLOR`）；不提供 UI 选择器。将来要开放，只改此常量与选择器层。
+
+## 响应式（PC + 移动双端）
+
+- `AppShell` 自己判定断点：`Grid.useBreakpoint()` → `lg` 及以上渲染**固定 Sider**，以下渲染**左侧 Drawer**
+  （页头出现菜单按钮；抽屉内任意点击即关闭——用**捕获阶段**监听，因为 antd `Menu` 条目点击会 `stopPropagation`）。
+  断点未知的首帧按**桌面**处理，避免移动端「先桌面后抽屉」闪动；`mobile` 可显式强制。
+- `HudBar` 用**紧凑聚类**（`label + value` 成对、整体 `wrap`），不用 `Descriptions`：
+  后者的等宽表格单元格在 PC 上会把 5 项拉满整宽、在窄屏会把取值压成**单字竖排**（已实测踩坑）。
+- 数值与时长的展示统一走 `formatDuration`（ui-kit）与 `web/domain/format.ts`，禁止裸浮点直出。
+
+## 测试辅助：`@idle-path/ui-kit/testing`
+
+jsdom 不实现 `matchMedia`，而 antd 的响应式（`Grid.useBreakpoint` / `Sider breakpoint` / `Drawer`）全靠它。
+该子路径导出**可控视口** mock，ui-kit 与 web 的测试 setup 共用同一实现：
+
+```ts
+import { installViewportMock, setViewportWidth, resetViewport } from '@idle-path/ui-kit/testing';
+
+installViewportMock(window);   // 默认视口 1280（桌面）
+setViewportWidth(393);         // 切到手机宽度 → 断言移动布局
+resetViewport();               // 复位（setup 的 afterEach 已自动调用）
+```
 
 ## 可执行门禁
 

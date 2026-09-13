@@ -1,16 +1,15 @@
 /**
  * HudBar —— 常驻信息条（角色 / 境界 / 资源 / 进度）。
  *
- * 实现要点（依据 `antd info Descriptions` 与官方 `responsive` 示例）：
- * - 用 `Descriptions` 而非手写 Flex：天然带「标签 + 取值」语义与**响应式列数**，
- *   `column={{xs:1,sm:2,md:3,lg:4,xl:6}}` 解决窄屏折行/挤压（原型里 HUD 横向贴边）；
- * - `colon={false}` + token 化内边距，保持单行紧凑；不传 `size`（全局紧凑算法已生效）；
- * - 纯展示：条目由 `items` 注入，组件不知道任何游戏概念。
+ * 实现取舍（两次返工的结论）：
+ * - v1 用 Flex+Space：窄屏与实现细节一起把 HUD 挤爆；
+ * - v2 改 `Descriptions`：PC 上五格被拉满整宽、间距过散，移动端表格单元格把取值压成**单字竖排**；
+ * - v3（当前）：回到**紧凑聚类**——每项是「次要标签 + 强调取值」，整体 `wrap`，
+ *   宽度足够时一行排开、不足时自然换行，任何断点下都不会出现等宽拉伸或逐字换行。
  *
- * 边界：`items=[]` 时仍渲染右侧 `extra`；`loading` 时每个取值位显示骨架；`tooltip` 包在标签上。
+ * 纯展示：条目由 `items` 注入，组件不知道任何游戏概念；颜色只用 token；不传 `size`。
  */
-import { Descriptions, Flex, Skeleton, Tooltip, Typography, theme } from 'antd';
-import type { DescriptionsProps } from 'antd';
+import { Flex, Skeleton, Tooltip, Typography, theme } from 'antd';
 import type { ReactNode } from 'react';
 
 export interface HudItem {
@@ -27,47 +26,42 @@ export interface HudBarProps {
   extra?: ReactNode;
   /** 数据未就绪时显示骨架。 */
   loading?: boolean;
-  /** 响应式列数；缺省 `{xs:1, sm:2, md:3, lg:4, xl:6}`。 */
-  column?: DescriptionsProps['column'];
-  /** 是否允许换行（窄屏建议 true）。 */
-  wrap?: boolean;
 }
 
-const DEFAULT_COLUMN: DescriptionsProps['column'] = { xs: 1, sm: 2, md: 3, lg: 4, xl: 6 };
-
 export function HudBar(props: HudBarProps) {
-  const { items, extra, loading = false, column = DEFAULT_COLUMN, wrap = true } = props;
+  const { items, extra, loading = false } = props;
   const { token } = theme.useToken();
 
-  const descriptionItems: DescriptionsProps['items'] = items.map((item) => ({
-    key: item.key,
-    label:
-      item.tooltip === undefined ? (
-        item.label
-      ) : (
-        <Tooltip title={item.tooltip}>
-          <span style={{ borderBottom: `1px dashed ${token.colorBorder}` }}>{item.label}</span>
-        </Tooltip>
-      ),
-    children: loading ? (
-      <Skeleton.Input active style={{ width: 48 }} />
-    ) : (
-      <Typography.Text strong data-testid={`hud-item-${item.key}`}>
-        {item.icon}
-        {item.value}
-      </Typography.Text>
-    ),
-  }));
-
   return (
-    <Flex justify="space-between" align="center" wrap={wrap} gap={token.paddingSM} data-testid="hud-bar-root">
-      <Descriptions
-        colon={false}
-        column={column}
-        items={descriptionItems}
-        style={{ flex: 1, minWidth: 0 }}
-        styles={{ label: { color: token.colorTextSecondary } }}
-      />
+    <Flex justify="space-between" align="center" wrap gap={token.paddingSM} data-testid="hud-bar-root">
+      <Flex align="center" wrap gap={`${token.paddingXS}px ${token.padding}px`} data-testid="hud-items">
+        {items.map((item) => {
+          const label =
+            item.tooltip === undefined ? (
+              <Typography.Text type="secondary">{item.label}</Typography.Text>
+            ) : (
+              <Tooltip title={item.tooltip}>
+                <Typography.Text type="secondary" style={{ borderBottom: `1px dashed ${token.colorBorder}` }}>
+                  {item.label}
+                </Typography.Text>
+              </Tooltip>
+            );
+
+          return (
+            <Flex key={item.key} align="baseline" gap={token.paddingXS} data-testid={`hud-row-${item.key}`}>
+              {item.icon}
+              {label}
+              {loading ? (
+                <Skeleton.Input active style={{ width: 48 }} />
+              ) : (
+                <Typography.Text strong data-testid={`hud-item-${item.key}`}>
+                  {item.value}
+                </Typography.Text>
+              )}
+            </Flex>
+          );
+        })}
+      </Flex>
       {extra}
     </Flex>
   );

@@ -25,6 +25,11 @@ export default defineConfig({
         replacement: path.resolve(here, '../ionet-transport/src/index.ts'),
       },
       {
+        // 子路径必须先于主入口匹配（字符串 alias 是前缀替换，顺序反了就拼错路径）
+        find: '@idle-path/ui-kit/testing',
+        replacement: path.resolve(here, '../ui-kit/src/testing/index.ts'),
+      },
+      {
         find: '@idle-path/ui-kit',
         replacement: path.resolve(here, '../ui-kit/src/index.ts'),
       },
@@ -49,8 +54,9 @@ export default defineConfig({
     // 组件/面板测试与被测文件同目录（src/**），跨包/夹具测试放 test/**
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     css: false,
-    // antd + jsdom 渲染成本高（Table/CSS-in-JS），并发跑时默认 5s 会偶发超时
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    // antd + jsdom 渲染成本高：最重的面板用例（两张 antd Table）单文件实测 33~45s，
+    // 20s 在并发负载下会偶发超时。放宽到 60s 保 CI 稳定（性能债已登记 local-pending-work 1.11）
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
   },
 } as never);

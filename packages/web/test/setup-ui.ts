@@ -6,26 +6,16 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach } from 'vitest';
+// 与 ui-kit 共用同一份「可控视口」mock（单一实现，避免两包各写一套）
+import { installViewportMock, resetViewport } from '@idle-path/ui-kit/testing';
 
 const hasDom = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 if (hasDom) {
-  // antd 会读 matchMedia（响应式/主题）；jsdom 不实现。
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    configurable: true,
-    value: (query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }),
-  });
+  // antd 的响应式（Grid.useBreakpoint / Sider breakpoint / Drawer）全读 matchMedia；
+  // jsdom 不实现它。默认视口 1280（桌面），测试可 setViewportWidth(393) 断言移动布局。
+  installViewportMock(window);
 
   if (!('ResizeObserver' in globalThis)) {
     class ResizeObserverStub {
@@ -42,5 +32,6 @@ if (hasDom) {
 
   afterEach(() => {
     cleanup();
+    resetViewport();
   });
 }

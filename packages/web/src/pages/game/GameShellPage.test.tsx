@@ -5,6 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ITEM_CMD, type Character } from '@idle-path/ionet-transport';
+import { setViewportWidth } from '@idle-path/ui-kit/testing';
 import { createPanelHarness } from '../../../test/helpers/panel-harness.js';
 import { SIDE_NAV_GROUPS, listGameDomainKeys, listGameDomains } from './panel-registry.js';
 import { GameShellPage } from './GameShellPage.js';
@@ -147,5 +148,69 @@ describe('GameShellPage · HUD 与操作', () => {
 
     await userEvent.click(screen.getByTestId('theme-toggle'));
     expect(harness.root.theme.mode).toBe('dark');
+  });
+});
+
+describe('GameShellPage · 移动端（视口 393，PC/移动双端兼容）', () => {
+  it('不渲染侧栏，导航收进抽屉；页头出现菜单按钮', () => {
+    setViewportWidth(393);
+    const harness = makeHarness();
+    harness.render(<GameShellPage />);
+
+    expect(screen.queryByTestId('app-shell-sider')).toBeNull();
+    expect(screen.getByTestId('app-shell-menu-button')).toBeInTheDocument();
+    // 抽屉初始关闭 → 导航条目不在文档中
+    expect(screen.queryByRole('menuitem')).toBeNull();
+  });
+
+  it('打开抽屉后可见全部分组导航，点击条目切换内容并关闭抽屉', async () => {
+    setViewportWidth(393);
+    const harness = makeHarness();
+    harness.render(<GameShellPage />);
+
+    const menuButton = screen.getByTestId('app-shell-menu-button');
+    await userEvent.click(menuButton);
+    expect(await screen.findByRole('menuitem', { name: /秘境/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('menuitem', { name: /秘境/ }));
+    await waitFor(() => expect(menuButton).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.getByTestId('shell-content').querySelector('.ant-card-head-title')?.textContent).toBe('秘境');
+  });
+
+  it('HUD 取值不被压成竖排（仍能读到完整文本）', () => {
+    setViewportWidth(393);
+    const harness = makeHarness();
+    harness.seed(() => {
+      harness.root.idle.status = {
+        realm: 3,
+        lastSettleAt: '2026-09-13T00:00:00.000Z',
+        pendingHours: 2.0210366666666667,
+        effectiveHours: 1.8,
+        estimatedKills: 20,
+        estimatedLingyun: 40,
+        dailyItemsProduced: 0,
+        dailyItemCap: 200,
+        config: { roundsPerHour: 60, efficiencyPct: 90, maxOfflineHours: 12 },
+      };
+    });
+    harness.render(<GameShellPage />);
+
+    // 竖排的根因是等宽表格单元格；改为紧凑聚类后文本完整且不被拆字
+    expect(screen.getByTestId('hud-item-pending')).toHaveTextContent('2 小时 1 分');
+    expect(screen.getByTestId('hud-item-zone')).toHaveTextContent('未进入');
+    expect(screen.getByTestId('shell-identity')).toHaveTextContent('验收道友');
+    expect(screen.getByTestId('shell-content')).toBeInTheDocument();
+  });
+
+  it('宽屏恢复侧栏形态（跨断点切换）', () => {
+    setViewportWidth(393);
+    const harness = makeHarness();
+    const view = harness.render(<GameShellPage />);
+    expect(screen.queryByTestId('app-shell-sider')).toBeNull();
+
+    view.unmount();
+    setViewportWidth(1280);
+    harness.render(<GameShellPage />);
+    expect(screen.getByTestId('app-shell-sider')).toBeInTheDocument();
   });
 });

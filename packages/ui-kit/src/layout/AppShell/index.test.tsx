@@ -4,9 +4,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { setViewportWidth } from '../../testing/viewport.js';
 import { AppShell } from './index.js';
 
-describe('AppShell', () => {
+describe('AppShell · 桌面形态（默认视口 1280）', () => {
   it('渲染 nav / header / headerExtra / hud / children 五处插槽', () => {
     render(
       <AppShell
@@ -79,5 +80,71 @@ describe('AppShell', () => {
     );
     const sider = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(sider.style.width).toBe('320px');
+  });
+});
+
+describe('AppShell · 移动形态（视口 393）', () => {
+  it('不渲染 Sider，页头出现菜单按钮', () => {
+    setViewportWidth(393);
+    const { container } = render(
+      <AppShell nav={<span>导航区</span>} header={<span>身份</span>}>
+        <span>内容</span>
+      </AppShell>,
+    );
+
+    expect(screen.getByTestId('app-shell-menu-button')).toBeInTheDocument();
+    expect(container.querySelector('.ant-layout-sider')).toBeNull();
+  });
+
+  it('抽屉初始关闭，点菜单按钮后承载导航', async () => {
+    setViewportWidth(393);
+    render(
+      <AppShell nav={<span>导航区</span>} header={<span>身份</span>}>
+        <span>内容</span>
+      </AppShell>,
+    );
+
+    expect(screen.queryByText('导航区')).toBeNull();
+    await userEvent.click(screen.getByTestId('app-shell-menu-button'));
+    expect(await screen.findByText('导航区')).toBeInTheDocument();
+  });
+
+  it('点击抽屉内导航后抽屉关闭', async () => {
+    setViewportWidth(393);
+    render(
+      <AppShell nav={<span>导航项</span>} header={<span>身份</span>}>
+        <span>内容</span>
+      </AppShell>,
+    );
+
+    const menuButton = screen.getByTestId('app-shell-menu-button');
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(menuButton);
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(await screen.findByText('导航项'));
+    // antd Drawer 关闭后内容仍挂载（仅视觉隐藏），故断言展开态而非文本消失
+    await waitFor(() => expect(menuButton).toHaveAttribute('aria-expanded', 'false'));
+  });
+
+  it('移动端不渲染折叠触发条（无 Sider）', () => {
+    setViewportWidth(393);
+    const { container } = render(
+      <AppShell nav={<span>导航区</span>}>
+        <span>内容</span>
+      </AppShell>,
+    );
+    expect(container.querySelector('.ant-layout-sider-trigger')).toBeNull();
+  });
+
+  it('显式 mobile 可覆盖断点判定（桌面视口也走移动形态）', () => {
+    setViewportWidth(1280);
+    render(
+      <AppShell mobile nav={<span>导航区</span>} header={<span>身份</span>}>
+        <span>内容</span>
+      </AppShell>,
+    );
+    expect(screen.getByTestId('app-shell-menu-button')).toBeInTheDocument();
   });
 });

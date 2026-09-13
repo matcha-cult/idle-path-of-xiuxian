@@ -9,15 +9,16 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'test/**/*.test.ts'],
     css: false,
-    // antd + jsdom 的渲染成本较高（CSS-in-JS 注入 + rc-* 测量），默认 5s 在并发下会偶发超时。
-    // 这里放宽到 20s，保证 CI 稳定性（单文件实测 1~20s）。
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    // antd + jsdom 的渲染成本较高（CSS-in-JS 注入 + rc-* 测量）；最重的表单用例单文件实测可达 45s。
+    // 放宽到 60s 保 CI 稳定（性能债已登记 local-pending-work 1.11）。
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     coverage: {
       provider: 'v8',
       reporter: ['text-summary'],
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/index.ts', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+      // testing/ 是测试基础设施（不参与产品覆盖率），与 test/ 同性质
+      exclude: ['src/index.ts', 'src/testing/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
       // 规划 09 §3 T-D：每个导出组件/纯函数都必须有测试；阈值 90%
       thresholds: {
         lines: 90,

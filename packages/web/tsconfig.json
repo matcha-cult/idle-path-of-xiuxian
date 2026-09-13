@@ -28,6 +28,9 @@
       ],
       "@idle-path/ui-kit": [
         "../ui-kit/src/index.ts"
+      ],
+      "@idle-path/ui-kit/testing": [
+        "../ui-kit/src/testing/index.ts"
       ]
     },
     "types": [

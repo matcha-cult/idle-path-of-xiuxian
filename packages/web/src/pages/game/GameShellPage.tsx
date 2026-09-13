@@ -81,6 +81,8 @@ export const GameShellPage = observer(function GameShellPage() {
         // 面板自带标题（SectionCard）时这里不再重复标题，只做「页面卡片」容器
         variant="borderless"
         title={activeDomain?.status === 'pending' ? activeDomain.label : undefined}
+        // 拉伸填满内容区（AppShell 的 Content 是纵向 flex），避免底部大片留白
+        style={{ flex: 1 }}
         styles={{ body: { minHeight: 320 } }}
       >
         {renderGameDomainContent(activeKey)}

@@ -161,11 +161,19 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 > 用户结论：M3 的 11 个面板「把 DTO 字段照搬成表格」，**全部需要按实际玩法重做**。
 > 因此 M4 拆两步，先壳后面板：
 
-**阶段一 · 外壳（已完成）**：`AppShell`（attn `Layout`+可折叠 `Sider`+`Header`+`Content`）+
+**阶段一 · 外壳（已完成）**：`AppShell`（`Layout`+可折叠 `Sider`+`Header`+`Content`；**响应式：lg 以上 Sider / 以下 Drawer**）+
 `SideNav`（配置驱动分组菜单）+ `HudBar`（常驻信息条）+ `PanelPlaceholder`（待重做占位）
 四个新 ui-kit 通用件（各带测试）；web 侧 `GameShellPage` 改为外壳装配，
 `panel-registry` 增加 `group` 与 `status`（当前 11 域全部 `pending`），
 HUD 内建连接状态与一键换肤（游戏态不再用悬浮按钮）。
+
+**阶段一补充 · 响应式与截图返工（2026-09-13）**：用户提供 PC（1457×807）与 iPhone 16（393×852）
+两张截图，暴露三处问题并已修：① 移动端 Sider 固定 208px 把 HUD 取值压成**单字竖排**；
+② `Descriptions` 版 HUD 在 PC 上拉满整宽、间距过散；③ 内容卡片下方大片留白。
+修法：`AppShell` 自判断点（Sider ↔ Drawer + 菜单按钮，抽屉用捕获阶段关闭）、
+`HudBar` 回到紧凑聚类、`Content` 纵向 flex 让卡片拉伸；并新增共享「可控视口」测试辅助
+（`@idle-path/ui-kit/testing`，两包 setup 共用）以覆盖移动断点。
+过程中又用 antd CLI 抓到一条 v6 弃用：`Drawer width` → `size`（已改，登记进 AGENTS.local §6 对照表）。
 
 **阶段二 · 面板按玩法重做（待开工）**：以
 `ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md` 为规格，

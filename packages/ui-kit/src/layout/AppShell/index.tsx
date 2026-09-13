@@ -1,35 +1,40 @@
 /**
- * AppShell —— 应用外壳骨架（`Layout` + 可折叠 `Sider` + `Header` + `Content`）。
+ * AppShell —— 应用外壳骨架（响应式：桌面 Sider ↔ 移动 Drawer）。
  *
- * 只负责**结构与间距**，不承载任何业务：导航、HUD、页头操作都由插槽注入，
- * 因此换导航形态（侧栏 / 顶栏 / 抽屉）不影响业务代码（规划 09 §3 T-D 的可插拔取向）。
+ * 结构：`Layout` + （桌面）可折叠 `Sider` / （移动）`Drawer` + 吸顶 `Header` + `Content`。
+ * 只负责结构与间距，导航/HUD/页头操作全部由插槽注入（换导航形态不影响业务代码）。
  *
- * 插槽：`nav`（Sider 内）/ `header`（页头左侧）/ `headerExtra`（页头右侧）/ `hud`（页头下方常驻信息条）/ `children`。
- * 边界：`header`/`headerExtra`/`hud` 各自可省略；只给 `hud` 时页头只渲染信息条那一行。
- * 布局行为（内置，不额外加 prop，保持 props ≤10）：**侧栏固定 + 页头吸顶 + 内容区滚动**
- *（官方 `Layout/fixed-sider` 与 `Layout/fixed` 示例的常规应用形态；长列表滚动时导航与 HUD 常驻）。
+ * 响应式策略（PC 与移动端**同时**兼容的关键）：
+ * - `lg` 及以上：左侧固定 Sider（可折叠）；
+ * - `lg` 以下：Sider 收起，导航改为 `Drawer`（左侧抽屉，带遮罩），页头左侧出现菜单按钮；
+ *   抽屉内点击任意位置即关闭（用捕获阶段监听，避免被 antd `Menu` 的 stopPropagation 吃掉）。
+ * - 断点未知时（首帧尚未订阅）按**桌面**处理，避免移动端出现「先桌面后抽屉」的闪动。
+ * - `mobile` 可显式强制某一形态（测试与特殊场景用）。
+ *
+ * 细节：Content 采用纵向 flex，便于子级（页面卡片）拉伸填满视口高度，消除底部大片留白。
  * 颜色一律取 antd token（禁内联 hex）；不传 `size`（全局紧凑算法已生效）。
  */
-import { Flex, Layout, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { Button, Drawer, Flex, Grid, Layout, theme } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
+import { useState, type ReactNode } from 'react';
 
 export interface AppShellProps {
   /** 左侧导航内容（通常传 `SideNav`）。 */
   nav: ReactNode;
-  /** 页头左侧（角色名/面包屑等）。 */
+  /** 页头左侧（角色身份等）。 */
   header?: ReactNode;
   /** 页头右侧操作区。 */
   headerExtra?: ReactNode;
   /** 页头下方的常驻信息条（通常传 `HudBar`）。 */
   hud?: ReactNode;
-  /** 是否可折叠侧栏（默认 true）。 */
+  /** 是否可折叠侧栏（桌面；默认 true）。 */
   collapsible?: boolean;
-  /** 受控折叠态。 */
+  /** 桌面侧栏受控折叠态。 */
   collapsed?: boolean;
-  /** 非受控初始折叠态。 */
-  defaultCollapsed?: boolean;
   onCollapse?: (collapsed: boolean) => void;
   siderWidth?: number;
+  /** 强制移动端形态；缺省按断点自动判定。 */
+  mobile?: boolean;
   children: ReactNode;
 }
 
@@ -41,35 +46,64 @@ export function AppShell(props: AppShellProps) {
     hud,
     collapsible = true,
     collapsed,
-    defaultCollapsed,
     onCollapse,
     siderWidth = 208,
+    mobile,
     children,
   } = props;
   const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const breakpointKnown = Object.keys(screens).length > 0;
+  const isMobile = mobile ?? (breakpointKnown ? !screens.lg : false);
   const hasHeaderRow = header !== undefined || headerExtra !== undefined;
+
+  const navContent = isMobile ? (
+    // 抽屉里任意点击（含导航项）都关闭抽屉。
+    // 必须用**捕获阶段**：antd `Menu` 的条目点击会 stopPropagation，冒泡阶段的处理器收不到。
+    <Flex vertical onClickCapture={() => setDrawerOpen(false)}>
+      {nav}
+    </Flex>
+  ) : (
+    nav
+  );
 
   return (
     <Layout style={{ minHeight: '100vh' }} data-testid="app-shell-root">
-      <Layout.Sider
-        theme="light"
-        width={siderWidth}
-        collapsible={collapsible}
-        {...(collapsed === undefined ? {} : { collapsed })}
-        {...(defaultCollapsed === undefined ? {} : { defaultCollapsed })}
-        {...(onCollapse === undefined ? {} : { onCollapse })}
-        style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'auto',
-          borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
-        }}
-        data-testid="app-shell-sider"
-      >
-        {nav}
-      </Layout.Sider>
+      {isMobile ? (
+        <Drawer
+          placement="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          // antd v6：Drawer 的宽度用 `size`（`width` 已弃用，实测 v6.6.3 会告警）
+          size={siderWidth + 48}
+          closable={false}
+          styles={{ body: { padding: 0 } }}
+          data-testid="app-shell-drawer"
+        >
+          {navContent}
+        </Drawer>
+      ) : (
+        <Layout.Sider
+          theme="light"
+          width={siderWidth}
+          collapsible={collapsible}
+          {...(collapsed === undefined ? {} : { collapsed })}
+          {...(onCollapse === undefined ? {} : { onCollapse })}
+          style={{
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflow: 'auto',
+            borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorBgContainer,
+          }}
+          data-testid="app-shell-sider"
+        >
+          {navContent}
+        </Layout.Sider>
+      )}
 
       <Layout>
         <Layout.Header
@@ -87,9 +121,22 @@ export function AppShell(props: AppShellProps) {
           }}
         >
           <Flex vertical gap={token.paddingXS}>
-            {hasHeaderRow ? (
+            {hasHeaderRow || isMobile ? (
               <Flex justify="space-between" align="center" wrap gap={token.paddingXS}>
-                {header}
+                <Flex align="center" gap={token.paddingXS} style={{ minWidth: 0 }}>
+                  {isMobile ? (
+                    <Button
+                      type="text"
+                      icon={<MenuOutlined />}
+                      // 同时满足可访问性（读屏能播报展开态）与可测性
+                      aria-label="打开导航"
+                      aria-expanded={drawerOpen}
+                      data-testid="app-shell-menu-button"
+                      onClick={() => setDrawerOpen(true)}
+                    />
+                  ) : null}
+                  {header}
+                </Flex>
                 {headerExtra}
               </Flex>
             ) : null}
@@ -99,7 +146,12 @@ export function AppShell(props: AppShellProps) {
 
         <Layout.Content
           data-testid="app-shell-content"
-          style={{ padding: token.padding, background: token.colorBgLayout }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            padding: token.padding,
+            background: token.colorBgLayout,
+          }}
         >
           {children}
         </Layout.Content>
