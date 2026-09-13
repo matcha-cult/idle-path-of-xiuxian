@@ -1,29 +1,37 @@
 /**
  * GameShellPage —— 游戏外壳（**只做装配**）。
  *
- * 结构：`AppShell`（Sider + Header + Content）
- *   ├─ `nav`       `SideNav`（分组侧栏，配置来自 `panel-registry`）
- *   ├─ `header`    角色名 + 全量刷新
- *   ├─ `hud`       `GameHud`（境界/资源 + 连接状态 + 主题切换）
- *   └─ `children`  当前域内容（注册表决定：已实现 → 面板；待重做 → 占位）
+ * 结构（`AppShell` 内置「侧栏固定 + 页头吸顶 + 内容滚动」）：
+ *   ├─ nav     `NavBrand`（品牌，折叠只留图标）+ `SideNav`（分组菜单）
+ *   ├─ header  角色身份：昵称 + 头衔 + 境界（身份信息归页头，不占 HUD）
+ *   ├─ hud     `GameHud`（灵韵/玉简/秘境/战力/待结算 + 连接诊断 + 换肤）
+ *   └─ content `Card` 包住当前域内容（已实现 → 面板；待重做 → 占位）
  *
  * 新增游戏域不需要改本文件（只改 `panel-registry.tsx`）。
- * 首屏数据由 `RootStore.loadPanel()` 并发加载；面板自身不在挂载时拉取。
  */
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Space, Typography } from 'antd';
-import { AppShell, SideNav } from '@idle-path/ui-kit';
+import { Button, Card, Space, Tag, Typography, theme } from 'antd';
+import { ThunderboltFilled } from '@ant-design/icons';
+import { REALMS } from '@idle-path/ionet-transport';
+import { AppShell, NavBrand, SideNav } from '@idle-path/ui-kit';
 import { useRootStore } from '../../app/root-context.js';
 import { GameHud } from '../../components/GameHud.js';
 import {
   createGamePanelGroups,
+  getGameDomain,
   listGameDomainKeys,
   renderGameDomainContent,
 } from './panel-registry.js';
 
+function realmNameOf(realm: number | undefined): string {
+  if (realm === undefined) return '—';
+  return REALMS[realm - 1] ?? `第 ${realm} 境`;
+}
+
 export const GameShellPage = observer(function GameShellPage() {
   const root = useRootStore();
+  const { token } = theme.useToken();
   const groups = useMemo(() => createGamePanelGroups(), []);
   const [activeKey, setActiveKey] = useState(() => listGameDomainKeys()[0] ?? '');
   const [collapsed, setCollapsed] = useState(false);
@@ -33,35 +41,50 @@ export const GameShellPage = observer(function GameShellPage() {
   }, [root]);
 
   const character = root.session.character;
+  const activeDomain = getGameDomain(activeKey);
 
   return (
     <AppShell
       collapsed={collapsed}
       onCollapse={setCollapsed}
       nav={
-        <SideNav
-          groups={groups}
-          selectedKey={activeKey}
-          onSelect={setActiveKey}
-          collapsed={collapsed}
-          title={
-            <Typography.Text strong data-testid="shell-title">
-              {character?.nickname ?? '—'}
-            </Typography.Text>
-          }
-        />
+        <>
+          <NavBrand
+            icon={<ThunderboltFilled style={{ color: token.colorPrimary }} />}
+            title="修仙之路"
+            subtitle="放置·idle"
+            collapsed={collapsed}
+          />
+          <SideNav groups={groups} selectedKey={activeKey} onSelect={setActiveKey} collapsed={collapsed} />
+        </>
       }
-      header={<Typography.Text type="secondary">放置·修仙之路</Typography.Text>}
-      headerExtra={
-        <Space>
-          <Button onClick={() => void root.loadPanel()} data-testid="shell-refresh-all">
-            全量刷新
-          </Button>
+      header={
+        <Space align="center" wrap data-testid="shell-identity">
+          <Typography.Text strong style={{ fontSize: token.fontSizeLG }}>
+            {character?.nickname ?? '—'}
+          </Typography.Text>
+          <Tag>{character?.title ?? '散修'}</Tag>
+          <Tag color="blue" data-testid="shell-realm">
+            {realmNameOf(character?.realm)}
+          </Tag>
         </Space>
+      }
+      headerExtra={
+        <Button onClick={() => void root.loadPanel()} data-testid="shell-refresh-all">
+          全量刷新
+        </Button>
       }
       hud={<GameHud />}
     >
-      <div data-testid="shell-content">{renderGameDomainContent(activeKey)}</div>
+      <Card
+        data-testid="shell-content"
+        // 面板自带标题（SectionCard）时这里不再重复标题，只做「页面卡片」容器
+        variant="borderless"
+        title={activeDomain?.status === 'pending' ? activeDomain.label : undefined}
+        styles={{ body: { minHeight: 320 } }}
+      >
+        {renderGameDomainContent(activeKey)}
+      </Card>
     </AppShell>
   );
 });

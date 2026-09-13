@@ -27,6 +27,7 @@ export {
   themeToggleLabel,
   type ThemeMode,
 } from './theme/types.js';
+export { formatDuration } from './format/format-duration/index.js';
 export {
   buildThemeConfig,
   hasCompactAlgorithm,
@@ -44,6 +45,7 @@ export * from './layout/PanelTabs/index.js';
 export * from './layout/AppShell/index.js';
 export * from './layout/SideNav/index.js';
 export * from './layout/HudBar/index.js';
+export * from './layout/NavBrand/index.js';
 
 // ===== pluggable =====
 export * from './pluggable/panel-registry/index.js';

@@ -6,6 +6,8 @@
  *
  * 插槽：`nav`（Sider 内）/ `header`（页头左侧）/ `headerExtra`（页头右侧）/ `hud`（页头下方常驻信息条）/ `children`。
  * 边界：`header`/`headerExtra`/`hud` 各自可省略；只给 `hud` 时页头只渲染信息条那一行。
+ * 布局行为（内置，不额外加 prop，保持 props ≤10）：**侧栏固定 + 页头吸顶 + 内容区滚动**
+ *（官方 `Layout/fixed-sider` 与 `Layout/fixed` 示例的常规应用形态；长列表滚动时导航与 HUD 常驻）。
  * 颜色一律取 antd token（禁内联 hex）；不传 `size`（全局紧凑算法已生效）。
  */
 import { Flex, Layout, theme } from 'antd';
@@ -57,6 +59,10 @@ export function AppShell(props: AppShellProps) {
         {...(defaultCollapsed === undefined ? {} : { defaultCollapsed })}
         {...(onCollapse === undefined ? {} : { onCollapse })}
         style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'auto',
           borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
           background: token.colorBgContainer,
         }}
@@ -69,6 +75,10 @@ export function AppShell(props: AppShellProps) {
         <Layout.Header
           data-testid="app-shell-header"
           style={{
+            position: 'sticky',
+            top: 0,
+            // 页头吸顶需自带层叠上下文（低于 antd 弹层 zIndexPopupBase，避免盖住弹窗）
+            zIndex: 1,
             height: 'auto',
             lineHeight: 'normal',
             padding: `${token.paddingXS}px ${token.padding}px`,

@@ -75,21 +75,32 @@ export const SIDE_NAV_GROUPS: ReadonlyArray<{ key: string; label: string }> = [
 
 const DOMAINS: readonly GameDomainEntry[] = [
   // 修行：破境 → 参悟 → 换装
-  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'cultivation', status: 'pending' },
-  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'pending' },
-  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'pending' },
+  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'cultivation', status: 'pending',
+    highlights: ['14 境进度轨与当前境', '突破消耗与差额', '突破后解锁的装备阶/秘境门槛'] },
+  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'pending',
+    highlights: ['心法/术法槽位板', '神识预算占用条', '参悟消耗与等级上限'] },
+  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'pending',
+    highlights: ['10 槽位总览（含双戒指）', '换装前后属性对比', '阶数 vs 境界的门槛校验'] },
   // 器物：选物 → 炼器
-  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'pending' },
-  { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'pending' },
+  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'pending',
+    highlights: ['按稀有度/阶数/品类筛选', '物品详情（词缀分阶着色）', '一键装备与丢弃'] },
+  { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'pending',
+    highlights: ['通货与精华持有量', '14 种炼器操作（消耗与可用性）', '炼器前后词缀对比'] },
   // 征伐：秘境主轴 + 挂机自动化 + 战斗图鉴
-  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'pending' },
-  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'pending' },
-  { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending' },
+  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'pending',
+    highlights: ['当前层与战力门槛对比', '秘境列表与解锁条件', '挑战结算：灵韵/掉落/分拣结果'] },
+  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'pending',
+    highlights: ['待结算时长与预计收益', '结算明细与日产出额度', '当前挂机秘境与层数'] },
+  { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending',
+    highlights: ['单位图鉴（阵营/境界/可否击杀）', '掉落池权重与概率', '辨宝法阵规则'] },
   // 道途：任务与叙事同源
-  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'journey', status: 'pending' },
-  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'journey', status: 'pending' },
+  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'journey', status: 'pending',
+    highlights: ['章节分组与任务卡', '目标进度实时评估', '一键同步发奖'] },
+  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'journey', status: 'pending',
+    highlights: ['章节/任务剧本时间线', '未读/已读进度', '按节点标记已读'] },
   // 系统
-  { key: 'settings', label: '设置', icon: <SettingOutlined />, group: 'system', status: 'pending' },
+  { key: 'settings', label: '设置', icon: <SettingOutlined />, group: 'system', status: 'pending',
+    highlights: ['账号与角色信息', '主题与运行状态', '开发者工具（注入/生成装备）'] },
 ];
 
 /** 取全部域（只读快照）。 */

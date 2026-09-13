@@ -55,7 +55,8 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
 
     const content = screen.getByTestId('shell-content');
     expect(within(content).getByTestId('panel-placeholder-root')).toBeInTheDocument();
-    expect(within(content).getByText('境界')).toBeInTheDocument();
+    // 内容区标题来自 Card head，侧栏也有同名条目，故按容器限定
+    expect(content.querySelector('.ant-card-head-title')?.textContent).toBe('境界');
   });
 
   it('点击侧栏条目切换内容区（秘境 → 秘境占位）', async () => {
@@ -66,8 +67,8 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     await userEvent.click(screen.getByRole('menuitem', { name: /秘境/ }));
 
     const content = screen.getByTestId('shell-content');
-    expect(within(content).getByText('秘境')).toBeInTheDocument();
-    expect(within(content).queryByText('境界')).toBeNull();
+    expect(content.querySelector('.ant-card-head-title')?.textContent).toBe('秘境');
+    expect(within(content).getByTestId('panel-placeholder-highlights')).toBeInTheDocument();
   });
 
   it('全部 11 个域当前均为占位状态（旧版面板判定不合格，待按玩法重做）', () => {
@@ -79,7 +80,7 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
 });
 
 describe('GameShellPage · HUD 与操作', () => {
-  it('HUD 展示玩法驱动条目（境界/灵韵/玉简/秘境/战力/待结算）', () => {
+  it('页头承载身份（昵称/头衔/境界），HUD 只放 5 个玩法驱动条目', () => {
     const harness = makeHarness();
     harness.seed(() => {
       harness.root.idle.status = {
@@ -96,19 +97,23 @@ describe('GameShellPage · HUD 与操作', () => {
     });
     harness.render(<GameShellPage />);
 
-    expect(screen.getByTestId('hud-item-realm')).toHaveTextContent('柳筋'); // REALMS[2]（realm=3）
+    // 身份在页头（REALMS[2] = 柳筋，realm=3）
+    expect(screen.getByTestId('shell-identity')).toHaveTextContent('验收道友');
+    expect(screen.getByTestId('shell-realm')).toHaveTextContent('柳筋');
+
     expect(screen.getByTestId('hud-item-lingyun')).toHaveTextContent('456');
     expect(screen.getByTestId('hud-item-jadeSlips')).toHaveTextContent('2');
     expect(screen.getByTestId('hud-item-zone')).toHaveTextContent('未进入');
     expect(screen.getByTestId('hud-item-pending')).toHaveTextContent('7 小时');
-    // 灵石当前无消费出口，刻意不进 HUD（见 GameHud 注释与 10 号文档 §0）
+    // 境界移到页头、灵石刻意不入 HUD（10 号文档 §0/§2）
+    expect(screen.queryByTestId('hud-item-realm')).toBeNull();
     expect(screen.queryByTestId('hud-item-spiritStones')).toBeNull();
   });
 
-  it('角色为空时 HUD 不崩（显示占位）', () => {
+  it('角色为空时页头与 HUD 不崩（显示占位）', () => {
     const harness = createPanelHarness();
     harness.render(<GameShellPage />);
-    expect(screen.getByTestId('hud-item-realm')).toHaveTextContent('—');
+    expect(screen.getByTestId('shell-identity')).toHaveTextContent('—');
     expect(screen.getByTestId('hud-item-lingyun')).toHaveTextContent('0');
   });
 

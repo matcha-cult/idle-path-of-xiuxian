@@ -12,6 +12,9 @@ build/
 .env.local
 .env.production
 
+# 临时文件夹
+tmp/
+
 # IDE
 .idea/
 .vscode/
