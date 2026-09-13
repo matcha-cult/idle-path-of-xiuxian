@@ -9,7 +9,7 @@
  *
  * 本组件是纯展示 + 回调，不读 store、不发请求。
  */
-import type { MapNodeView } from '@idle-path/ionet-transport';
+import type { MapNodeView, MapObjectView } from '@idle-path/ionet-transport';
 import { SectionCard } from '@idle-path/ui-kit';
 import { MapNodeCard } from './MapNodeCard.js';
 import { nodeStateLabel, nodeVisualState } from './canvas-view.js';
@@ -18,23 +18,27 @@ export interface MapDetailPanelProps {
   node: MapNodeView;
   playerPower: number;
   currentCode: string | null;
+  /** 当前地图的**全部**对象（P2.0 §3）；本组件按宿主 `nodeCode` 过滤后交给节点卡。 */
+  objects?: readonly MapObjectView[];
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
   onEnterRealm?: (zoneCode: string) => void;
 }
 
 export function MapDetailPanel(props: MapDetailPanelProps) {
-  const { node, playerPower, currentCode, onEnter, onWaypoint, onEnterRealm } = props;
+  const { node, playerPower, currentCode, objects = [], onEnter, onWaypoint, onEnterRealm } = props;
   const state = nodeVisualState(node, currentCode);
+  const nodeObjects = objects.filter((object) => object.nodeCode === node.code);
   return (
     <SectionCard
       title="地点详情"
-      subtitle={`${nodeStateLabel(state)} · 门槛对比 / 传送点 / 承载系统`}
+      subtitle={`${nodeStateLabel(state)} · 难度参考 / 传送点 / 职能入口`}
     >
       <MapNodeCard
         node={node}
         playerPower={playerPower}
         current={state === 'current'}
+        objects={nodeObjects}
         onEnter={onEnter}
         onWaypoint={onWaypoint}
         onEnterRealm={onEnterRealm}

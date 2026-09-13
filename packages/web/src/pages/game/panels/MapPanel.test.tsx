@@ -18,6 +18,7 @@ import {
   ZONE_CMD,
   type MapEdgeView,
   type MapNodeView,
+  type MapObjectView,
   type MapView,
   type NodeProgressView,
 } from '@idle-path/ionet-transport';
@@ -118,14 +119,32 @@ const LINGTIAN = makeNode({
   gridCol: 6,
 });
 const SUMMIT = makeNode({ id: 6, code: 'qy_summit', name: '青云主峰', ring: 'summit', kind: 'summit', threshold: 120, gridRow: 10, gridCol: 10 });
+/** 四院之一：一院多职能（P2.0 §3），右栏对象列表用它验证。 */
+const BAIGONG = makeNode({
+  id: 7,
+  code: 'qy_baigongyuan',
+  name: '百工院',
+  ring: 'inner',
+  kind: 'route',
+  featureKey: 'alchemy',
+  level: 5,
+  threshold: 75,
+  gridRow: 15,
+  gridCol: 10,
+});
 
-const NODES = [GATE_E, GATE_S, APPROACH, HOUSHAN, LINGTIAN, SUMMIT];
+const OBJECTS: MapObjectView[] = [
+  { id: 1, code: 'obj_danxiayuan', nodeCode: 'qy_baigongyuan', kind: 'office', name: '丹霞院', featureKey: 'alchemy', description: '炉火整日不熄。', orderIndex: 1 },
+  { id: 2, code: 'obj_baiqige', nodeCode: 'qy_baigongyuan', kind: 'office', name: '百器阁', featureKey: 'craft', description: null, orderIndex: 2 },
+];
+
+const NODES = [GATE_E, GATE_S, APPROACH, HOUSHAN, LINGTIAN, SUMMIT, BAIGONG];
 const EDGES = [makeEdge('qy_gate_e', 'qy_approach'), makeEdge('qy_approach', 'qy_houshan')];
 
 function setup(seedFn?: (root: ReturnType<typeof createPanelHarness>['root']) => void) {
   const harness = createPanelHarness();
   harness.seed(() => {
-    harness.root.map.maps = [makeMap(NODES, EDGES)];
+    harness.root.map.maps = [makeMap(NODES, EDGES, { objects: OBJECTS })];
     harness.root.map.nodes = NODES;
     harness.root.map.edges = EDGES;
     harness.root.map.playerPower = 100;
@@ -277,6 +296,28 @@ describe('MapPanel · 画布（缺省视图）', () => {
     await userEvent.click(within(screen.getByTestId('map-view-switch')).getByText('列表'));
     expect(screen.getByTestId('map-route-neighbors-qy_gate_e')).toHaveTextContent('南门');
   });
+
+  it('右栏对象列表：选中百工院时列出「丹霞院 / 百器阁」两项（T9）', () => {
+    const harness = setup((root) => {
+      root.map.currentCode = 'qy_baigongyuan';
+    });
+    harness.render(<MapPanel />);
+    const list = screen.getByTestId('map-objects-qy_baigongyuan');
+    expect(list).toHaveTextContent('丹霞院');
+    expect(list).toHaveTextContent('百器阁');
+    // 炼丹未实现 -> FeatureGate 禁用入口；炼器已实现 -> 已开放标签
+    expect(screen.getByTestId('map-object-entry-obj_danxiayuan')).toBeDisabled();
+    expect(screen.getByTestId('map-object-open-obj_baiqige')).toHaveTextContent('已开放');
+  });
+
+  it('右栏对象列表：切到别的节点后只剩该节点的对象（按宿主过滤）', () => {
+    const harness = setup((root) => {
+      root.map.currentCode = 'qy_summit';
+    });
+    harness.render(<MapPanel />);
+    expect(screen.getByTestId('map-objects-empty-qy_summit')).toBeInTheDocument();
+    expect(screen.queryByTestId('map-objects-qy_baigongyuan')).toBeNull();
+  });
 });
 
 describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
@@ -366,8 +407,8 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
   });
 });
 
-describe('MapPanel · 门槛对比（恰好等于 = 可进入）', () => {
-  it('恰好等于门槛显示可进入', async () => {
+describe('MapPanel · 战力门槛只做展示（P2.0 v3 §5：不再拦前往）', () => {
+  it('恰好等于门槛显示「战力充足」', () => {
     const harness = setup((root) => {
       root.map.playerPower = 95;
       root.map.currentCode = 'qy_lingtian';
@@ -375,30 +416,32 @@ describe('MapPanel · 门槛对比（恰好等于 = 可进入）', () => {
     harness.render(<MapPanel />);
     const card = screen.getByTestId('map-node-card-qy_lingtian');
     expect(card).toHaveTextContent('95 / 95');
-    expect(card).toHaveTextContent('可以进入');
+    expect(card).toHaveTextContent('战力充足');
   });
 
-  it('差 1 显示战力不足且按钮禁用', () => {
+  it('差 1 只显示「战力偏低」，前往按钮**仍然可用**（防回归）', async () => {
     const harness = setup((root) => {
-      root.map.playerPower = 94;
-      root.map.currentCode = 'qy_lingtian';
+      root.map.playerPower = 1;
+      root.map.currentCode = 'qy_gate_s';
     });
     harness.render(<MapPanel />);
-    const card = screen.getByTestId('map-node-card-qy_lingtian');
-    expect(card).toHaveTextContent('战力不足');
-    expect(card).toHaveTextContent('差 1');
-    expect(screen.getByTestId('map-node-enter-qy_lingtian')).toBeDisabled();
+    // 选中灵田药园（非当前所在、相邻）——战力远低于门槛也必须可前往
+    pointer(pin('qy_lingtian'), 'pointerdown');
+    pointer(pin('qy_lingtian'), 'pointerup');
+    await waitFor(() => expect(screen.getByTestId('map-node-card-qy_lingtian')).toBeInTheDocument());
+    expect(screen.getByTestId('map-node-card-qy_lingtian')).toHaveTextContent('战力偏低');
+    expect(screen.getByTestId('map-node-enter-qy_lingtian')).toBeEnabled();
   });
 });
 
-describe('MapPanel · 未开放系统与三态', () => {
-  it('灵田药园（farm 未实现）在详情卡渲染「未开放」且入口禁用', async () => {
-    const harness = setup();
+describe('MapPanel · 未开放系统与三态（对象层）', () => {
+  it('百工院 · 丹霞院（alchemy 未实现）在详情卡渲染「未开放」且入口禁用', () => {
+    const harness = setup((root) => {
+      root.map.currentCode = 'qy_baigongyuan';
+    });
     harness.render(<MapPanel />);
-    await userEvent.click(within(screen.getByTestId('map-view-switch')).getByText('列表'));
-    await userEvent.click(screen.getByTestId('map-route-node-qy_lingtian'));
     expect(screen.getByTestId('feature-gate')).toHaveTextContent('未开放');
-    expect(screen.getByTestId('map-node-feature-entry-qy_lingtian')).toBeDisabled();
+    expect(screen.getByTestId('map-object-entry-obj_danxiayuan')).toBeDisabled();
   });
 
   it('后山峰解锁离线挂机后显示挂机徽标', () => {

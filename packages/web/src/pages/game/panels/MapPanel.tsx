@@ -87,13 +87,13 @@ export const MapPanel = observer(function MapPanel() {
   };
 
   const enterRealm = (zoneCode: string): void => void root.zone.enter(zoneCode);
-
   const detail =
     selected === null ? null : (
       <MapDetailPanel
         node={selected}
         playerPower={map.playerPower}
         currentCode={map.currentCode}
+        objects={map.objects}
         onEnter={goToNode}
         onWaypoint={(code) => void map.waypoint(code)}
         onEnterRealm={enterRealm}

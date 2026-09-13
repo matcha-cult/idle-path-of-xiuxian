@@ -17,7 +17,7 @@
  */
 import { makeAutoObservable, observable, runInAction } from 'mobx';
 import { businessCodeOf, businessErrorMessage, businessMessageOf } from '@idle-path/ionet-transport';
-import type { MapEdgeView, MapNodeView, MapView, NodeProgressView } from '@idle-path/ionet-transport';
+import type { MapEdgeView, MapNodeView, MapObjectView, MapView, NodeProgressView } from '@idle-path/ionet-transport';
 import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
@@ -62,6 +62,11 @@ export class MapStore {
   /** 节点三态（契约字段；DTO 把 progress 内嵌在节点上，这里按 `nodes` 顺序派生）。 */
   get progress(): NodeProgressView[] {
     return this.nodes.map((node) => node.progress);
+  }
+
+  /** 当前地图的职能对象（P2.0 §3；面板按宿主 `nodeCode` 过滤）。 */
+  get objects(): MapObjectView[] {
+    return this.currentMap?.objects ?? [];
   }
 
   /** 切换地图：只重算节点/边/当前所在，不重新请求（`maps` 已含各图节点）。 */
