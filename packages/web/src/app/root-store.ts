@@ -11,7 +11,7 @@
  * 错误口径：本类**不向上抛**。登录/连接失败经 Toast 提示后返回 false 或继续；
  * `loadPanel()` 各域独立失败由各自 Store 吞掉，`Promise.all` 不会 reject。
  */
-import { IDLE_CMD, ZONE_CMD } from '@idle-path/ionet-transport';
+import { IDLE_CMD, ZONE_CMD, BrowserLifecycleAdapter } from '@idle-path/ionet-transport';
 import type {
   FetchLike,
   HeartbeatOptions,
@@ -90,9 +90,15 @@ export class RootStore {
   private metricsTimer: ReturnType<typeof setInterval> | null = null;
   private routingStarted = false;
   private readonly routingUnsubscribers: Array<() => void> = [];
+  /**
+   * 生命周期适配器（P3.0 T2）：同一实例同时喂给 `GameClient`（断线/重连）与
+   * 「页面可见性上报」。未注入时用浏览器实现（无 document 环境自动退化为 no-op）。
+   */
+  private readonly lifecycle: LifecycleAdapter;
 
   constructor(options: RootStoreOptions = {}) {
     this.toast = new ToastStore();
+    this.lifecycle = options.lifecycle ?? new BrowserLifecycleAdapter();
 
     // 回调闭包在连接/请求发生时才读取 this.*，因此此处先建 client 再建各 Store 是安全的。
     this.client = new GameClient({
@@ -101,14 +107,19 @@ export class RootStore {
       fetchImpl: options.fetchImpl,
       getToken: () => this.session.token ?? undefined,
       callbacks: {
-        onStateChange: (state, detail) => this.connection.handleStateChange(state, detail),
+        onStateChange: (state, detail) => {
+          this.connection.handleStateChange(state, detail);
+          // 连上即声明「页面可见」：服务端在线判定同时要求可见位，
+          // 若上一次 hidden 上报恰好丢在断链里，这里把它纠回来（幂等）。
+          if (state === 'online' && !this.lifecycle.isHidden()) this.zone.reportVisibility(true);
+        },
         onBusinessError: (error) => this.toast.fromError(error),
         onServerTime: (info) => this.connection.handleServerTime(info),
       },
       heartbeat: options.heartbeat,
       reconnect: options.reconnect,
       adapterFactory: options.adapterFactory,
-      lifecycle: options.lifecycle,
+      lifecycle: this.lifecycle,
     });
 
     // 存储只解析一次：若两次解析会在「无 localStorage 且未显式传入」时得到两个不同的内存实现
@@ -140,6 +151,7 @@ export class RootStore {
     this.autoRefreshMetricsMs = options.autoRefreshMetricsMs ?? DEFAULT_METRICS_INTERVAL_MS;
     this.startMetricsPolling();
     this.startNotificationRouting();
+    this.startVisibilityReporting();
   }
 
   /** 恢复会话；有 token 则连接 WS（失败不抛，仅 toast）。 */
@@ -215,8 +227,9 @@ export class RootStore {
 
   /**
    * 订阅推送：idle / zone 段推送给对应 Store。
-   * 域 Store 目前未暴露接收方法，`forwardNotification` 因此按「无接收方法则忽略」处理，
-   * 等 Store 增加 `handleNotification` 后无需改本方法即可生效。
+   *
+   * `zone` 段的 `(100,5)` 是在线历练帧（P3.0）—— zone store 的 `handleNotification`
+   * 只存帧与提示，不本地推进。
    */
   startNotificationRouting(): void {
     if (this.routingStarted) return;
@@ -224,6 +237,20 @@ export class RootStore {
     this.routingUnsubscribers.push(
       this.client.notifications.onAny((notification) => {
         this.routeNotification(notification as PushFrame);
+      }),
+    );
+  }
+
+  /**
+   * 订阅页面可见性（P3.0 T2）：只上报「可见 / 不可见」，**不上报时长**。
+   *
+   * 切后台时 SDK 默认（`respectLifecycle`）会直接断开 WS —— 两条独立路径都让服务端
+   * 停止推进。切回前台由 `onStateChange('online')` 或这里的回调纠正可见位。
+   */
+  startVisibilityReporting(): void {
+    this.routingUnsubscribers.push(
+      this.lifecycle.onVisibilityChange((hidden) => {
+        this.zone.reportVisibility(!hidden);
       }),
     );
   }

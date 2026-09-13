@@ -26,6 +26,7 @@ import {
 } from '@idle-path/ui-kit';
 import { useRootStore } from '../../../app/root-context.js';
 import { ZoneCard } from './zone/ZoneCard.js';
+import { ZoneOnlineSection } from './zone/ZoneOnlineSection.js';
 import { challengeBlockReason } from './zone/presentation.js';
 
 export const ZonePanel = observer(function ZonePanel() {
@@ -48,6 +49,9 @@ export const ZonePanel = observer(function ZonePanel() {
 
   return (
     <Flex vertical gap={12}>
+      {/* P3.0：历练峰在线打怪升阶的实时面板（帧全部来自服务端，客户端不本地推进） */}
+      <ZoneOnlineSection frame={zone.online} onRefresh={() => void zone.loadOnline()} />
+
       <SectionCard
         title={progress === null ? '秘境' : `${progress.currentZone.name} · 第 ${progress.floor} 层`}
         subtitle="挑战一层会结算该层单位的掉落与灵韵加成"

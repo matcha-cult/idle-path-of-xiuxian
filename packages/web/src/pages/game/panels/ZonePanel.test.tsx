@@ -5,7 +5,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { ZONE_CMD, type ZoneChallengeData, type ZoneProgressData, type ZoneView } from '@idle-path/ionet-transport';
+import {
+  ZONE_CMD,
+  type ZoneChallengeData,
+  type ZoneOnlineData,
+  type ZoneProgressData,
+  type ZoneView,
+} from '@idle-path/ionet-transport';
 import { createPanelHarness } from '../../../../test/helpers/panel-harness.js';
 import { ZonePanel } from './ZonePanel.js';
 
@@ -304,5 +310,92 @@ describe('ZonePanel · 秘境图鉴与解锁', () => {
     const harness = createPanelHarness();
     harness.render(<ZonePanel />);
     expect(screen.getByText('暂无可用秘境')).toBeInTheDocument();
+  });
+});
+
+// ===== P3.0：历练峰在线打怪升阶面板 =====
+
+describe('ZonePanel · 在线历练区（P3.0 T6）', () => {
+  function makeOnline(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
+    return {
+      online: true,
+      exploring: true,
+      reason: 'ok',
+      zone: { code: 'zone_houshan', name: '后山历练峰' },
+      nodeCode: 'qy_peak_xunlian',
+      nodeName: '第八峰·历练',
+      floor: 1,
+      maxFloor: 3,
+      bestFloor: 0,
+      cleared: false,
+      isBossFloor: false,
+      playerPower: 80,
+      floorRequirement: 75,
+      floorKills: 12,
+      killsPerFloor: 30,
+      stuck: false,
+      shortfall: 0,
+      idleUnlocked: false,
+      kills: 0,
+      lingyunGained: 0,
+      events: [],
+      tickMs: 1000,
+      pushEveryMs: 3000,
+      ...overrides,
+    };
+  }
+
+  it('面板总是渲染在线历练区；无实况时给占位文案（不崩）', () => {
+    const harness = setup();
+    harness.render(<ZonePanel />);
+    expect(screen.getByTestId('zone-online-stats')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent('尚未读取历练实况');
+  });
+
+  it('有实况时展示层数 / 击杀进度 / 卡层提示', () => {
+    const harness = setup((root) => {
+      root.zone.online = makeOnline({ floor: 2, bestFloor: 1, floorKills: 30, stuck: true, shortfall: 7 });
+    });
+    harness.render(<ZonePanel />);
+    const stats = screen.getByTestId('zone-online-stats');
+    expect(stats).toHaveTextContent('第 2 / 3 层');
+    expect(stats).toHaveTextContent('30 / 30');
+    expect(screen.getByTestId('zone-online-progress')).toHaveTextContent('本层进度 100%');
+    expect(screen.getByTestId('zone-online-stuck')).toHaveTextContent('还差 7');
+  });
+
+  it('解锁离线挂机后：标签 + 引导文案都在线历练区里', () => {
+    const harness = setup((root) => {
+      root.zone.online = makeOnline({ idleUnlocked: true, cleared: true, events: ['idle_unlocked'] });
+    });
+    harness.render(<ZonePanel />);
+    expect(within(screen.getByTestId('zone-online-tags')).getByText('离线挂机已解锁')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-online-idle-hint')).toHaveTextContent('已解锁离线挂机');
+  });
+
+  it('点「刷新实况」真的发出 (100,5)（且不复用列表接口）', async () => {
+    const harness = createPanelHarness({
+      handler: async (request) => {
+        if (request.cmd !== ZONE_CMD.cmd) return null;
+        if (request.subCmd === ZONE_CMD.online) {
+          return { data: { success: true, message: 'ok', data: makeOnline({ floorKills: 7 }) } };
+        }
+        return null;
+      },
+    });
+    harness.seed(() => {
+      harness.root.zone.zones = [makeZone()];
+      harness.root.zone.progress = makeProgress();
+    });
+    harness.render(<ZonePanel />);
+    await harness.connect();
+
+    await userEvent.click(screen.getByTestId('zone-online-refresh'));
+    await waitFor(() =>
+      expect(
+        harness.requests.some((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.online),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(harness.root.zone.online?.floorKills).toBe(7));
   });
 });

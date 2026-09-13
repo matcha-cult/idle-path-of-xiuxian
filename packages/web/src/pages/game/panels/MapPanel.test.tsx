@@ -341,11 +341,12 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
     harness.render(<MapPanel />);
     await harness.connect();
 
+    const before = harness.requests.length; // 连接本身会发一次 zone.visibility（P3.0），只比较点击前后
     pointer(pin('qy_lingtian'), 'pointerdown');
     pointer(pin('qy_lingtian'), 'pointerup');
 
     await waitFor(() => expect(screen.getByTestId('map-node-card-qy_lingtian')).toBeInTheDocument());
-    expect(harness.requests).toHaveLength(0);
+    expect(harness.requests.length).toBe(before);
   });
 
   it('不可交互枢纽（不相邻 + 传送点未点亮）：点击不改变选中态', async () => {
@@ -359,13 +360,14 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
 
     const locked = pin('qy_lingtian');
     expect(locked).toHaveAttribute('aria-disabled', 'true');
+    const before = harness.requests.length;
     pointer(locked, 'pointerdown');
     pointer(locked, 'pointerup');
 
     // 详情仍是默认的东门，没有切到灵田药园
     expect(screen.getByTestId('map-node-card-qy_gate_e')).toBeInTheDocument();
     expect(screen.queryByTestId('map-node-card-qy_lingtian')).toBeNull();
-    expect(harness.requests).toHaveLength(0);
+    expect(harness.requests.length).toBe(before);
   });
 
   it('移动只走右栏「前往此地」：点按钮才发 MAP_CMD.enter', async () => {
@@ -373,9 +375,10 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
     harness.render(<MapPanel />);
     await harness.connect();
 
+    const before = harness.requests.length;
     pointer(pin('qy_gate_e'), 'pointerdown');
     pointer(pin('qy_gate_e'), 'pointerup');
-    expect(harness.requests).toHaveLength(0);
+    expect(harness.requests.length).toBe(before);
 
     await userEvent.click(screen.getByTestId('map-node-enter-qy_gate_e'));
     await waitFor(() => {
@@ -407,9 +410,10 @@ describe('MapPanel · 点击只选中（§12.1 反直觉契约）', () => {
     harness.render(<MapPanel />);
     await harness.connect();
     const canvas = screen.getByTestId('graph-canvas');
+    const before = harness.requests.length;
     pointer(canvas, 'pointerdown');
     pointer(canvas, 'pointerup');
-    expect(harness.requests).toHaveLength(0);
+    expect(harness.requests.length).toBe(before);
   });
 
   it('底部常驻提示条教「点击只选中」（PC 文案含双击）', () => {
