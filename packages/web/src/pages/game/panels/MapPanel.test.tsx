@@ -48,6 +48,7 @@ function makeNode(overrides: Partial<MapNodeView> = {}): MapNodeView {
     gridRow: 5,
     gridCol: 5,
     description: null,
+    adjacent: false,
     progress: progress(),
     ...overrides,
   };
@@ -71,6 +72,8 @@ function makeMap(nodes: MapNodeView[], edges: MapEdgeView[], overrides: Partial<
     gridRows: 21,
     gridCols: 21,
     backgroundKey: null,
+    currentNodeCode: null,
+    objects: [],
     nodes,
     edges,
     ...overrides,

@@ -32,6 +32,7 @@ function node(overrides: Partial<MapNodeView> = {}): MapNodeView {
     gridRow: 8,
     gridCol: 12,
     description: '九层木阁。',
+    adjacent: false,
     progress,
     ...overrides,
   };

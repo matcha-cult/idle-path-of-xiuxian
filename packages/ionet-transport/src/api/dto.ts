@@ -747,7 +747,35 @@ export interface MapNodeView {
   gridCol: number;
   /** 风味文案（悬停卡 / 右栏详情）；null = 无文案 */
   description: string | null;
+  /**
+   * 是否与角色**当前所在**相邻（P2.0 §5：相邻可直接前往）。
+   *
+   * 服务端按 `game_map_edges`（拓扑权威）判定；`currentNodeCode` 为 null（新角色 /
+   * 位置漂移到已删节点）时全部为 `false`。前端只消费，**不做本地邻接推断**。
+   */
+  adjacent: boolean;
   progress: NodeProgressView;
+}
+
+/**
+ * 地图对象（`game_map_objects`，P2.0 §3）：一院多职能的**明细**。
+ *
+ * 节点上的 `featureKey` 是该院的「主职能」摘要，本对象是具体职能入口
+ * （如百工院挂「丹霞院 / 百器阁」两项）。本轮只做**显示 + 入口**：
+ * 点击对象仍走客户端 `FeatureGate`（未实现系统 → 「未开放」），没有 `map.interact`。
+ */
+export interface MapObjectView {
+  id: number;
+  code: string;
+  /** 宿主枢纽（四院或主峰）；前端按此过滤出当前节点的对象列表 */
+  nodeCode: string;
+  /** `'office'` = 职能入口（本轮唯一类型） */
+  kind: string;
+  name: string;
+  /** 要打开的系统；本轮 11 个对象全部非空 */
+  featureKey: string | null;
+  description: string | null;
+  orderIndex: number;
 }
 
 /**
@@ -782,8 +810,15 @@ export interface MapView {
    * 本轮恒为 null = 不画底图；数据库里存 key 而不是 URL，换 CDN/文件名时不必改库。
    */
   backgroundKey: string | null;
+  /**
+   * 角色**当前所在**的本图节点 code（P2.0 §5，服务端持久化在 `game_map_state`）。
+   * null = 新角色（四门任进）或位置指向已删节点 / 别的地图。
+   */
+  currentNodeCode: string | null;
   nodes: MapNodeView[];
   edges: MapEdgeView[];
+  /** 本图全部职能对象（全量下发；前端按宿主 `nodeCode` 过滤后列入右栏） */
+  objects: MapObjectView[];
 }
 
 /** map.list 成功 data（`map.service.ts` 的 `panel`）。 */
@@ -816,8 +851,10 @@ export interface MapNodeInput {
  * map 段失败 data 联合（`map.service.ts` 内联构造，非 `fail()` 单键）。
  *
  * - `NODE_NOT_FOUND`：nodeCode 无对应节点；
- * - `NODE_LOCKED`：节点存在但尚未发现（前置未 visited，或 `requires_node_code` 指向不存在节点）；
- * - `NODE_POWER_NOT_ENOUGH`：已发现但 `playerPower < threshold`（恰好等于门槛应通过）；
+ * - `NODE_LOCKED`：**历史码**（P2.0 起 `requires_node_code` 不再作为进入闸门，服务端已不再返回，
+ *   保留此成员以免下游穷举 `code` 时编译失败）；
+ * - `NODE_NOT_ADJACENT`：与当前所在地不相邻且非山门（P2.0 §5 的防回归核心）；
+ * - `NODE_POWER_NOT_ENOUGH`：相邻但仍 `playerPower < threshold`（恰好等于门槛应通过）；
  * - `NODE_NOT_VISITED`：传送时该节点从未到达过；
  * - `WAYPOINT_NOT_UNLOCKED`：到达过但传送点未点亮 / 该节点没有传送点。
  * 其余（含 `INVALID_PARAM` / `CHARACTER_NOT_FOUND` / `ZONE_NOT_IDLE_UNLOCKED`）落最后兜底成员。
@@ -825,6 +862,7 @@ export interface MapNodeInput {
 export type MapFailData =
   | { code: 'NODE_NOT_FOUND'; nodeCode: string }
   | { code: 'NODE_LOCKED'; nodeCode: string; requiresNodeCode: string | null }
+  | { code: 'NODE_NOT_ADJACENT'; nodeCode: string }
   | { code: 'NODE_POWER_NOT_ENOUGH'; nodeCode: string; playerPower: number; threshold: number }
   | { code: 'NODE_NOT_VISITED'; nodeCode: string }
   | { code: 'WAYPOINT_NOT_UNLOCKED'; nodeCode: string; hasWaypoint: boolean }

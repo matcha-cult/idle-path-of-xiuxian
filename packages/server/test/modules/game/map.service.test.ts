@@ -102,6 +102,8 @@ interface MapDbOptions {
   maps?: Row[];
   nodes?: Row[];
   edges?: Row[];
+  /** 对象层（`game_map_objects`，P2.0 §3）。 */
+  objects?: Row[];
   progress?: Row[];
   /** 角色当前所在（`game_map_state`，P2.0 §5）。 */
   state?: Row[];
@@ -116,6 +118,7 @@ function mapDb(opts: MapDbOptions = {}) {
   const maps = opts.maps ?? [];
   const nodes = opts.nodes ?? [];
   const edges = opts.edges ?? [];
+  const objects = opts.objects ?? [];
   const progress: Row[] = (opts.progress ?? []).map((p) => ({ ...p }));
   const state: Row[] = (opts.state ?? []).map((s) => ({ ...s }));
   let seq = progress.length;
@@ -126,6 +129,7 @@ function mapDb(opts: MapDbOptions = {}) {
     .on(/FROM game_maps ORDER BY order_index, id/, { rows: maps })
     .on(/FROM game_map_nodes ORDER BY map_id, order_index, id/, { rows: nodes })
     .on(/FROM game_map_edges ORDER BY map_id, id/, { rows: edges })
+    .on(/FROM game_map_objects ORDER BY map_id, node_code, order_index, id/, { rows: objects })
     .on(/FROM game_map_nodes WHERE code = \$1/, (params) => ({
       rows: nodes.filter((n) => n.code === params[0]),
     }))
@@ -180,7 +184,7 @@ function mapDb(opts: MapDbOptions = {}) {
     .on(/FROM game_chapter_progress p/, {
       rows: (opts.completedChapters ?? []).map((chapter) => ({ chapter })),
     });
-  return { db, progress, maps, nodes, edges, state };
+  return { db, progress, maps, nodes, edges, objects, state };
 }
 
 function makeService(opts: { db: FakeDatabase; character?: Character | null }) {
@@ -668,6 +672,109 @@ describe('MapService 当前所在 game_map_state（P2.0 §5）', () => {
     await svc.enter(7, 'n1');
     assert.equal(state.length, 1);
     assert.equal(state[0].current_node_id, 1);
+  });
+});
+
+// ===== DTO：相邻 / 当前所在 / 对象层（P2.0 v3 T7）=====
+
+describe('MapService.panel DTO（adjacent / currentNodeCode / objects）', () => {
+  const G = nodeRow({ id: 1, code: 'g', ring: 'outer', threshold: 10 });
+  const A = nodeRow({ id: 2, code: 'a', ring: 'inner', threshold: 10 });
+  const B = nodeRow({ id: 3, code: 'b', ring: 'inner', threshold: 10 });
+  const C = nodeRow({ id: 4, code: 'c', ring: 'inner', threshold: 10 });
+  const AB = edgeRow({ id: 1, from_node_id: 2, to_node_id: 3 });
+  const OBJ: Row = {
+    id: 1,
+    code: 'o1',
+    map_id: 1,
+    node_code: 'b',
+    kind: 'office',
+    name: '丹霞院',
+    feature_key: 'alchemy',
+    description: '炉火整日不熄。',
+    order_index: 1,
+  };
+  interface View {
+    currentNodeCode: string | null;
+    nodes: Array<{ code: string; adjacent: boolean }>;
+    objects: Array<{ code: string; nodeCode: string; kind: string; featureKey: string | null; orderIndex: number }>;
+  }
+  const panelView = async (opts: MapDbOptions): Promise<View> => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [G, A, B, C], ...opts });
+    const data = (await makeService({ db }).svc.panel(7)).data as { maps: View[] };
+    return data.maps[0];
+  };
+
+  test('新角色：currentNodeCode=null，adjacent 全 false', async () => {
+    const view = await panelView({ edges: [AB] });
+    assert.equal(view.currentNodeCode, null);
+    assert.deepEqual(view.nodes.map((n) => [n.code, n.adjacent]), [
+      ['g', false],
+      ['a', false],
+      ['b', false],
+      ['c', false],
+    ]);
+  });
+
+  test('currentNodeCode 来自 game_map_state；adjacent 只对当前节点的邻居为 true', async () => {
+    const view = await panelView({ edges: [AB], state: [{ character_id: 11, current_node_id: 2 }] });
+    assert.equal(view.currentNodeCode, 'a');
+    assert.deepEqual(view.nodes.map((n) => [n.code, n.adjacent]), [
+      ['g', false],
+      ['a', false],
+      ['b', true],
+      ['c', false],
+    ]);
+  });
+
+  test('current_node_id 指向已删节点（配置漂移）-> currentNodeCode=null，adjacent 全 false，不崩', async () => {
+    const view = await panelView({ edges: [AB], state: [{ character_id: 11, current_node_id: 999 }] });
+    assert.equal(view.currentNodeCode, null);
+    assert.deepEqual(view.nodes.map((n) => n.adjacent), [false, false, false, false]);
+  });
+
+  test('current_node_id 属于另一张地图 -> 本图 currentNodeCode=null（不串图）', async () => {
+    const other = mapRow({ id: 2, code: 'map_other' });
+    const otherNode = nodeRow({ id: 9, code: 'other', map_id: 2, ring: 'inner' });
+    const { db } = mapDb({
+      maps: [mapRow(), other],
+      nodes: [G, A, B, C, otherNode],
+      edges: [AB],
+      state: [{ character_id: 11, current_node_id: 9 }],
+    });
+    const data = (await makeService({ db }).svc.panel(7)).data as { maps: View[] };
+    assert.equal(data.maps[0].currentNodeCode, null);
+    assert.equal(data.maps[1].currentNodeCode, 'other');
+  });
+
+  test('对象层全量下发：按 map_id 过滤，字段映射为 camelCase', async () => {
+    const view = await panelView({ objects: [OBJ] });
+    assert.deepEqual(view.objects, [
+      {
+        id: 1,
+        code: 'o1',
+        nodeCode: 'b',
+        kind: 'office',
+        name: '丹霞院',
+        featureKey: 'alchemy',
+        description: '炉火整日不熄。',
+        orderIndex: 1,
+      },
+    ]);
+  });
+
+  test('边界：objects=[] 与「对象宿主不存在」都不崩（前端自行过滤）', async () => {
+    const empty = await panelView({ objects: [] });
+    assert.deepEqual(empty.objects, []);
+    const ghost = await panelView({ objects: [{ ...OBJ, code: 'ghost', node_code: 'no_such_node' }] });
+    assert.equal(ghost.objects.length, 1);
+    assert.equal(ghost.objects[0].nodeCode, 'no_such_node');
+  });
+
+  test('边界：列表顺序保持服务端给定的顺序（store/面板不重排）', async () => {
+    const o2: Row = { ...OBJ, id: 2, code: 'o2', node_code: 'a', order_index: 1 };
+    const view = await panelView({ objects: [OBJ, o2] });
+    assert.deepEqual(view.objects.map((o) => o.code), ['o1', 'o2']);
   });
 });
 

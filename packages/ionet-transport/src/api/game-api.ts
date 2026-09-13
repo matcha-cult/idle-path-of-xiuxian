@@ -795,8 +795,8 @@ export class MapApi {
    * 跑图：从当前节点移动到目标节点。
    *
    * 业务失败是**预期分支**（`{ allowBusinessFailure: true }`）：
-   * `INVALID_PARAM`、`NODE_NOT_FOUND`、`NODE_LOCKED`（data 含 requiresNodeCode）、
-   * `NODE_POWER_NOT_ENOUGH`（data 含 playerPower/threshold）——按 `MapFailData` 解析。
+   * `INVALID_PARAM`、`NODE_NOT_FOUND`、`NODE_NOT_ADJACENT`（P2.0 v3 §5：与当前所在地不相邻且非山门）
+   * ——按 `MapFailData` 解析。**战力不再参与闸门**（`NODE_POWER_NOT_ENOUGH` 已不由 map 域抛出）。
    * 出处：`map.action.ts` 的 `enter`、`map.service.ts` 的 `enter`。
    */
   enter(nodeCode: string, options?: SendOptions): Promise<ActionResult<MapEnterData>> {

@@ -37,6 +37,7 @@ function node(overrides: Partial<MapNodeView> = {}): MapNodeView {
     gridRow: 3,
     gridCol: 4,
     description: null,
+    adjacent: false,
     progress: progress(),
     ...overrides,
   };

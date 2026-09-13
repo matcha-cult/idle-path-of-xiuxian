@@ -189,8 +189,13 @@ export class MapService {
     return adjacent;
   }
 
-  /** 节点视图（协议 dto.ts 的 `MapNodeView`） */
-  private nodeView(node: MapNodeRow, progress: NodeProgressView) {
+  /**
+   * 节点视图（协议 dto.ts 的 `MapNodeView`）。
+   *
+   * `adjacent`（P2.0 §5/T7）：该节点与角色**当前所在**是否有边。服务端判定（拓扑权威），
+   * 前端只消费；`current_node_id` 为空 / 指向已删节点时全部为 false。
+   */
+  private nodeView(node: MapNodeRow, progress: NodeProgressView, adjacent = false) {
     return {
       id: Number(node.id),
       code: node.code,
@@ -211,6 +216,7 @@ export class MapService {
       gridRow: safeInt(node.grid_row, 0),
       gridCol: safeInt(node.grid_col, 0),
       description: node.description ?? null,
+      adjacent,
       progress,
     };
   }
@@ -227,7 +233,7 @@ export class MapService {
   async panel(userId: number): Promise<MapActionResult> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-    const [maps, nodes, edges, objects, progressRows, power, completed] = await Promise.all([
+    const [maps, nodes, edges, objects, progressRows, power, completed, currentId] = await Promise.all([
       this.allMaps(),
       this.allNodes(),
       this.allEdges(),
@@ -235,6 +241,7 @@ export class MapService {
       this.progressRows(character.id),
       this.playerPowerService.compute(character.id, character.realm),
       this.completedChapters(character.id),
+      this.currentNodeId(character.id),
     ]);
     const byNodeId = this.progressMap(progressRows);
     const discovered = discoveredCodes(nodes, byNodeId);
@@ -242,9 +249,8 @@ export class MapService {
     // D4：只下发**已解锁**的地图 —— 未解锁的世界连轮廓都不出现（与「未发现节点不下发」同口径）
     const unlocked = unlockedMapCodes(maps, completed);
     const views = maps.filter((map) => unlocked.has(map.code)).map((map) => {
-      const visible = nodes.filter(
-        (n) => Number(n.map_id) === Number(map.id) && discovered.has(n.code),
-      );
+      const mapNodeRows = nodes.filter((n) => Number(n.map_id) === Number(map.id));
+      const visible = mapNodeRows.filter((n) => discovered.has(n.code));
       const visibleCodes = new Set(visible.map((n) => n.code));
       const mapEdges = edges
         .filter((e) => Number(e.map_id) === Number(map.id))
@@ -256,6 +262,17 @@ export class MapService {
         // 只保留两端都已发现的边：未发现节点不出现，也不泄露它的邻接关系
         .filter((e) => e.from != null && e.to != null && visibleCodes.has(e.from) && visibleCodes.has(e.to))
         .map((e) => ({ fromNodeCode: e.from as string, toNodeCode: e.to as string, bidirectional: e.bidirectional }));
+      // P2.0 §5：当前所在 + 相邻集合（都基于拓扑，服务端判定）。
+      // `current_node_id` 指向**已删节点**或属于别的地图 → 本图 currentNodeCode = null（不崩）。
+      const inThisMap = currentId != null && mapNodeRows.some((n) => Number(n.id) === currentId);
+      const currentNodeCode = inThisMap ? (codeById.get(currentId as number) ?? null) : null;
+      const adjacentIds =
+        currentId == null
+          ? new Set<number>()
+          : this.adjacentNodeIds(
+              edges.filter((e) => Number(e.map_id) === Number(map.id)),
+              currentId,
+            );
       return {
         id: Number(map.id),
         code: map.code,
@@ -270,7 +287,10 @@ export class MapService {
         gridRows: Math.max(1, safeInt(map.grid_rows, 1)),
         gridCols: Math.max(1, safeInt(map.grid_cols, 1)),
         backgroundKey: map.background_key ?? null,
-        nodes: visible.map((n) => this.nodeView(n, progressView(byNodeId.get(Number(n.id))))),
+        currentNodeCode,
+        nodes: visible.map((n) =>
+          this.nodeView(n, progressView(byNodeId.get(Number(n.id))), adjacentIds.has(Number(n.id))),
+        ),
         edges: mapEdges,
         // 对象层（P2.0 §3）：一院多职能的明细，**全量下发**（对象不是探索内容），
         // 前端按宿主枢纽 `nodeCode` 过滤后列在右栏。
