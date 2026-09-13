@@ -9,6 +9,10 @@
  * - 承载系统是否实现由客户端 `feature-registry` 判断，未实现走 `FeatureGate`（未开放 + 禁用入口）；
  * - `kind` 只有跑图 / 秘境 / 主峰三种；离线挂机只发生在**唯一的秘境节点（后山峰）**上，
  *   `progress.idleUnlocked` 由 zone 域击败首个 Boss 后置位，面板只做展示；
+ * - **秘境节点额外给「进入历练」**：它把挂机目标切到该秘境（`zone.enter`）。
+ *   这是「地图 → 历练秘境峰 → 开始挂机」的闭环 —— 用户定调「挂机只能在历练秘境峰」，
+ *   所以从地图进秘境必须是一处**显式动作**（而不是 `map.enter` 的隐式副作用），
+ *   跑图与「开始在这练」是两件事。未到达的节点不给这个入口。
  * - 「境界」展示的是 **`level`（怪物境界）**，能不能进只看 `threshold` 与 `playerPower`；
  * - 协议字段不上屏：`code` 只做 testid/key，`featureKey` 原文不展示。
  */
@@ -36,6 +40,8 @@ export interface MapNodeCardProps {
   current: boolean;
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
+  /** 秘境节点专用：把挂机目标切到该秘境（`zoneCode` 由服务端下发）。 */
+  onEnterRealm?: (zoneCode: string) => void;
 }
 
 /** 节点属性明细（协议字段翻译成中文文案，不含 code / featureKey 原文）。 */
@@ -50,7 +56,7 @@ function detailEntries(node: MapNodeView, playerPower: number): KeyValueEntry[] 
 }
 
 export function MapNodeCard(props: MapNodeCardProps) {
-  const { node, playerPower, current, onEnter, onWaypoint } = props;
+  const { node, playerPower, current, onEnter, onWaypoint, onEnterRealm } = props;
   const label = featureLabelOf(node.featureKey);
   const enough = isPowerEnough(playerPower, node.threshold);
   const waypointReady = canUseWaypoint(node, current ? node.code : null);
@@ -124,6 +130,22 @@ export function MapNodeCard(props: MapNodeCardProps) {
                       onClick={() => onWaypoint(node.code)}
                     >
                       传送
+                    </Button>
+                  </span>
+                </Tooltip>
+              ) : null}
+              {/* 秘境节点：把挂机目标切到该秘境（「地图 → 历练秘境峰 → 挂机」的闭环） */}
+              {node.kind === 'secret_realm' && node.zoneCode !== null && onEnterRealm !== undefined ? (
+                <Tooltip title={node.progress.visited ? undefined : '先到达该节点'}>
+                  <span>
+                    <Button
+                      type="primary"
+                      ghost
+                      disabled={!node.progress.visited}
+                      data-testid={`map-node-enter-realm-${node.code}`}
+                      onClick={() => node.zoneCode !== null && onEnterRealm(node.zoneCode)}
+                    >
+                      {node.progress.idleUnlocked ? '进入历练（可离线挂机）' : '进入历练'}
                     </Button>
                   </span>
                 </Tooltip>

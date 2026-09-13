@@ -6,7 +6,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { MAP_CMD, type MapEdgeView, type MapNodeView, type MapView, type NodeProgressView } from '@idle-path/ionet-transport';
+import { MAP_CMD, ZONE_CMD, type MapEdgeView, type MapNodeView, type MapView, type NodeProgressView } from '@idle-path/ionet-transport';
 import { createPanelHarness } from '../../../../test/helpers/panel-harness.js';
 import { MapPanel } from './MapPanel.js';
 
@@ -317,5 +317,28 @@ describe('MapPanel · 协议字段不上屏', () => {
     expect(text).not.toContain('farm');
     expect(text).not.toContain('featureKey');
     expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe('MapPanel · 地图→历练秘境峰→挂机的闭环（用户定调：挂机只能在历练秘境峰）', () => {
+  it('点秘境节点的「进入历练」发出 zone.enter，payload 带 zoneCode（不是节点 code）', async () => {
+    // 让秘境节点已到达，才允许进入历练
+    const harness = setup((root) => {
+      root.map.nodes = NODES.map((node) =>
+        node.code === 'qy_houshan' ? { ...node, progress: progress({ visited: true }) } : node,
+      );
+    });
+    harness.render(<MapPanel />);
+    await harness.connect();
+
+    await userEvent.click(screen.getByTestId('map-route-node-qy_houshan'));
+    await userEvent.click(screen.getByTestId('map-node-enter-realm-qy_houshan'));
+
+    await waitFor(() => {
+      const request = harness.requests.find((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.enter);
+      expect(request).toBeDefined();
+      // zone 域要的是秘境 code；传成地图节点 code 会让「进入历练」静默失败
+      expect(request?.data).toEqual({ zoneCode: 'zone_houshan' });
+    });
   });
 });

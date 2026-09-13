@@ -1,6 +1,6 @@
 /**
  * MapNodeCard 单测：门槛对比（恰好等于 = 可进入）/ 三态徽标 / 未开放系统禁用入口 /
- * **灵田药园（未实现 + 挂机点）仍可作为挂机目标** / 动作回调 / 协议字段不上屏。
+ * 跑图与传送回调 / **秘境节点的「进入历练」（地图→秘境→挂机 的闭环）** / 协议字段不上屏。
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -34,12 +34,35 @@ function makeNode(overrides: Partial<MapNodeView> = {}): MapNodeView {
   } as MapNodeView;
 }
 
-function setup(node: MapNodeView, playerPower: number, current = false) {
+function setup(node: MapNodeView, playerPower: number, current = false, withRealm = true) {
   const onEnter = vi.fn();
   const onWaypoint = vi.fn();
-  render(<MapNodeCard node={node} playerPower={playerPower} current={current} onEnter={onEnter} onWaypoint={onWaypoint} />);
-  return { onEnter, onWaypoint };
+  const onEnterRealm = vi.fn();
+  render(
+    <MapNodeCard
+      node={node}
+      playerPower={playerPower}
+      current={current}
+      onEnter={onEnter}
+      onWaypoint={onWaypoint}
+      {...(withRealm ? { onEnterRealm } : {})}
+    />,
+  );
+  return { onEnter, onWaypoint, onEnterRealm };
 }
+
+/** 历练秘境峰（用户定调：挂机只能在它这里）。 */
+const REALM = makeNode({
+  code: 'qy_houshan',
+  name: '后山峰',
+  ring: 'peaks',
+  sector: 'NW',
+  kind: 'secret_realm',
+  zoneCode: 'zone_houshan',
+  level: 5,
+  threshold: 75,
+  progress: progress({ visited: true }),
+});
 
 describe('MapNodeCard · 战力门槛对比（§6.1 是 ≥）', () => {
   it('恰好等于门槛 = 可以进入，且按钮可用', () => {
@@ -174,5 +197,37 @@ describe('MapNodeCard · 动作', () => {
     const enter = screen.getByTestId('map-node-enter-n_here');
     expect(enter).toBeDisabled();
     expect(enter).toHaveTextContent('当前所在');
+  });
+});
+
+describe('MapNodeCard · 秘境节点的「进入历练」（地图→历练秘境峰→挂机的闭环）', () => {
+  it('秘境节点渲染「进入历练」，点击回传 zoneCode（不是节点 code）', async () => {
+    const { onEnterRealm } = setup(REALM, 100);
+
+    await userEvent.click(screen.getByTestId('map-node-enter-realm-qy_houshan'));
+
+    expect(onEnterRealm).toHaveBeenCalledTimes(1);
+    // 传的是秘境 zone 的 code —— zone 域要的是它，不是地图节点 code
+    expect(onEnterRealm).toHaveBeenCalledWith('zone_houshan');
+  });
+
+  it('未到达该节点时禁用（先跑图再历练）', () => {
+    setup(makeNode({ ...REALM, progress: progress({ visited: false }) }), 100);
+    expect(screen.getByTestId('map-node-enter-realm-qy_houshan')).toBeDisabled();
+  });
+
+  it('已解锁离线挂机时，文案体现出来（这是 D2 的结果）', () => {
+    setup(makeNode({ ...REALM, progress: progress({ visited: true, idleUnlocked: true }) }), 100);
+    expect(screen.getByTestId('map-node-enter-realm-qy_houshan')).toHaveTextContent('可离线挂机');
+  });
+
+  it('非秘境节点不给「进入历练」（跑图点不是挂机处）', () => {
+    setup(makeNode({ kind: 'route', zoneCode: null }), 100);
+    expect(screen.queryByTestId('map-node-enter-realm-n_1')).toBeNull();
+  });
+
+  it('未接 onEnterRealm 时不渲染（可选能力，不强制调用方）', () => {
+    setup(REALM, 100, false, false);
+    expect(screen.queryByTestId('map-node-enter-realm-qy_houshan')).toBeNull();
   });
 });

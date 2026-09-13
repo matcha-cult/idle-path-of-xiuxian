@@ -101,6 +101,9 @@ export const MapPanel = observer(function MapPanel() {
             current={selected.code === map.currentCode}
             onEnter={goToNode}
             onWaypoint={(code) => void map.waypoint(code)}
+            // 秘境节点的「进入历练」：把挂机目标切到该秘境（用户定调：挂机只能在历练秘境峰）。
+            // 用 `zone.enter` 而不是在这里改 map 状态 —— 秘境的目标与层数归 zone 域。
+            onEnterRealm={(zoneCode) => void root.zone.enter(zoneCode)}
           />
         </SectionCard>
       )}
