@@ -34,7 +34,7 @@ function makeHarness() {
   return harness;
 }
 
-describe('GameShellPage · 导航', () => {
+describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征伐/道途/系统）', () => {
   it('侧栏按 5 个分组渲染全部 11 个游戏域', () => {
     const harness = makeHarness();
     const { container } = harness.render(<GameShellPage />);
@@ -49,13 +49,13 @@ describe('GameShellPage · 导航', () => {
     expect(listGameDomainKeys()).toHaveLength(11);
   });
 
-  it('默认选中第一个域，内容区显示其占位', () => {
+  it('默认选中第一个域（修行·境界），内容区显示其占位', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
     const content = screen.getByTestId('shell-content');
     expect(within(content).getByTestId('panel-placeholder-root')).toBeInTheDocument();
-    expect(within(content).getByText('背包')).toBeInTheDocument();
+    expect(within(content).getByText('境界')).toBeInTheDocument();
   });
 
   it('点击侧栏条目切换内容区（秘境 → 秘境占位）', async () => {
@@ -67,7 +67,7 @@ describe('GameShellPage · 导航', () => {
 
     const content = screen.getByTestId('shell-content');
     expect(within(content).getByText('秘境')).toBeInTheDocument();
-    expect(within(content).queryByText('背包')).toBeNull();
+    expect(within(content).queryByText('境界')).toBeNull();
   });
 
   it('全部 11 个域当前均为占位状态（旧版面板判定不合格，待按玩法重做）', () => {
@@ -79,14 +79,30 @@ describe('GameShellPage · 导航', () => {
 });
 
 describe('GameShellPage · HUD 与操作', () => {
-  it('HUD 展示角色境界与三项资源', () => {
+  it('HUD 展示玩法驱动条目（境界/灵韵/玉简/秘境/战力/待结算）', () => {
     const harness = makeHarness();
+    harness.seed(() => {
+      harness.root.idle.status = {
+        realm: 3,
+        lastSettleAt: '2026-09-13T00:00:00.000Z',
+        pendingHours: 7,
+        effectiveHours: 6.3,
+        estimatedKills: 70,
+        estimatedLingyun: 140,
+        dailyItemsProduced: 1,
+        dailyItemCap: 200,
+        config: { roundsPerHour: 60, efficiencyPct: 90, maxOfflineHours: 12 },
+      };
+    });
     harness.render(<GameShellPage />);
 
     expect(screen.getByTestId('hud-item-realm')).toHaveTextContent('柳筋'); // REALMS[2]（realm=3）
-    expect(screen.getByTestId('hud-item-spiritStones')).toHaveTextContent('12345');
     expect(screen.getByTestId('hud-item-lingyun')).toHaveTextContent('456');
     expect(screen.getByTestId('hud-item-jadeSlips')).toHaveTextContent('2');
+    expect(screen.getByTestId('hud-item-zone')).toHaveTextContent('未进入');
+    expect(screen.getByTestId('hud-item-pending')).toHaveTextContent('7 小时');
+    // 灵石当前无消费出口，刻意不进 HUD（见 GameHud 注释与 10 号文档 §0）
+    expect(screen.queryByTestId('hud-item-spiritStones')).toBeNull();
   });
 
   it('角色为空时 HUD 不崩（显示占位）', () => {

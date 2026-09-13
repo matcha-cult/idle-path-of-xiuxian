@@ -54,26 +54,41 @@ export interface GameDomainEntry {
   highlights?: readonly string[];
 }
 
-/** 侧栏分组定义（顺序即展示顺序）。 */
+/**
+ * 侧栏分组定义（顺序即展示顺序）。
+ *
+ * 分组依据是**玩法因果链**，不是数据分类（见 `10-玩法驱动的面板设计.md` §2）：
+ * - 修行：破境 → 参悟 → 换装，是「角色变强」的三件套；
+ * - 器物：「选物 → 炼器」是连续动作，分家会逼玩家在两域间跳；
+ * - 征伐：秘境是玩法主轴，**挂机是它的自动化**（`idle.settle` 缺省结算当前秘境当前层单位），
+ *   战斗是它的数据图鉴——因此三者必须同组；
+ * - 道途：任务与叙事同源（剧情节点由章节/任务对话派生）；
+ * - 系统：设置。
+ */
 export const SIDE_NAV_GROUPS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: 'growth', label: '养成' },
-  { key: 'resource', label: '资源' },
-  { key: 'battle', label: '战斗' },
-  { key: 'adventure', label: '冒险' },
+  { key: 'cultivation', label: '修行' },
+  { key: 'artifacts', label: '器物' },
+  { key: 'campaign', label: '征伐' },
+  { key: 'journey', label: '道途' },
   { key: 'system', label: '系统' },
 ];
 
 const DOMAINS: readonly GameDomainEntry[] = [
-  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'growth', status: 'pending' },
-  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'growth', status: 'pending' },
-  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'growth', status: 'pending' },
-  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'growth', status: 'pending' },
-  { key: 'economy', label: '通货', icon: <WalletOutlined />, group: 'resource', status: 'pending' },
-  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'resource', status: 'pending' },
-  { key: 'combat', label: '战斗', icon: <FireOutlined />, group: 'battle', status: 'pending' },
-  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'battle', status: 'pending' },
-  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'adventure', status: 'pending' },
-  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'adventure', status: 'pending' },
+  // 修行：破境 → 参悟 → 换装
+  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'cultivation', status: 'pending' },
+  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'pending' },
+  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'pending' },
+  // 器物：选物 → 炼器
+  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'pending' },
+  { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'pending' },
+  // 征伐：秘境主轴 + 挂机自动化 + 战斗图鉴
+  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'pending' },
+  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'pending' },
+  { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending' },
+  // 道途：任务与叙事同源
+  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'journey', status: 'pending' },
+  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'journey', status: 'pending' },
+  // 系统
   { key: 'settings', label: '设置', icon: <SettingOutlined />, group: 'system', status: 'pending' },
 ];
 
