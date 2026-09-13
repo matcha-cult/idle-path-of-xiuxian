@@ -17,7 +17,11 @@ export interface GraphCanvasItem {
   col: number;
   /** 图标内容（由调用方决定长什么样；本组件只负责定位与交互）。 */
   content: ReactNode;
-  onSelect?: () => void;
+  /**
+   * 点击回调。`source` 是判定来源：`tap` 轻点（**只应选中**，§12.1）/ `double` 双击（PC 快捷直达）。
+   * 键盘 `Enter` / `Space` 等价于 `tap`。
+   */
+  onSelect?: (source: 'tap' | 'double') => void;
   selected?: boolean;
   disabled?: boolean;
   /** 悬停提示 / 无障碍名称。 */

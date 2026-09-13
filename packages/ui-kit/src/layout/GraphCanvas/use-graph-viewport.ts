@@ -31,6 +31,12 @@ interface DragState {
   target: string | null;
 }
 
+/** 枢纽被点击的判定来源：`tap` 单击（只选中）/ `double` 双击（PC 快捷移动，§12.1）。 */
+export type GraphCanvasPickSource = 'tap' | 'double';
+
+/** 双击判定窗口（ms）：PC 双击直达的阈值。 */
+export const DOUBLE_CLICK_MS = 350;
+
 export interface GraphCanvasViewport {
   /** 容器 ref（交给最外层 div）。 */
   ref: MutableRefObject<HTMLDivElement | null>;
@@ -46,8 +52,8 @@ export interface GraphCanvasViewport {
 export interface ViewportOptions {
   worldW: number;
   worldH: number;
-  /** 命中枢纽时的回调（key）。 */
-  onItemPick: (key: string) => void;
+  /** 命中枢纽时的回调（key + 单击/双击来源）。 */
+  onItemPick: (key: string, source: GraphCanvasPickSource) => void;
   /** 空白处点击。 */
   onBackgroundClick?: () => void;
 }
@@ -59,6 +65,7 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const drag = useRef<DragState | null>(null);
+  const lastPick = useRef<{ key: string; at: number }>({ key: '', at: 0 });
   const pick = useRef(options);
   pick.current = options;
 
@@ -148,7 +155,12 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
     }
     if (state === null || state.moved) return;
     if (state.target !== null) {
-      pick.current.onItemPick(state.target);
+      // 双击直达（仅 PC）：同一枢纽在 DOUBLE_CLICK_MS 内被点第二次 → source='double'
+      const now = Date.now();
+      const last = lastPick.current;
+      const isDouble = last.key === state.target && now - last.at <= DOUBLE_CLICK_MS;
+      lastPick.current = { key: state.target, at: now };
+      pick.current.onItemPick(state.target, isDouble ? 'double' : 'tap');
       return;
     }
     pick.current.onBackgroundClick?.();

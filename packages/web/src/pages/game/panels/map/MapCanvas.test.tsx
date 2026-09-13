@@ -132,13 +132,17 @@ describe('MapCanvas · 交互与调试开关', () => {
     nodeEl.dispatchEvent(event);
   }
 
-  it('点击枢纽只调 onSelect（不移动、不发请求）', () => {
+  it('点击枢纽只调 onSelect（不移动、不发请求），并区分单击 / 双击来源', () => {
     const { onSelect } = setup();
     const pin = screen.getByTestId('graph-canvas-item-a');
     pointer(pin, 'pointerdown');
     pointer(pin, 'pointerup');
-    expect(onSelect).toHaveBeenCalledWith('a');
-    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith('a', 'tap');
+    // 立刻再点一次 → 判定为双击（PC 直达），容器据此决定是否移动
+    pointer(pin, 'pointerdown');
+    pointer(pin, 'pointerup');
+    expect(onSelect).toHaveBeenLastCalledWith('a', 'double');
+    expect(onSelect).toHaveBeenCalledTimes(2);
   });
 
   it('点击空白处触发 onBackgroundClick（取消选中由容器决定）', () => {

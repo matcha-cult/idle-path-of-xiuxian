@@ -29,7 +29,8 @@ export interface MapCanvasProps {
   gridCols: number;
   currentCode: string | null;
   selectedCode: string | null;
-  onSelect: (code: string) => void;
+  /** 点击枢纽。`source`：`tap` 单击（只选中）/ `double` 双击（PC 直达，§12.1）。 */
+  onSelect: (code: string, source: 'tap' | 'double') => void;
   onBackgroundClick?: () => void;
   showGrid?: boolean;
   /** 画布高度（px）。整图适配按面板短边算，太扁会把图压小。 */
@@ -99,7 +100,7 @@ export function MapCanvas(props: MapCanvasProps) {
           content: (
             <MapNodePin node={node} state={state} emphasized={state === 'current'} />
           ),
-          onSelect: () => onSelect(node.code),
+          onSelect: (source) => onSelect(node.code, source),
         };
       }),
     [onGrid, currentCode, selectedCode, onSelect],

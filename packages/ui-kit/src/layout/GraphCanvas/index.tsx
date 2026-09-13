@@ -45,9 +45,9 @@ export function GraphCanvas(props: GraphCanvasProps) {
   const viewport = useGraphViewport({
     worldW,
     worldH,
-    onItemPick: (key) => {
+    onItemPick: (key, source) => {
       const item = items.find((entry) => entry.key === key);
-      if (item !== undefined && item.disabled !== true) item.onSelect?.();
+      if (item !== undefined && item.disabled !== true) item.onSelect?.(source);
     },
     onBackgroundClick,
   });
@@ -125,7 +125,8 @@ function GraphCanvasPin(props: PinProps) {
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        if (item.disabled !== true) item.onSelect?.();
+        // 键盘触发等价于轻点（没有「双击直达」这种键盘语义）
+        if (item.disabled !== true) item.onSelect?.('tap');
       }}
       style={{
         position: 'absolute',
