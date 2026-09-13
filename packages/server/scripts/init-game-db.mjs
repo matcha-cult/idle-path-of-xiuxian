@@ -316,10 +316,12 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
   chapter            SMALLINT NOT NULL,
   requires_node_code VARCHAR(50),
   zone_code          VARCHAR(50),          -- kind=secret_realm 时指向 game_zones.code
+  unit_code          VARCHAR(50),          -- kind=idle_spot 时指向 game_unit_templates.code（挂机刷什么）
   order_index        INTEGER NOT NULL,
   created_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS unit_code VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_game_map_nodes_map ON game_map_nodes(map_id, order_index);
 
 CREATE TABLE IF NOT EXISTS game_map_edges (
@@ -691,6 +693,8 @@ try {
   for (const row of (await client.query('SELECT id, code FROM game_zones')).rows) {
     zoneIdByCode.set(row.code, Number(row.id));
   }
+  // 挂机点的 unit_code 必须在已定义单位里（与 zone_code/requires 同口径的悬空引用自检）
+  const unitCodeSet = new Set(units.map((u) => u.code));
 
   const mapNodes = await loadJson('map-nodes.json');
   const nodeIdByCode = new Map();
@@ -701,9 +705,13 @@ try {
     if (zoneCode != null && !zoneIdByCode.has(zoneCode)) {
       throw new Error(`节点 ${n.code} 引用了未定义秘境: ${zoneCode}`);
     }
+    const unitCode = n.unitCode ?? null;
+    if (unitCode != null && !unitCodeSet.has(unitCode)) {
+      throw new Error(`节点 ${n.code} 引用了未定义单位: ${unitCode}`);
+    }
     const res = await client.query(
-      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, min_realm, has_waypoint, chapter, requires_node_code, zone_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, min_realm=EXCLUDED.min_realm, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, order_index=EXCLUDED.order_index RETURNING id',
-      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.minRealm ?? 1, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, n.orderIndex],
+      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, min_realm, has_waypoint, chapter, requires_node_code, zone_code, unit_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, min_realm=EXCLUDED.min_realm, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, unit_code=EXCLUDED.unit_code, order_index=EXCLUDED.order_index RETURNING id',
+      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.minRealm ?? 1, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, unitCode, n.orderIndex],
     );
     nodeIdByCode.set(n.code, Number(res.rows[0].id));
   }

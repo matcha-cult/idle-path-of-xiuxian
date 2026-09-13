@@ -48,6 +48,7 @@ interface NodeSeed {
   chapter: number;
   requiresNodeCode?: string | null;
   zoneCode?: string | null;
+  unitCode?: string | null;
   orderIndex: number;
 }
 
@@ -67,6 +68,15 @@ interface ZoneSeed {
   bossEveryFloors?: number;
 }
 
+interface UnitSeed {
+  code: string;
+  name: string;
+  realm: number;
+  camp: string;
+  givesLingyun: boolean;
+  dropTable?: string | null;
+}
+
 function loadJson<T>(file: string): T {
   return JSON.parse(readFileSync(new URL(file, SEED_DIR), 'utf8')) as T;
 }
@@ -75,10 +85,12 @@ const maps = loadJson<MapSeed[]>('maps.json');
 const nodes = loadJson<NodeSeed[]>('map-nodes.json');
 const edges = loadJson<EdgeSeed[]>('map-edges.json');
 const zones = loadJson<ZoneSeed[]>('zones.json');
+const units = loadJson<UnitSeed[]>('unit-templates.json');
 
 const nodeByCode = new Map(nodes.map((n) => [n.code, n]));
 const mapByCode = new Map(maps.map((m) => [m.code, m]));
 const zoneByCode = new Map(zones.map((z) => [z.code, z]));
+const unitByCode = new Map(units.map((u) => [u.code, u]));
 
 const RINGS = new Set(['outer', 'approach', 'peaks', 'inner', 'summit']);
 const KINDS = new Set(['route', 'idle_spot', 'secret_realm', 'summit']);
@@ -182,6 +194,32 @@ describe('地图种子 · R2 已拍板硬规则', () => {
     for (const map of maps) {
       const count = nodes.filter((n) => n.mapCode === map.code && n.kind === 'idle_spot').length;
       assert.ok(count >= 1, `地图 ${map.code} 没有挂机点`);
+    }
+  });
+
+  test('D3 前提：挂机点必须声明刷什么单位，且非挂机点不得带单位', () => {
+    for (const node of nodes) {
+      if (node.kind === 'idle_spot') {
+        assert.ok(node.unitCode != null, `挂机点 ${node.code} 未声明产出单位，服务端无从结算`);
+      } else {
+        assert.ok(node.unitCode == null, `非挂机点 ${node.code} 不应带 unitCode（${node.unitCode}）`);
+      }
+    }
+  });
+
+  test('D3 前提：挂机点刷的单位必须存在、可击杀、且产灵韵', () => {
+    for (const node of nodes.filter((n) => n.kind === 'idle_spot')) {
+      const unit = unitByCode.get(node.unitCode ?? '');
+      assert.ok(unit !== undefined, `挂机点 ${node.code} 指向不存在的单位 ${node.unitCode}`);
+      // 「挂机点刷友好 NPC」是最容易犯的配置错：这里必须拦住
+      assert.strictEqual(unit?.camp, 'hostile', `挂机点 ${node.code} 刷的是 ${unit?.camp} 单位（${unit?.code}）`);
+      assert.strictEqual(unit?.givesLingyun, true, `挂机点 ${node.code} 的单位 ${unit?.code} 不产灵韵`);
+      assert.ok(unit?.dropTable != null, `挂机点 ${node.code} 的单位 ${unit?.code} 没有掉落表，挂机永远不产出物品`);
+      // 单位境界应与节点等级同一档，否则挂机收益与难度不匹配
+      assert.ok(
+        Math.abs((unit?.realm ?? 0) - node.level) <= 1,
+        `挂机点 ${node.code} 的等级 ${node.level} 与单位境界 ${unit?.realm} 相差过大`,
+      );
     }
   });
 
