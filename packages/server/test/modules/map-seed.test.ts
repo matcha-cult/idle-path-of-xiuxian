@@ -321,4 +321,22 @@ describe('地图种子 · 结构与数值自洽', () => {
     assert.strictEqual(peaks.length, 8);
     assert.strictEqual(peaks.filter((n) => n.featureKey === 'profession').length, 7);
   });
+
+  /**
+   * 过渡态追踪（**等地图形 2/3 定义完就删掉这条**）。
+   *
+   * 地图层是新增的，而 `zones.json` 里的 5 个遗留秘境先于地图层存在、**没有对应地图节点**。
+   * 后端的离线闸门必须对它们保持旧行为（否则会打断现有游戏），因此这个「未归属」集合
+   * 是一份**需要被显式看见的迁移债**：把它写成断言，等某天它们被重新归属时，
+   * 这条会失败并提醒「债还完了，可以去删闸门里的过渡分支」。
+   */
+  test('迁移债：未归属任何地图节点的遗留秘境 = 已知 5 个（清理后请删除本用例）', () => {
+    const mapped = new Set(nodes.map((n) => n.zoneCode).filter((c): c is string => c != null));
+    const orphans = zones.filter((z) => !mapped.has(z.code)).map((z) => z.code).sort();
+    assert.deepStrictEqual(
+      orphans,
+      ['zone_dajie', 'zone_guhai', 'zone_hundun', 'zone_miwu', 'zone_qingyun'],
+      '未归属地图的秘境集合变了 —— 若是已把遗留秘境接入地图，请同步删除后端闸门里的过渡分支与本用例',
+    );
+  });
 });
