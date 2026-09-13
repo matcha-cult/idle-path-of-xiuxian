@@ -467,6 +467,25 @@ model game_map_edges {
   @@index([map_id])
 }
 
+// 对象层：一院多职能（P2.0 §3）。节点列 `feature_key` 是「主职能」摘要，
+// 本表是明细（如百工院挂「丹霞院 / 百器阁」两个职能入口）。
+// 本仓 schema 无 Json 列，故建正经表而不是用 JSONB 凑。
+model game_map_objects {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  map_id      Int
+  node_code   String   @db.VarChar(50) // 宿主枢纽（四院或主峰）
+  kind        String   @db.VarChar(20) // office = 职能入口（本轮唯一类型）
+  name        String   @db.VarChar(50) // 如「藏经阁」
+  feature_key String?  @db.VarChar(20) // 要打开的系统
+  description String?  @db.Text
+  order_index Int
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([map_id, node_code, order_index])
+}
+
 // 节点进度：visited=跑图到达；waypoint_unlocked=传送点已点亮；idle_unlocked=可离线挂机（D2）
 model game_node_progress {
   id                Int      @id @default(autoincrement())

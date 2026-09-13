@@ -357,6 +357,22 @@ CREATE TABLE IF NOT EXISTS game_map_edges (
 );
 CREATE INDEX IF NOT EXISTS idx_game_map_edges_map ON game_map_edges(map_id);
 
+-- 对象层：一院多职能（P2.0 §3）。节点列 feature_key 是「主职能」摘要，本表是明细。
+CREATE TABLE IF NOT EXISTS game_map_objects (
+  id          SERIAL PRIMARY KEY,
+  code        VARCHAR(50) NOT NULL UNIQUE,
+  map_id      INTEGER NOT NULL,
+  node_code   VARCHAR(50) NOT NULL, -- 宿主枢纽（四院或主峰）
+  kind        VARCHAR(20) NOT NULL, -- office = 职能入口（本轮唯一类型）
+  name        VARCHAR(50) NOT NULL, -- 如「藏经阁」
+  feature_key VARCHAR(20),          -- 要打开的系统
+  description TEXT,
+  order_index INTEGER NOT NULL,
+  created_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_map_objects_host ON game_map_objects(map_id, node_code, order_index);
+
 -- 节点进度：visited=跑图到达；waypoint_unlocked=传送点已点亮；idle_unlocked=可离线挂机（D2）
 CREATE TABLE IF NOT EXISTS game_node_progress (
   id                SERIAL PRIMARY KEY,
@@ -750,6 +766,21 @@ try {
     edgeCount += 1;
   }
 
+  // ===== R2 地图对象层（P2.0 §3）：一院多职能的明细；纯配置，全量重灌 =====
+  const mapObjects = await loadJson('map-objects.json');
+  await client.query('DELETE FROM game_map_objects');
+  for (const o of mapObjects) {
+    const mapId = mapIdByCode.get(o.mapCode);
+    if (mapId === undefined) throw new Error(`map-objects.json 引用了未定义地图: ${o.mapCode}`);
+    if (!nodeIdByCode.has(o.nodeCode)) {
+      throw new Error(`对象 ${o.code} 引用了未定义宿主节点: ${o.nodeCode}`);
+    }
+    await client.query(
+      'INSERT INTO game_map_objects (code, map_id, node_code, kind, name, feature_key, description, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (code) DO UPDATE SET map_id=EXCLUDED.map_id, node_code=EXCLUDED.node_code, kind=EXCLUDED.kind, name=EXCLUDED.name, feature_key=EXCLUDED.feature_key, description=EXCLUDED.description, order_index=EXCLUDED.order_index',
+      [o.code, mapId, o.nodeCode, o.kind ?? 'office', o.name, o.featureKey ?? null, o.description ?? null, o.orderIndex],
+    );
+  }
+
   // 自检：节点/边的悬空引用（种子 id 漂移或改名时立刻暴露，而不是等到玩家点进去）
   const orphanNodes = await client.query(
     'SELECT COUNT(*)::int AS c FROM game_map_nodes n LEFT JOIN game_maps m ON m.id = n.map_id WHERE m.id IS NULL',
@@ -779,6 +810,15 @@ try {
   if (orphanMapRefs > 0) {
     throw new Error(`地图种子存在 ${orphanMapRefs} 处悬空引用（map/requires/zone）`);
   }
+  // 对象层自检：宿主节点必须存在，且对象不得挂在「纯跑图」节点上（本轮对象只在四院与主峰）
+  const orphanObjects = await client.query(
+    `SELECT o.code FROM game_map_objects o
+      LEFT JOIN game_map_nodes n ON n.code = o.node_code
+     WHERE n.id IS NULL`,
+  );
+  if (orphanObjects.rows.length > 0) {
+    throw new Error(`地图对象悬空引用宿主节点：${orphanObjects.rows.map((r) => r.code).join(', ')}`);
+  }
   // P1 画布收口：节点已按种子重灌（坐标齐全且已校验），此刻才把 grid_row/grid_col 提升为 NOT NULL。
   // 放在建表处是错的：那一刻表里还是上一轮的旧行（无坐标），提升会被跳过且**永远不再重试**。
   await client.query(`
@@ -790,7 +830,7 @@ try {
       END IF;
     END $$;
   `);
-  console.log('[放置·修仙之路] maps: ' + maps.length + ' / nodes: ' + mapNodes.length + ' / edges: ' + edgeCount);
+  console.log('[放置·修仙之路] maps: ' + maps.length + ' / nodes: ' + mapNodes.length + ' / edges: ' + edgeCount + ' / objects: ' + mapObjects.length);
 
   // ===== P6 任务定义（重灌：任务进度为玩家数据，保留） =====
   const questDefs = await loadJson('quest-defs.json');

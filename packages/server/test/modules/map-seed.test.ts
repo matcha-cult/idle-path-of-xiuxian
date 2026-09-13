@@ -384,3 +384,70 @@ describe('地图种子 · 结构与数值自洽', () => {
     );
   });
 });
+
+// ===== 对象层（P2.0 §3）：一院多职能的明细 =====
+
+interface MapObjectSeed {
+  code: string;
+  mapCode: string;
+  nodeCode: string;
+  kind: string;
+  name: string;
+  featureKey?: string | null;
+  description?: string | null;
+  orderIndex: number;
+}
+
+const objects = loadJson<MapObjectSeed[]>('map-objects.json');
+
+describe('地图对象种子 · 一院多职能（P2.0 §3）', () => {
+  test('11 个对象（四院 ×2 + 主峰 ×3），code 不重复，kind 只有 office', () => {
+    assert.strictEqual(objects.length, 11, '对象数变化了 —— 若是有意调整请同步任务书 §3');
+    assert.strictEqual(new Set(objects.map((o) => o.code)).size, objects.length, '对象 code 有重复');
+    for (const o of objects) {
+      assert.strictEqual(o.kind, 'office', `本轮对象只有 office 一种类型：${o.code}=${o.kind}`);
+    }
+  });
+
+  test('每个对象都挂在已定义节点上，且宿主只能是四院或主峰', () => {
+    const hosts = new Set(['qy_chuanfayuan', 'qy_yulingyuan', 'qy_baigongyuan', 'qy_zhifayuan', 'qy_summit']);
+    for (const o of objects) {
+      assert.ok(nodeByCode.has(o.nodeCode), `对象 ${o.code} 的宿主 ${o.nodeCode} 不存在`);
+      assert.ok(hosts.has(o.nodeCode), `对象 ${o.code} 挂在了非四院/主峰的宿主上：${o.nodeCode}`);
+      assert.ok(mapByCode.has(o.mapCode), `对象 ${o.code} 指向未定义地图 ${o.mapCode}`);
+    }
+  });
+
+  test('每个对象的 featureKey 非空（§7：本轮 11 个对象都要能指向一个系统）', () => {
+    for (const o of objects) {
+      assert.ok(
+        typeof o.featureKey === 'string' && o.featureKey.length > 0,
+        `对象 ${o.code} 缺 featureKey`,
+      );
+    }
+  });
+
+  test('四院各 2 个职能、主峰 3 个；同一宿主内 orderIndex 不重复', () => {
+    const byHost = new Map<string, MapObjectSeed[]>();
+    for (const o of objects) {
+      byHost.set(o.nodeCode, [...(byHost.get(o.nodeCode) ?? []), o]);
+    }
+    for (const host of ['qy_chuanfayuan', 'qy_yulingyuan', 'qy_baigongyuan', 'qy_zhifayuan']) {
+      assert.strictEqual(byHost.get(host)?.length, 2, `${host} 应有 2 个职能入口`);
+    }
+    assert.strictEqual(byHost.get('qy_summit')?.length, 3, '主峰应有 3 个职能入口');
+    for (const [host, list] of byHost) {
+      const orders = list.map((o) => o.orderIndex);
+      assert.strictEqual(new Set(orders).size, orders.length, `${host} 的 orderIndex 有重复`);
+    }
+  });
+
+  test('每个对象都有非空风味文案（右栏列表不会开天窗）', () => {
+    for (const o of objects) {
+      assert.ok(
+        typeof o.description === 'string' && o.description.trim().length > 0,
+        `对象 ${o.code} 缺 description`,
+      );
+    }
+  });
+});

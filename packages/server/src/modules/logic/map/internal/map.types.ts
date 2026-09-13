@@ -74,6 +74,48 @@ export interface MapEdgeRow {
   bidirectional: boolean;
 }
 
+/** `game_map_objects` 行（P2.0 §3；一院多职能的明细） */
+export interface MapObjectRow {
+  id: number;
+  code: string;
+  map_id: number;
+  /** 宿主枢纽（四院或主峰） */
+  node_code: string;
+  /** office = 职能入口（本轮唯一类型） */
+  kind: string;
+  name: string;
+  /** 要打开的系统；本轮 11 个对象全部非空 */
+  feature_key: string | null;
+  description: string | null;
+  order_index: number;
+}
+
+/** 对象视图（协议 dto.ts 的 `MapObjectView` 同形） */
+export interface MapObjectView {
+  id: number;
+  code: string;
+  nodeCode: string;
+  kind: string;
+  name: string;
+  featureKey: string | null;
+  description: string | null;
+  orderIndex: number;
+}
+
+/** 行 → 视图（数字列统一收敛，避免驱动返回字符串 / undefined 时 NaN 静默进协议）。 */
+export function objectView(row: MapObjectRow): MapObjectView {
+  return {
+    id: Number(row.id),
+    code: row.code,
+    nodeCode: row.node_code,
+    kind: row.kind,
+    name: row.name,
+    featureKey: row.feature_key ?? null,
+    description: row.description ?? null,
+    orderIndex: safeInt(row.order_index, 0),
+  };
+}
+
 /** `game_node_progress` 行（schema.prisma:465-478） */
 export interface NodeProgressRow {
   id: number;

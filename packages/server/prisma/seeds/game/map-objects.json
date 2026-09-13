@@ -1,0 +1,112 @@
+[
+  {
+    "code": "obj_cangjingge",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_chuanfayuan",
+    "kind": "office",
+    "name": "藏经阁",
+    "featureKey": "skill",
+    "description": "九层木阁，藏尽宗门功法与旧档。",
+    "orderIndex": 1
+  },
+  {
+    "code": "obj_chuangongya",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_chuanfayuan",
+    "kind": "office",
+    "name": "传功崖",
+    "featureKey": "skill",
+    "description": "崖壁上刀痕剑迹纵横，都是前辈留招。",
+    "orderIndex": 2
+  },
+  {
+    "code": "obj_lingtian",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_yulingyuan",
+    "kind": "office",
+    "name": "灵田药园",
+    "featureKey": "farm",
+    "description": "灵田按节气轮种，药香混着泥土气。",
+    "orderIndex": 1
+  },
+  {
+    "code": "obj_lingshouyuan",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_yulingyuan",
+    "kind": "office",
+    "name": "灵兽苑",
+    "featureKey": "beast",
+    "description": "灵兽各有脾性，苑中弟子须得耐心。",
+    "orderIndex": 2
+  },
+  {
+    "code": "obj_danxiayuan",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_baigongyuan",
+    "kind": "office",
+    "name": "丹霞院",
+    "featureKey": "alchemy",
+    "description": "炉火整日不熄，丹香飘出半里。",
+    "orderIndex": 1
+  },
+  {
+    "code": "obj_baiqige",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_baigongyuan",
+    "kind": "office",
+    "name": "百器阁",
+    "featureKey": "craft",
+    "description": "阁中炉锤声不绝，锻的是门中弟子的兵器。",
+    "orderIndex": 2
+  },
+  {
+    "code": "obj_jielvtang",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_zhifayuan",
+    "kind": "office",
+    "name": "戒律堂",
+    "featureKey": "discipline",
+    "description": "堂前立着历代祖师的戒碑。",
+    "orderIndex": 1
+  },
+  {
+    "code": "obj_tianxingtai",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_zhifayuan",
+    "kind": "office",
+    "name": "天刑台",
+    "featureKey": "pvp",
+    "description": "宗门弟子在此比试，点到为止。",
+    "orderIndex": 2
+  },
+  {
+    "code": "obj_hufatang",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_summit",
+    "kind": "office",
+    "name": "护法堂",
+    "featureKey": "waypoint",
+    "description": "护法长老静修之处，宗门中枢所在。",
+    "orderIndex": 1
+  },
+  {
+    "code": "obj_neimen",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_summit",
+    "kind": "office",
+    "name": "内门广场",
+    "featureKey": "quest",
+    "description": "演武的石坪，晨钟一响便有弟子在此列队。",
+    "orderIndex": 2
+  },
+  {
+    "code": "obj_zhishitang",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_summit",
+    "kind": "office",
+    "name": "执事堂",
+    "featureKey": "quest",
+    "description": "宗门庶务都在这座堂里交割。",
+    "orderIndex": 3
+  }
+]

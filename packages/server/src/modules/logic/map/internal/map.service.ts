@@ -32,10 +32,12 @@ import {
   type FailResult,
   type MapEdgeRow,
   type MapNodeRow,
+  type MapObjectRow,
   type MapRow,
   type NodeProgressRow,
   type NodeProgressView,
   discoveredCodes,
+  objectView,
   unlockedMapCodes,
   fail,
   progressView,
@@ -77,6 +79,14 @@ export class MapService {
 
   private async allEdges(): Promise<MapEdgeRow[]> {
     const rows = await this.gameDb.query<MapEdgeRow>('SELECT * FROM game_map_edges ORDER BY map_id, id');
+    return rows.rows;
+  }
+
+  /** 对象层（P2.0 §3）：一院多职能的明细，按宿主枢纽分组下发。 */
+  private async allObjects(): Promise<MapObjectRow[]> {
+    const rows = await this.gameDb.query<MapObjectRow>(
+      'SELECT * FROM game_map_objects ORDER BY map_id, node_code, order_index, id',
+    );
     return rows.rows;
   }
 
@@ -168,10 +178,11 @@ export class MapService {
   async panel(userId: number): Promise<MapActionResult> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-    const [maps, nodes, edges, progressRows, power, completed] = await Promise.all([
+    const [maps, nodes, edges, objects, progressRows, power, completed] = await Promise.all([
       this.allMaps(),
       this.allNodes(),
       this.allEdges(),
+      this.allObjects(),
       this.progressRows(character.id),
       this.playerPowerService.compute(character.id, character.realm),
       this.completedChapters(character.id),
@@ -212,6 +223,11 @@ export class MapService {
         backgroundKey: map.background_key ?? null,
         nodes: visible.map((n) => this.nodeView(n, progressView(byNodeId.get(Number(n.id))))),
         edges: mapEdges,
+        // 对象层（P2.0 §3）：一院多职能的明细，**全量下发**（对象不是探索内容），
+        // 前端按宿主枢纽 `nodeCode` 过滤后列在右栏。
+        objects: objects
+          .filter((o) => Number(o.map_id) === Number(map.id))
+          .map((o) => objectView(o)),
       };
     });
     return {
