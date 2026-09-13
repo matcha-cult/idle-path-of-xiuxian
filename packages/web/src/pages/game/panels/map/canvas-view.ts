@@ -6,7 +6,9 @@
  * `hygiene.test.ts` 要求单文件 ≤200 行 —— 而不是把注释删掉凑数。
  *
  * 口径：
- * - 四态只靠**亮度 / 描边色 / 尺寸**区分，图上不写名字（§11.1 第 2 条）；
+ * - 四态（current/visited/known/unknown）**只用于 `data-state` 与悬停文案**；
+ *   视觉规格 v2 起画布的配色改由「环层形状 + 可交互性」决定（见 `MapNodePin`），
+ *   且**名字直接写在图上** —— §11.1 第 2 条「图上不写名字」已作废（抄 PoE 抄错了前提）；
  * - 坐标是服务端给的 **0-based 交叉线索引**，前端不做任何布局计算（§14.1）；
  * - 坐标非法（缺列 / 越界 / 非整数）**绝不进画布**：`NaN` 定位会让整块画布静默消失。
  */
@@ -60,7 +62,7 @@ export function isNodeOnGrid(node: MapNodeView, gridRows: number, gridCols: numb
   );
 }
 
-/** 悬停提示：名字 + 环层 + 状态（名字**只在这里**出现，画布上不写，§11.2）。 */
+/** 悬停提示：名字 + 环层 + 状态（名字也写在图上了，悬停只是补齐环层与状态）。 */
 export function pinTooltipText(node: MapNodeView, state: NodeVisualState): string {
   return `${node.name} · ${ringLabel(node.ring)} · ${nodeStateLabel(state)}`;
 }
