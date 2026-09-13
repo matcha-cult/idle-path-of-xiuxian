@@ -21,7 +21,8 @@
     "test:unit": "tsx --test \"test/**/*.test.ts\"",
     "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "coverage:report": "tsx scripts/coverage-report.mts",
-    "verify:sendto": "tsx scripts/verify-sendto.mts"
+    "verify:sendto": "tsx scripts/verify-sendto.mts",
+    "gen:map-seed": "node scripts/gen-map-seed.mjs"
   },
   "dependencies": {
     "@nbb-ionet/core-framework": "workspace:*",
