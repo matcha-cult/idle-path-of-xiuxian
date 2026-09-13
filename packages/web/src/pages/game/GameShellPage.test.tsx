@@ -36,7 +36,7 @@ function makeHarness() {
 }
 
 describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征伐/道途/系统）', () => {
-  it('侧栏按 5 个分组渲染全部 11 个游戏域', () => {
+  it('侧栏按 5 个分组渲染全部 12 个游戏域', () => {
     const harness = makeHarness();
     const { container } = harness.render(<GameShellPage />);
 
@@ -47,7 +47,7 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
 
     const itemLabels = [...container.querySelectorAll('.ant-menu-item')].map((node) => node.textContent);
     expect(itemLabels).toEqual(listGameDomains().map((d) => d.label));
-    expect(listGameDomainKeys()).toHaveLength(11);
+    expect(listGameDomainKeys()).toHaveLength(12);
   });
 
   it('默认选中第一个域（修行·境界），内容区渲染真实面板而非占位', () => {
@@ -74,12 +74,12 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     expect(within(content).queryByTestId('panel-placeholder-root')).toBeNull();
   });
 
-  it('重做收官：11 域全部 ready，内容区不再出现任何占位', () => {
+  it('重做收官：12 域全部 ready（含地图层），内容区不再出现任何占位', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
     const domains = listGameDomains();
-    expect(domains).toHaveLength(11);
+    expect(domains).toHaveLength(12);
     expect(domains.filter((d) => d.status === 'pending')).toHaveLength(0);
     // 每个 ready 域都必须真的挂上面板，否则 renderGameDomainContent 会静默退回占位
     for (const domain of domains) {

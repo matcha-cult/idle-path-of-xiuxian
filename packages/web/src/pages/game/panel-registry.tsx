@@ -10,14 +10,18 @@
  * 旧版面板（DTO 字段罗列）已判定不合格；按「玩法驱动」逐个重做，做完把该项翻成 `ready` 并挂上 `panel`
  * —— **只改这一处**，页面壳与导航不需要动。
  *
- * 当前进度：**11 域全部 `ready`**，M4 阶段二的「重做」已收官。
+ * 当前进度：**12 域全部 `ready`**（M4 阶段二的「重做」已收官，`map` 是地图层落地后新增的域）。
  * `'pending'` 分支与 `highlights` 字段保留，作为后续新增游戏域的扩展位（新域先占位再实现）。
+ *
+ * `map`（地图）按玩法因果链排在「征伐」组首位：**先看地图（在哪打）→ 再进秘境（打什么）
+ * → 挂机（自动化的它）→ 战斗图鉴（数据）**。青云宗是 `world_qingyun` 的第一张图。
  */
 import {
   BookOutlined,
   ClockCircleOutlined,
   CompassOutlined,
   FireOutlined,
+  GlobalOutlined,
   ProfileOutlined,
   ReadOutlined,
   SettingOutlined,
@@ -33,6 +37,7 @@ import { CombatPanel } from './panels/CombatPanel.js';
 import { EconomyPanel } from './panels/EconomyPanel.js';
 import { EquipPanel } from './panels/EquipPanel.js';
 import { IdlePanel } from './panels/IdlePanel.js';
+import { MapPanel } from './panels/MapPanel.js';
 import { QuestPanel } from './panels/QuestPanel.js';
 import { RealmPanel } from './panels/RealmPanel.js';
 import { SettingsPanel } from './panels/SettingsPanel.js';
@@ -51,7 +56,8 @@ export type GameDomainKey =
   | 'combat'
   | 'story'
   | 'idle'
-  | 'settings';
+  | 'settings'
+  | 'map';
 
 export type PanelStatus = 'ready' | 'pending';
 
@@ -95,7 +101,8 @@ const DOMAINS: readonly GameDomainEntry[] = [
   // 器物：选物 → 炼器
   { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'ready', panel: <BagPanel /> },
   { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'ready', panel: <EconomyPanel /> },
-  // 征伐：秘境主轴 + 挂机自动化 + 战斗图鉴
+  // 征伐：地图（在哪打）→ 秘境（打什么）→ 挂机（自动化）→ 战斗图鉴（数据）
+  { key: 'map', label: '地图', icon: <GlobalOutlined />, group: 'campaign', status: 'ready', panel: <MapPanel /> },
   { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'ready', panel: <ZonePanel /> },
   { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'ready', panel: <IdlePanel /> },
   { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'ready', panel: <CombatPanel /> },

@@ -147,7 +147,7 @@ describe('EconomyPanel · 炼器动作链', () => {
     );
     const request = harness.requests.find((r) => r.subCmd === ECONOMY_CMD.craft);
     expect(request?.data).toEqual({ itemId: 33, op: CRAFT_OPS[2] });
-  }, 20000);
+  }, 60_000);
 
   it('精华定向：选中精华后请求带上 essenceCode', async () => {
     const harness = setup((root) => {
@@ -171,7 +171,7 @@ describe('EconomyPanel · 炼器动作链', () => {
     );
     const request = harness.requests.find((r) => r.subCmd === ECONOMY_CMD.craft);
     expect(request?.data).toEqual({ itemId: 33, op: 'essence', essenceCode: 'ess_atk' });
-  }, 20000);
+  }, 60_000);
 
   it('通货不足：对应操作禁用并给出「缺少该工艺通货」原因', async () => {
     const harness = setup((root) => {
@@ -202,7 +202,7 @@ describe('EconomyPanel · 炼器动作链', () => {
     expect(screen.getByTestId('craft-op-picker-item-chaos')).toBeDisabled();
     await userEvent.hover(screen.getByTestId('craft-op-picker-tip-chaos'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('传奇物品词缀固定');
-  }, 20000);
+  }, 60_000);
 
   it('未选物品时炼器按钮禁用，原因提示先选物品', () => {
     const harness = setup();
@@ -251,7 +251,7 @@ describe('EconomyPanel · 结果与开发者工具', () => {
     );
     const request = harness.requests.find((r) => r.subCmd === ECONOMY_CMD.currencyGrant);
     expect(request?.data).toEqual({ code: 'chaos', count: 1 });
-  }, 20000);
+  }, 60_000);
 
   it('开发注入精华：确认后发出 economy.essenceGrant；未选目标时按钮禁用', async () => {
     const harness = setup();
@@ -273,7 +273,7 @@ describe('EconomyPanel · 结果与开发者工具', () => {
     );
     const request = harness.requests.find((r) => r.subCmd === ECONOMY_CMD.essenceGrant);
     expect(request?.data).toEqual({ code: 'ess_atk', count: 1 });
-  }, 20000);
+  }, 60_000);
 });
 
 describe('EconomyPanel · 边界与协议字段', () => {

@@ -26,6 +26,7 @@ import { EconomyStore } from '../stores/economy-store.js';
 import { EquipStore } from '../stores/equip-store.js';
 import { IdleStore } from '../stores/idle-store.js';
 import { ItemStore } from '../stores/item-store.js';
+import { MapStore } from '../stores/map-store.js';
 import { PropStore } from '../stores/prop-store.js';
 import { QuestStore } from '../stores/quest-store.js';
 import { RealmStore } from '../stores/realm-store.js';
@@ -83,6 +84,7 @@ export class RootStore {
   readonly quest: QuestStore;
   readonly story: StoryStore;
   readonly idle: IdleStore;
+  readonly map: MapStore;
 
   private readonly autoRefreshMetricsMs: number;
   private metricsTimer: ReturnType<typeof setInterval> | null = null;
@@ -133,6 +135,7 @@ export class RootStore {
     this.quest = new QuestStore(ctx);
     this.story = new StoryStore(ctx);
     this.idle = new IdleStore(ctx);
+    this.map = new MapStore(ctx);
 
     this.autoRefreshMetricsMs = options.autoRefreshMetricsMs ?? DEFAULT_METRICS_INTERVAL_MS;
     this.startMetricsPolling();
@@ -187,7 +190,7 @@ export class RootStore {
   }
 
   /**
-   * 并发拉取面板：item/equip/skill/economy/realm/quest/zone/idle/story/combat。
+   * 并发拉取面板：item/equip/skill/economy/realm/quest/zone/idle/story/combat/map。
    * 每个域 Store 的 load() 内部已 try/catch；这里再兜一层 `.catch`，
    * 确保 `Promise.all` 绝不因单个域失败而 reject。
    *
@@ -206,6 +209,7 @@ export class RootStore {
       this.idle.load().catch(() => undefined),
       this.story.load().catch(() => undefined),
       this.combat.load().catch(() => undefined),
+      this.map.load().catch(() => undefined),
     ]);
   }
 
