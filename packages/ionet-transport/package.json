@@ -1,0 +1,36 @@
+{
+  "name": "@idle-path/ionet-transport",
+  "version": "0.1.0",
+  "private": true,
+  "description": "放置·修仙之路 前端传输层：BrowserSocketAdapter + 连接状态机（退避重连/应用层心跳/?token= 握手鉴权）+ reqId 并发关联。协议层只消费 @nbb-ionet/client-protocol（PROTOCOL.md 唯一真相）。",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke:real": "pnpm run build && node scripts/real-server-smoke.mjs"
+  },
+  "dependencies": {
+    "@nbb-ionet/client-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
