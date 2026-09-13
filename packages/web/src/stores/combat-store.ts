@@ -9,6 +9,7 @@ import { businessCodeOf, businessMessageOf } from '@idle-path/ionet-transport';
 import type {
   DropTableView,
   KillUnitInput,
+  SettlementData,
   SpawnUnitInput,
   UnitCatalogView,
 } from '@idle-path/ionet-transport';
@@ -22,6 +23,15 @@ export class CombatStore {
   total = 0;
   /** 掉落表全量。 */
   dropTables: DropTableView[] = [];
+  /**
+   * 最近一次成功击杀的结算体（`SettlementData`：kills / lingyunGained / kept /
+   * salvaged / sold / discarded / blockedByTier）。
+   *
+   * 保留它的唯一目的是让面板能渲染「打完这一刀我到底拿到什么」——
+   * 原实现只把摘要塞进 Toast，结算明细随之丢失，面板便无处可取（规格 §1.8 要求展示）。
+   * 失败分支**不清空**它：上一次的成功结算仍是有效信息，清空反而会让面板闪空。
+   */
+  lastKill: SettlementData | null = null;
   loading = false;
   error: string | null = null;
 
@@ -113,6 +123,9 @@ export class CombatStore {
       }
       const data = result.data;
       if (data === undefined) throw new Error('击杀结算响应缺少 data');
+      runInAction(() => {
+        this.lastKill = data;
+      });
       this.ctx.toast.success(
         '击杀结算完成',
         `${data.kills} 杀 · 灵韵 +${data.lingyunGained} · 物品 ${data.itemsProduced}`,

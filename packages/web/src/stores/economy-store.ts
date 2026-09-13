@@ -115,7 +115,7 @@ export class EconomyStore {
       const result = await this.ctx.game.economy.currencyGrant(input);
       const data = result.data;
       if (data === undefined) throw new Error('注入通货响应缺少 data');
-      this.ctx.toast.success('通货已注入', `${data.code} → ${data.amount}`);
+      this.ctx.toast.success('通货已注入', `${this.currencyLabel(data.code)} → ${data.amount}`);
       await this.load();
     } catch (error) {
       runInAction(() => {
@@ -137,7 +137,7 @@ export class EconomyStore {
       const result = await this.ctx.game.economy.essenceGrant(input);
       const data = result.data;
       if (data === undefined) throw new Error('注入精华响应缺少 data');
-      this.ctx.toast.success('精华已注入', `${data.code} → ${data.count}`);
+      this.ctx.toast.success('精华已注入', `${this.essenceLabel(data.code)} → ${data.count}`);
       await this.load();
     } catch (error) {
       runInAction(() => {
@@ -149,5 +149,21 @@ export class EconomyStore {
         this.loading = false;
       });
     }
+  }
+
+  /**
+   * 通货 code → 中文名。
+   *
+   * 「协议字段不上屏」这条约束对 **Toast 同样成立**：原实现直接把 `data.code` 拼进提示
+   *（如 `chaos → 5`），是全站唯一漏到玩家眼前的协议码。目录里查不到时退化为类别名，
+   * **任何情况下都不回显 code**。
+   */
+  private currencyLabel(code: string): string {
+    return this.currencies.find((item) => item.code === code)?.name ?? '该通货';
+  }
+
+  /** 精华 code → 中文名（口径同 `currencyLabel`）。 */
+  private essenceLabel(code: string): string {
+    return this.essences.find((item) => item.code === code)?.name ?? '该精华';
   }
 }
