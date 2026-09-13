@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>放置·修仙之路</title>
+    <script>
+      // 防闪烁：首帧前把持久化的主题态写到 <html>（唯一允许的裸 DOM，见规划 09 §6.3）。
+      // 取值只是「标记」，样式颜色仍全部来自 antd token；键名与 src/theme/theme-store.ts 的
+      // THEME_STORAGE_KEY 必须保持一致。
+      (function () {
+        try {
+          var mode = localStorage.getItem('idle-path.theme') === 'dark' ? 'dark' : 'light';
+          var el = document.documentElement;
+          el.dataset.theme = mode;
+          el.style.colorScheme = mode;
+        } catch (e) {
+          /* 隐私模式：忽略，由 React 侧兜底 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

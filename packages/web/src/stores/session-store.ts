@@ -11,12 +11,12 @@ import { RestApi, RestError } from '@idle-path/ionet-transport';
 import type { AuthUser, Character } from '@idle-path/ionet-transport';
 import type { ToastStore } from './toast-store.js';
 
-/** 最小存储抽象（浏览器 localStorage / 测试内存实现）。 */
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+/**
+ * 存储抽象复用 `services/storage.ts` 的唯一定义（此处再导出仅为兼容既有 import 路径）。
+ */
+import type { StorageLike } from '../services/storage.js';
+
+export type { StorageLike };
 
 export const TOKEN_STORAGE_KEY = 'idle-path.token';
 export const USER_STORAGE_KEY = 'idle-path.user';

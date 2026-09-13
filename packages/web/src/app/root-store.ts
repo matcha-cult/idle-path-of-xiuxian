@@ -29,7 +29,9 @@ import { ItemStore } from '../stores/item-store.js';
 import { PropStore } from '../stores/prop-store.js';
 import { QuestStore } from '../stores/quest-store.js';
 import { RealmStore } from '../stores/realm-store.js';
-import { SessionStore, type StorageLike } from '../stores/session-store.js';
+import { SessionStore } from '../stores/session-store.js';
+import { resolveStorage, type StorageLike } from '../services/storage.js';
+import { ThemeStore } from '../theme/theme-store.js';
 import { SkillStore } from '../stores/skill-store.js';
 import { StoryStore } from '../stores/story-store.js';
 import { ToastStore } from '../stores/toast-store.js';
@@ -64,33 +66,9 @@ export interface RootStoreOptions {
   autoRefreshMetricsMs?: number;
 }
 
-/** 内存存储兜底（无 localStorage 的 SSR / 测试环境）。 */
-function createMemoryStorage(): StorageLike {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key) => store.get(key) ?? null,
-    setItem: (key, value) => {
-      store.set(key, value);
-    },
-    removeItem: (key) => {
-      store.delete(key);
-    },
-  };
-}
-
-function resolveStorage(storage: StorageLike | undefined): StorageLike {
-  if (storage !== undefined) return storage;
-  try {
-    // 隐私模式下访问 localStorage 可能抛异常，因此整体 try 包裹。
-    if (typeof localStorage !== 'undefined') return localStorage;
-  } catch {
-    /* 回退内存实现 */
-  }
-  return createMemoryStorage();
-}
-
 export class RootStore {
   readonly toast: ToastStore;
+  readonly theme: ThemeStore;
   readonly session: SessionStore;
   readonly connection: ConnectionStore;
   readonly client: GameClient;
@@ -131,7 +109,10 @@ export class RootStore {
       lifecycle: options.lifecycle,
     });
 
-    this.session = new SessionStore(this.client.rest, resolveStorage(options.storage), this.toast);
+    // 存储只解析一次：若两次解析会在「无 localStorage 且未显式传入」时得到两个不同的内存实现
+    const storage = resolveStorage(options.storage);
+    this.theme = new ThemeStore(storage);
+    this.session = new SessionStore(this.client.rest, storage, this.toast);
     this.connection = new ConnectionStore(this.client.ionet);
 
     const ctx: StoreContext = {

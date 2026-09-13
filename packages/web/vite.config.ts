@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +15,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      // 直接消费 TypeScript 源码，避免必须先 build transport 包
+      // 直接消费 TypeScript 源码，避免必须先 build 各 workspace 包
       {
         find: '@idle-path/ionet-transport/testing',
         replacement: path.resolve(here, '../ionet-transport/src/testing/index.ts'),
@@ -24,7 +24,16 @@ export default defineConfig({
         find: '@idle-path/ionet-transport',
         replacement: path.resolve(here, '../ionet-transport/src/index.ts'),
       },
+      {
+        find: '@idle-path/ui-kit',
+        replacement: path.resolve(here, '../ui-kit/src/index.ts'),
+      },
     ],
+    // antd / react 必须单实例（ui-kit 与 web 都声明了它们）：否则会出现两份 antd，
+    // React context 不互通 → 主题/语言不生效。
+    // 只列出 web 自己声明了依赖的包；像 @ant-design/cssinjs 这类 antd 的传递依赖由 pnpm
+    // 保证单副本，若在此 dedupe 反而会因 web 侧解析不到而构建失败。
+    dedupe: ['react', 'react-dom', 'antd', '@ant-design/icons'],
   },
   server: {
     port: 5173,
@@ -34,7 +43,10 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'node',
-    include: ['test/**/*.test.ts'],
+    // 默认 jsdom（组件测试）；Store/协议测试在文件头用 `// @vitest-environment node` 覆盖
+    environment: 'jsdom',
+    setupFiles: ['./test/setup-ui.ts'],
+    include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
+    css: false,
   },
 } as never);

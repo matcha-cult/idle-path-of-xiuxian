@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * RootStore 编排测试（T3/T4 验收，假适配器 + 假 REST）：
  * - 登录 → `?token=` 连 WS → **并发**拉面板（8 域 / 12 请求重叠）；

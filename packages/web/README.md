@@ -1,21 +1,36 @@
 # idle-path-web
 
-「放置·修仙之路」Web 前端（React 18 + Vite + MobX 6 + TypeScript）。PC 与手机浏览器同源。
+「放置·修仙之路」Web 前端（React 18 + Vite + MobX 6 + **antd v6**）。PC 与手机浏览器同源。
 
 > 实施基线：`ai-docs/frontend-solution-exploration/06-现状校正与实施基线（2026-09-13）.md` §4 的 T1~T4。
+> UI 规范：`ai-docs/frontend-solution-exploration/09-antd组件化与主题切换实施规划.md`（组件化 / 紧凑 / 主题）。
 > 协议唯一真相：`vendor/ionet-ts/PROTOCOL.md` + `@nbb-ionet/client-protocol`（经 `@idle-path/ionet-transport` 消费）。
 
 ## 分层
 
 ```
 UI（React，observer 组件，只管渲染与事件）
-  └── Store 树（MobX makeAutoObservable；ConnectionStore / SessionStore / ToastStore + 11 个游戏域 Store）
-        └── services/（GameClient 装配 transport + RestApi + GameApi + 推送总线 NotificationBus）
-              └── @idle-path/ionet-transport（transport + 状态机 + typed API）
-                    └── @nbb-ionet/client-protocol（信封 / codec / reqId 配对 / kind 分流）
+  └── @idle-path/ui-kit（通用组件，antd，零业务零 store）
+        └── Store 树（MobX makeAutoObservable；ThemeStore / ConnectionStore / SessionStore / ToastStore + 11 个游戏域 Store）
+              └── services/（GameClient 装配 transport + RestApi + GameApi + 推送总线 NotificationBus）
+                    └── @idle-path/ionet-transport（transport + 状态机 + typed API）
+                          └── @nbb-ionet/client-protocol（信封 / codec / reqId 配对 / kind 分流）
 ```
 
-依赖单向：UI → Store → services → transport → client-protocol。**Store 不 import React**。
+依赖单向：UI → ui-kit → …；**Store 不 import React**；**ui-kit 不 import 任何业务包**。
+
+## 主题与紧凑布局
+
+| 项 | 实现 | 约束 |
+|---|---|---|
+| 主题态 | `src/theme/theme-store.ts`：**只有 light/dark 两态**，`localStorage` 持久化（键 `idle-path.theme`） | 不做 `system` 第三态 |
+| 紧凑 | ui-kit `buildThemeConfig` 恒含 `theme.compactAlgorithm` | **无开关**；组件不得再设 `size` |
+| 一键切换 | ui-kit `ThemeFloatButton`（容器 `src/components/AppThemeToggle.tsx`） | 单按钮亮↔暗 |
+| 防闪烁 | `index.html` 首帧内联脚本写 `data-theme` / `color-scheme`；`TokenCssVarBridge` 用 `useLayoutEffect` 在首帧绘制前写入 token 变量 | `data-theme` **不是样式来源** |
+| 颜色来源 | 唯一通道 `src/theme/token-css-vars.ts`：antd token → `--app-*` CSS 变量 | `styles.css` 禁止硬编码色值 |
+
+> 首帧背景由 `color-scheme` 驱动浏览器默认画布，页面底色由 `.app-root`（antd `App` 容器）承载
+> `--app-bg`，因此 CSS 里**不需要**再维护一份明暗配色（避免双主题真相）。
 
 ## 通道职责（后端已定死，06 §1 S2）
 

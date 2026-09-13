@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * SessionStore 边界：本地恢复、登录/注册、REST 业务失败、401 兜底、登出清理。
  */

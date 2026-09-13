@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * 真实后端端到端（**默认跳过**，需 `IONET_E2E=1` 且后端在 3000 端口运行）。
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * ToastStore 边界：错误分层 → 文案转译、队列上限、业务码兜底。
  */
