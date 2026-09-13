@@ -437,7 +437,7 @@ describe('MapService.enter 边界（§5.2 + §6.2）', () => {
     assert.equal(failingCode(res), undefined);
   });
 
-  test('战力恰好等于门槛 -> 通过；差 1 -> NODE_POWER_NOT_ENOUGH', async () => {
+  test('战力限制已删除：战力远低于门槛也成功，threshold 仍回显（v3 §5）', async () => {
     const ok = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
     const okRes = await makeService({ db: ok.db }).svc.enter(7, 'n1');
     assert.equal(okRes.success, true);
@@ -445,31 +445,37 @@ describe('MapService.enter 边界（§5.2 + §6.2）', () => {
     assert.equal((okRes.data as { threshold: number }).threshold, 100);
     assert.equal((okRes.data as { firstVisit: boolean }).firstVisit, true);
 
+    // equip=11 -> 战力 95 < 门槛 100，但前往只看相邻（N1 是山门），必须成功
     const short = mapDb({ maps: [mapRow()], nodes: [N1], equip: '11' });
     const shortRes = await makeService({ db: short.db }).svc.enter(7, 'n1');
-    assert.equal(failingCode(shortRes), 'NODE_POWER_NOT_ENOUGH');
+    assert.equal(shortRes.success, true);
+    assert.equal(failingCode(shortRes), undefined);
     assert.equal((shortRes.data as { playerPower: number }).playerPower, 95);
     assert.equal((shortRes.data as { threshold: number }).threshold, 100);
-    assert.equal(short.db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+    assert.equal(short.db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
   });
 
-  test('装备数变化改变检定结果（战力复用 PlayerPowerService）', async () => {
+  test('战力仍复用 PlayerPowerService（只影响回显，不再影响成败）', async () => {
     const withEquip = mapDb({ maps: [mapRow()], nodes: [N1], equip: '20' });
     const without = mapDb({ maps: [mapRow()], nodes: [N1], equip: '0' });
-    assert.equal((await makeService({ db: withEquip.db }).svc.enter(7, 'n1')).success, true);
-    assert.equal(failingCode(await makeService({ db: without.db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
+    const high = await makeService({ db: withEquip.db }).svc.enter(7, 'n1');
+    const low = await makeService({ db: without.db }).svc.enter(7, 'n1');
+    assert.equal(high.success, true);
+    assert.equal(low.success, true);
+    assert.equal((high.data as { playerPower: number }).playerPower, 140);
+    assert.equal((low.data as { playerPower: number }).playerPower, 40);
   });
 
-  test('功法等级变化改变检定结果（战力复用 PlayerPowerService）', async () => {
-    // threshold=102：realm2(40)+equip12(60)=100 差 2；skill=4 -> floor(4/2)=2 -> 恰好 102
+  test('功法等级变化同样只影响战力回显（不再拦前往）', async () => {
     const node = nodeRow({ id: 1, code: 'n1', threshold: 102, has_waypoint: false });
     const withSkill = mapDb({ maps: [mapRow()], nodes: [node], equip: '12', skill: '4' });
-    const withSkillRes = await makeService({ db: withSkill.db }).svc.enter(7, 'n1');
-    assert.equal(withSkillRes.success, true);
-    assert.equal((withSkillRes.data as { playerPower: number }).playerPower, 102);
-
     const noSkill = mapDb({ maps: [mapRow()], nodes: [node], equip: '12', skill: '2' });
-    assert.equal(failingCode(await makeService({ db: noSkill.db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
+    const a = await makeService({ db: withSkill.db }).svc.enter(7, 'n1');
+    const b = await makeService({ db: noSkill.db }).svc.enter(7, 'n1');
+    assert.equal(a.success, true);
+    assert.equal((a.data as { playerPower: number }).playerPower, 102);
+    assert.equal(b.success, true);
+    assert.equal((b.data as { playerPower: number }).playerPower, 101);
   });
 
   test('首次到达写 visited；带传送点的节点同时点亮 waypoint_unlocked', async () => {
@@ -556,16 +562,22 @@ describe('MapService.enter 相邻闸门（P2.0 §5）', () => {
     assert.deepEqual(state, [{ character_id: 11, current_node_id: 2 }]);
   });
 
-  test('相邻但战力不足 -> 仍 NODE_POWER_NOT_ENOUGH（相邻不豁免门槛）', async () => {
+  test('相邻但战力远低于门槛 -> 仍然成功（v3 §5 已删除战力限制，防回归）', async () => {
     const tough = nodeRow({ id: 3, code: 'h2', ring: 'inner', threshold: 100 });
-    const { db } = mapDb({
+    const { db, state, progress } = mapDb({
       maps: [mapRow()],
       nodes: [GATE, H1, tough],
       edges: [H1H2],
       state: [{ character_id: 11, current_node_id: 2 }],
     });
+    // CHAR 为 2 境裸装 = 40 战力，远低于 threshold=100
     const res = await makeService({ db, character: CHAR }).svc.enter(7, 'h2');
-    assert.equal(failingCode(res), 'NODE_POWER_NOT_ENOUGH');
+    assert.equal(res.success, true);
+    assert.equal(failingCode(res), undefined);
+    assert.equal((res.data as { playerPower: number }).playerPower, 40);
+    assert.equal((res.data as { threshold: number }).threshold, 100);
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 3 }]);
+    assert.equal(progress.length, 1);
   });
 
   test('新角色（current=null）：四门可进，非山门 NODE_NOT_ADJACENT', async () => {
@@ -611,10 +623,16 @@ describe('MapService 当前所在 game_map_state（P2.0 §5）', () => {
     assert.deepEqual(state, [{ character_id: 11, current_node_id: 1 }]);
   });
 
-  test('enter 失败（战力不足）不得写 current_node_id', async () => {
-    const { db, state } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '0' });
-    assert.equal(failingCode(await makeService({ db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
-    assert.deepEqual(state, []);
+  test('enter 失败（不相邻）不得写 current_node_id', async () => {
+    const h1 = nodeRow({ id: 2, code: 'h1', ring: 'inner', threshold: 10 });
+    const h2 = nodeRow({ id: 3, code: 'h2', ring: 'inner', threshold: 10 });
+    const { db, state } = mapDb({
+      maps: [mapRow()],
+      nodes: [h1, h2],
+      state: [{ character_id: 11, current_node_id: 2 }],
+    });
+    assert.equal(failingCode(await makeService({ db }).svc.enter(7, 'h2')), 'NODE_NOT_ADJACENT');
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 2 }]);
     assert.equal(db.callsMatching(/INSERT INTO game_map_state/).length, 0);
   });
 

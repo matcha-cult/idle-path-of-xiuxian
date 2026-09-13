@@ -287,13 +287,17 @@ export class MapService {
   }
 
   /**
-   * 跑图：移动到目标节点（P2.0 §5：**相邻可直接前往**）。
+   * 跑图：移动到目标节点（P2.0 v3 §5：**仅看相邻，无战力限制**）。
    *
    * 顺序：节点存在 → **相邻闸门**（非山门且与当前所在地不相邻 → `NODE_NOT_ADJACENT`）
-   * → 战力达标（否则 `NODE_POWER_NOT_ENOUGH`；恰好等于门槛视为通过）→ 写进度 + 当前所在。
+   * → 写进度 + 当前所在。
    *
    * **相邻 = `game_map_edges` 有边**（拓扑权威，服务端判定）。客户端闸门等于没有，
    * 所以这条必须在服务端。
+   *
+   * **战力限制已删除**（用户 2026-09-14：「前往以当前相邻，但是需要删除战力限制」）：
+   * `threshold` 保留为展示 / 后续战斗难度参考，但**不再拦截前往**，
+   * 本方法也**不再返回 `NODE_POWER_NOT_ENOUGH`**。
    *
    * **入口规则**：`current_node_id = null`（新角色）时只有四门可进；四门也**始终**放行
    * （「非相邻且非山门」才拒绝），这样即使 `current_node_id` 指向已删节点（配置漂移）
@@ -324,16 +328,9 @@ export class MapService {
       }
     }
 
+    // 战力不再参与闸门，但仍在响应里回显（展示用；`threshold` 降级为难度参考）
     const power = await this.playerPowerService.compute(character.id, character.realm);
     const threshold = Number(node.threshold);
-    if (power < threshold) {
-      return {
-        success: false,
-        message: '战力不足：' + node.name + '（' + power + ' < ' + threshold + '）',
-        data: { code: 'NODE_POWER_NOT_ENOUGH', nodeCode: node.code, playerPower: power, threshold },
-      };
-    }
-
     const existing = await this.progressRow(character.id, Number(node.id));
     const alreadyVisited = Boolean(existing?.visited);
     const waypointOpen = Boolean(existing?.waypoint_unlocked) || Boolean(node.has_waypoint);
