@@ -273,6 +273,10 @@ export class MapService {
               edges.filter((e) => Number(e.map_id) === Number(map.id)),
               currentId,
             );
+      // 山门**恒为相邻**（入口规则，与 `enter` 的 `isGate` 放行一致）：
+      // 新角色 `current_node_id = null` 时恰好 4 个 `adjacent = true`（四门），
+      // 否则第一个节点就进不去 —— 这是不死锁的关键。
+      const isEnterable = (n: MapNodeRow) => this.isGate(n) || adjacentIds.has(Number(n.id));
       return {
         id: Number(map.id),
         code: map.code,
@@ -289,7 +293,7 @@ export class MapService {
         backgroundKey: map.background_key ?? null,
         currentNodeCode,
         nodes: visible.map((n) =>
-          this.nodeView(n, progressView(byNodeId.get(Number(n.id))), adjacentIds.has(Number(n.id))),
+          this.nodeView(n, progressView(byNodeId.get(Number(n.id))), isEnterable(n)),
         ),
         edges: mapEdges,
         // 对象层（P2.0 §3）：一院多职能的明细，**全量下发**（对象不是探索内容），

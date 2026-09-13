@@ -705,32 +705,32 @@ describe('MapService.panel DTO（adjacent / currentNodeCode / objects）', () =>
     return data.maps[0];
   };
 
-  test('新角色：currentNodeCode=null，adjacent 全 false', async () => {
+  test('新角色：currentNodeCode=null；四门恒为 adjacent（入口规则），其余 false', async () => {
     const view = await panelView({ edges: [AB] });
     assert.equal(view.currentNodeCode, null);
     assert.deepEqual(view.nodes.map((n) => [n.code, n.adjacent]), [
-      ['g', false],
+      ['g', true],
       ['a', false],
       ['b', false],
       ['c', false],
     ]);
   });
 
-  test('currentNodeCode 来自 game_map_state；adjacent 只对当前节点的邻居为 true', async () => {
+  test('currentNodeCode 来自 game_map_state；adjacent 含当前节点的邻居 + 全部山门', async () => {
     const view = await panelView({ edges: [AB], state: [{ character_id: 11, current_node_id: 2 }] });
     assert.equal(view.currentNodeCode, 'a');
     assert.deepEqual(view.nodes.map((n) => [n.code, n.adjacent]), [
-      ['g', false],
+      ['g', true],
       ['a', false],
       ['b', true],
       ['c', false],
     ]);
   });
 
-  test('current_node_id 指向已删节点（配置漂移）-> currentNodeCode=null，adjacent 全 false，不崩', async () => {
+  test('current_node_id 指向已删节点（配置漂移）-> currentNodeCode=null，只有山门可前往，不崩', async () => {
     const view = await panelView({ edges: [AB], state: [{ character_id: 11, current_node_id: 999 }] });
     assert.equal(view.currentNodeCode, null);
-    assert.deepEqual(view.nodes.map((n) => n.adjacent), [false, false, false, false]);
+    assert.deepEqual(view.nodes.map((n) => n.adjacent), [true, false, false, false]);
   });
 
   test('current_node_id 属于另一张地图 -> 本图 currentNodeCode=null（不串图）', async () => {
