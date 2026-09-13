@@ -175,7 +175,14 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 > `ToastBridge`（`App.useApp()` 的 message，禁静态 API）+ antd 版登录/建角页；
 > `styles.css` **457 → 37 行**（只剩布局胶水），全仓 src 除 store/registry 外 **无 >200 行文件**；
 > 域 Store 加 `observable.shallow`（只读大数组不做深 observable）与 `LoadGuard`（过期响应回写拦截，
-> 已实测「去掉守卫则 2 个竞态用例失败」）。`packages/web` 测试见下方验收表。
+> 已实测「去掉守卫则 2 个竞态用例失败」）。
+>
+> **M3 验收数字（2026-09-13 实测）**：`packages/ui-kit` typecheck/build 0 错、**231 例 / 32 文件**
+> 全绿（覆盖率 statements/lines 99.55%、functions 96.96%、branches 95.90%）；
+> `packages/web` typecheck/build 0 错、**177 例 / 25 文件**全绿（+1 例真后端 e2e 需 `IONET_E2E=1`，
+> 单独跑通过）；`packages/ionet-transport` 65 例；`idle-path-server verify` 1333 例 0 失败；
+> `pnpm -r run build` exit 0；web CSS 产物 5.97KB → 0.29KB。
+> Vite dev 实测：`/` 200，`App → GameShellPage → panel-registry` 与 11 个面板模块全部 200。
 
 ---
 
