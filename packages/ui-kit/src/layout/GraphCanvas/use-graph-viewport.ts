@@ -10,7 +10,11 @@
  * - 拖动平移用 pointer 事件（鼠标 / 触摸同一套）；位移 **> 8px** 记为拖动，不再当作点击。
  */
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import type {
+  MutableRefObject,
+  PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
+} from 'react';
 import { DRAG_THRESHOLD_PX, MAX_ZOOM_FACTOR, clampPan, clampZoom, fitZoom, zoomAt } from './geometry.js';
 
 export interface Point {
@@ -28,7 +32,8 @@ interface DragState {
 }
 
 export interface GraphCanvasViewport {
-  ref: React.RefObject<HTMLDivElement | null>;
+  /** 容器 ref（交给最外层 div）。 */
+  ref: MutableRefObject<HTMLDivElement | null>;
   zoom: number;
   pan: Point;
   onWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;

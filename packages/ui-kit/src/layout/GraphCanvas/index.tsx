@@ -27,6 +27,12 @@ import { useGraphViewport } from './use-graph-viewport.js';
 import type { Point } from './use-graph-viewport.js';
 import type { GraphCanvasItem, GraphCanvasProps } from './types.js';
 
+export type {
+  GraphCanvasItem,
+  GraphCanvasLink,
+  GraphCanvasProps,
+} from './types.js';
+
 export function GraphCanvas(props: GraphCanvasProps) {
   const { rows, cols, items: rawItems, links = [], cellPx, showGrid = false, onBackgroundClick, ariaLabel } = props;
   const { token } = theme.useToken();
