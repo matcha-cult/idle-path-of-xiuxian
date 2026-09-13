@@ -421,6 +421,9 @@ model game_maps {
   chapter_to        Int      @db.SmallInt
   requires_map_code String?  @db.VarChar(50)
   description       String?  @db.Text
+  grid_rows         Int      @default(21) @db.SmallInt // 坐标空间行数：交叉线索引 0..grid_rows（§14.1）
+  grid_cols         Int      @default(21) @db.SmallInt // 坐标空间列数：交叉线索引 0..grid_cols
+  background_key    String?  @db.VarChar(100) // 预留：底图资源 key（本轮恒为 null）
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @updatedAt @db.Timestamp(6)
 
@@ -443,9 +446,13 @@ model game_map_nodes {
   requires_node_code String?  @db.VarChar(50)
   zone_code          String?  @db.VarChar(50) // kind=secret_realm 时指向 game_zones.code
   order_index        Int
+  grid_row           Int      @db.SmallInt // 0-based 交叉线索引，0..grid_rows
+  grid_col           Int      @db.SmallInt // 0-based 交叉线索引，0..grid_cols
+  description        String?  @db.Text // 风味文案（悬停卡 / 右栏详情）
   created_at         DateTime @default(now()) @db.Timestamp(6)
   updated_at         DateTime @updatedAt @db.Timestamp(6)
 
+  @@unique([map_id, grid_row, grid_col]) // 一个交叉点至多一个节点（重叠格子在画布上只是叠按钮）
   @@index([map_id, order_index])
 }
 

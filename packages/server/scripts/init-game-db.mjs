@@ -294,9 +294,16 @@ CREATE TABLE IF NOT EXISTS game_maps (
   chapter_to        SMALLINT NOT NULL,
   requires_map_code VARCHAR(50),
   description       TEXT,
+  grid_rows         SMALLINT NOT NULL DEFAULT 21, -- 坐标空间行数：交叉线索引 0..grid_rows（§14.1）
+  grid_cols         SMALLINT NOT NULL DEFAULT 21, -- 坐标空间列数：交叉线索引 0..grid_cols
+  background_key    VARCHAR(100),                 -- 预留：底图资源 key（本轮恒为 NULL）
   created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+-- P1 画布增量列（幂等：老库补列；新库由上面的 CREATE 带上）
+ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_rows SMALLINT NOT NULL DEFAULT 21;
+ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_cols SMALLINT NOT NULL DEFAULT 21;
+ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS background_key VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_game_maps_order ON game_maps(order_index);
 
 CREATE TABLE IF NOT EXISTS game_map_nodes (
@@ -315,6 +322,9 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
   requires_node_code VARCHAR(50),
   zone_code          VARCHAR(50),          -- kind=secret_realm 时指向 game_zones.code
   order_index        INTEGER NOT NULL,
+  grid_row           SMALLINT NOT NULL,     -- 0-based 交叉线索引，0..grid_rows
+  grid_col           SMALLINT NOT NULL,     -- 0-based 交叉线索引，0..grid_cols
+  description        TEXT,                  -- 风味文案（悬停卡 / 右栏详情）
   created_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -326,6 +336,21 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
 ALTER TABLE game_maps DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS unit_code;
+-- P1 画布增量列（幂等）。已有行没有坐标，先建可空列让老库能过，再由紧随其后的
+-- 「坐标回填校验」在库里有老节点时直接报错 —— 宁可让 db:init:game 失败，
+-- 也不要在 NOT NULL 上加一个「看起来合法」的默认值把节点静默排成一列。
+ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS grid_row SMALLINT;
+ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS grid_col SMALLINT;
+ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS description TEXT;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM game_map_nodes WHERE grid_row IS NULL OR grid_col IS NULL) THEN
+    ALTER TABLE game_map_nodes ALTER COLUMN grid_row SET NOT NULL;
+    ALTER TABLE game_map_nodes ALTER COLUMN grid_col SET NOT NULL;
+  END IF;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_game_map_nodes_grid
+  ON game_map_nodes(map_id, grid_row, grid_col);
 CREATE INDEX IF NOT EXISTS idx_game_map_nodes_map ON game_map_nodes(map_id, order_index);
 
 CREATE TABLE IF NOT EXISTS game_map_edges (
@@ -683,8 +708,8 @@ try {
   await client.query('DELETE FROM game_maps');
   for (const m of maps) {
     await client.query(
-      'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.description ?? null],
+      'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, description, grid_rows, grid_cols, background_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, grid_rows=EXCLUDED.grid_rows, grid_cols=EXCLUDED.grid_cols, background_key=EXCLUDED.background_key RETURNING id',
+      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.description ?? null, m.gridRows ?? 21, m.gridCols ?? 21, m.backgroundKey ?? null],
     );
   }
   await client.query("SELECT setval('game_maps_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_maps));");
@@ -708,8 +733,8 @@ try {
       throw new Error(`节点 ${n.code} 引用了未定义秘境: ${zoneCode}`);
     }
     const res = await client.query(
-      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, has_waypoint, chapter, requires_node_code, zone_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, order_index=EXCLUDED.order_index RETURNING id',
-      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, n.orderIndex],
+      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, has_waypoint, chapter, requires_node_code, zone_code, order_index, grid_row, grid_col, description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, order_index=EXCLUDED.order_index, grid_row=EXCLUDED.grid_row, grid_col=EXCLUDED.grid_col, description=EXCLUDED.description RETURNING id',
+      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, n.orderIndex, n.gridRow ?? null, n.gridCol ?? null, n.description ?? null],
     );
     nodeIdByCode.set(n.code, Number(res.rows[0].id));
   }
@@ -741,6 +766,21 @@ try {
   const orphanZones = await client.query(
     'SELECT COUNT(*)::int AS c FROM game_map_nodes n LEFT JOIN game_zones z ON z.code = n.zone_code WHERE n.zone_code IS NOT NULL AND z.id IS NULL',
   );
+  // P1 画布：坐标必须齐全且在 0..grid_rows / 0..grid_cols 内（越界 = 枢纽画到画布外，玩家永远点不到）
+  const badGrid = await client.query(
+    `SELECT n.code, n.grid_row, n.grid_col, m.grid_rows, m.grid_cols
+       FROM game_map_nodes n JOIN game_maps m ON m.id = n.map_id
+      WHERE n.grid_row IS NULL OR n.grid_col IS NULL
+         OR n.grid_row < 0 OR n.grid_row > m.grid_rows
+         OR n.grid_col < 0 OR n.grid_col > m.grid_cols
+      ORDER BY n.code`,
+  );
+  if (badGrid.rows.length > 0) {
+    const list = badGrid.rows
+      .map((r) => `${r.code}(${r.grid_row ?? 'null'},${r.grid_col ?? 'null'})`)
+      .join(', ');
+    throw new Error(`地图节点坐标缺失或越界（须落在 0..grid_rows / 0..grid_cols 内）：${list}`);
+  }
   const orphanMapRefs = Number(orphanNodes.rows[0].c) + Number(orphanRequires.rows[0].c) + Number(orphanZones.rows[0].c);
   if (orphanMapRefs > 0) {
     throw new Error(`地图种子存在 ${orphanMapRefs} 处悬空引用（map/requires/zone）`);
