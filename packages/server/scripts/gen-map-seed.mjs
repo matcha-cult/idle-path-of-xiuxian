@@ -119,18 +119,34 @@ const NODES = [
 ];
 
 /**
- * 邻接表（P2.0 §4）。
+ * 邻接表（P2.0 §4，共 **32 条**，平均度 3.8）。
  *
- * T2 先用一棵**连通的过渡树**（16 条）把新枢纽接起来，T4 会替换成最终的 **32 条**：
- * 八峰环 8 + 山门接两邻峰 8 + 峰→对应院 8 + 四院环 4 + 四院→主峰 4。
+ * 走法心智：`进山门 → 过八峰 → 入院 → 至主峰`。
+ * **「峰→院」那 8 条是内环的唯一入口**（八峰环与四院环半径不同、互不接触），
+ * 漏掉它们内环就走不进去 —— 由 map-seed 的「从北门出发能走遍全部 17 个节点」用例守着。
+ *
+ * ⚠️ 本表是**可改的种子数据**（甲方提议、用户未逐字确认 §4）：改这里只动拓扑，不动代码。
  */
 const EDGES = [
-  // 四院 → 青云主峰（放射）
-  ['qy_chuanfayuan', 'qy_summit'],
-  ['qy_yulingyuan', 'qy_summit'],
-  ['qy_baigongyuan', 'qy_summit'],
-  ['qy_zhifayuan', 'qy_summit'],
-  // 峰 → 几何最近的院（内环唯一入口）
+  // 八峰环（8）：第一—第八—第七—第六—第五—第四—第三—第二—第一
+  ['qy_peak_1', 'qy_peak_xunlian'],
+  ['qy_peak_xunlian', 'qy_peak_7'],
+  ['qy_peak_7', 'qy_peak_6'],
+  ['qy_peak_6', 'qy_peak_5'],
+  ['qy_peak_5', 'qy_peak_4'],
+  ['qy_peak_4', 'qy_peak_3'],
+  ['qy_peak_3', 'qy_peak_2'],
+  ['qy_peak_2', 'qy_peak_1'],
+  // 山门接两邻峰（8）：正北让给北门，第一峰与第八峰夹住它
+  ['qy_gate_n', 'qy_peak_1'],
+  ['qy_gate_n', 'qy_peak_xunlian'],
+  ['qy_gate_e', 'qy_peak_7'],
+  ['qy_gate_e', 'qy_peak_6'],
+  ['qy_gate_s', 'qy_peak_5'],
+  ['qy_gate_s', 'qy_peak_4'],
+  ['qy_gate_w', 'qy_peak_2'],
+  ['qy_gate_w', 'qy_peak_3'],
+  // 峰 → 几何最近的院（8）：内环的唯一入口
   ['qy_peak_1', 'qy_chuanfayuan'],
   ['qy_peak_xunlian', 'qy_chuanfayuan'],
   ['qy_peak_2', 'qy_zhifayuan'],
@@ -139,11 +155,16 @@ const EDGES = [
   ['qy_peak_5', 'qy_baigongyuan'],
   ['qy_peak_6', 'qy_yulingyuan'],
   ['qy_peak_7', 'qy_yulingyuan'],
-  // 四门 → 青云主峰（过渡：T4 改成「山门接两邻峰」）
-  ['qy_gate_n', 'qy_summit'],
-  ['qy_gate_e', 'qy_summit'],
-  ['qy_gate_s', 'qy_summit'],
-  ['qy_gate_w', 'qy_summit'],
+  // 四院环（4）：传法—育灵—百工—执法—传法（N→E→S→W）
+  ['qy_chuanfayuan', 'qy_yulingyuan'],
+  ['qy_yulingyuan', 'qy_baigongyuan'],
+  ['qy_baigongyuan', 'qy_zhifayuan'],
+  ['qy_zhifayuan', 'qy_chuanfayuan'],
+  // 四院 → 青云主峰（4，放射）
+  ['qy_chuanfayuan', 'qy_summit'],
+  ['qy_yulingyuan', 'qy_summit'],
+  ['qy_baigongyuan', 'qy_summit'],
+  ['qy_zhifayuan', 'qy_summit'],
 ];
 
 const WORLD = 'world_qingyun';

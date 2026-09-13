@@ -385,6 +385,95 @@ describe('地图种子 · 结构与数值自洽', () => {
   });
 });
 
+// ===== 邻接表（P2.0 §4，32 条，可改的种子数据）=====
+
+/** 无向邻接（`bidirectional !== false` 时两端都算）。 */
+function adjacencyOfAll(): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>();
+  for (const node of nodes) adjacency.set(node.code, []);
+  for (const edge of edges) {
+    adjacency.get(edge.fromNodeCode)?.push(edge.toNodeCode);
+    if (edge.bidirectional !== false) adjacency.get(edge.toNodeCode)?.push(edge.fromNodeCode);
+  }
+  return adjacency;
+}
+
+/** 从 `start` 出发的 BFS 可达集合。 */
+function reachableFrom(start: string): Set<string> {
+  const adjacency = adjacencyOfAll();
+  const reached = new Set<string>([start]);
+  const queue = [start];
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    for (const next of adjacency.get(current) ?? []) {
+      if (reached.has(next)) continue;
+      reached.add(next);
+      queue.push(next);
+    }
+  }
+  return reached;
+}
+
+describe('地图邻接表 · 32 条（P2.0 §4）', () => {
+  test('边数正好 32，无自环、无重复（无向去重）', () => {
+    assert.strictEqual(edges.length, 32, '边数变化了 —— 若是有意调整请同步任务书 §4');
+    const seen = new Set<string>();
+    for (const e of edges) {
+      assert.notStrictEqual(e.fromNodeCode, e.toNodeCode, `边 ${e.id} 是自环`);
+      const key = [e.fromNodeCode, e.toNodeCode].sort().join('|');
+      assert.ok(!seen.has(key), `无向边重复：${e.fromNodeCode} ↔ ${e.toNodeCode}`);
+      seen.add(key);
+    }
+  });
+
+  test('分组计数：八峰环 8 / 山门接两邻峰 8 / 峰→院 8 / 四院环 4 / 四院→主峰 4', () => {
+    const set = new Set(edges.map((e) => [e.fromNodeCode, e.toNodeCode].sort().join('|')));
+    const has = (a: string, b: string) => set.has([a, b].sort().join('|'));
+    const peaks = ['qy_peak_1', 'qy_peak_2', 'qy_peak_3', 'qy_peak_4', 'qy_peak_5', 'qy_peak_6', 'qy_peak_7', 'qy_peak_xunlian'];
+    // 八峰环：每个峰恰好与环上两个峰相邻
+    for (const peak of peaks) {
+      const ringNeighbors = peaks.filter((other) => other !== peak && has(peak, other));
+      assert.strictEqual(ringNeighbors.length, 2, `${peak} 的八峰环邻居应为 2 个`);
+    }
+    // 山门接两邻峰
+    const gatePeaks: [string, string[]][] = [
+      ['qy_gate_n', ['qy_peak_1', 'qy_peak_xunlian']],
+      ['qy_gate_e', ['qy_peak_7', 'qy_peak_6']],
+      ['qy_gate_s', ['qy_peak_5', 'qy_peak_4']],
+      ['qy_gate_w', ['qy_peak_2', 'qy_peak_3']],
+    ];
+    for (const [gate, list] of gatePeaks) {
+      for (const peak of list) assert.ok(has(gate, peak), `${gate} 应接 ${peak}`);
+    }
+    // 峰→院：内环的唯一入口（每个院恰好 2 个峰）
+    const halls = ['qy_chuanfayuan', 'qy_yulingyuan', 'qy_baigongyuan', 'qy_zhifayuan'];
+    for (const hall of halls) {
+      const peaksToHall = peaks.filter((peak) => has(peak, hall));
+      assert.strictEqual(peaksToHall.length, 2, `${hall} 应由恰好 2 个峰接入（内环唯一入口）`);
+      assert.ok(has(hall, 'qy_summit'), `${hall} 应放射到青云主峰`);
+    }
+    // 四院环
+    assert.ok(has('qy_chuanfayuan', 'qy_yulingyuan'));
+    assert.ok(has('qy_yulingyuan', 'qy_baigongyuan'));
+    assert.ok(has('qy_baigongyuan', 'qy_zhifayuan'));
+    assert.ok(has('qy_zhifayuan', 'qy_chuanfayuan'));
+  });
+
+  test('从北门出发能走遍全部 17 个节点（八峰环 + 峰→院 + 院→主峰必须真接通）', () => {
+    const reached = reachableFrom('qy_gate_n');
+    const unreachable = nodes.filter((n) => !reached.has(n.code)).map((n) => n.code);
+    assert.deepStrictEqual(unreachable, [], `从北门出发不可达：${unreachable.join(', ')}`);
+    assert.strictEqual(reached.size, 17);
+  });
+
+  test('每个节点至少有一条边（无孤岛）', () => {
+    const adjacency = adjacencyOfAll();
+    for (const node of nodes) {
+      assert.ok((adjacency.get(node.code) ?? []).length > 0, `${node.code} 是孤岛（没有任何邻接）`);
+    }
+  });
+});
+
 // ===== 对象层（P2.0 §3）：一院多职能的明细 =====
 
 interface MapObjectSeed {
