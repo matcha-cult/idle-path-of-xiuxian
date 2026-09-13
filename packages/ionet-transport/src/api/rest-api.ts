@@ -44,7 +44,11 @@ export class RestClient {
     this.baseUrl = (options.baseUrl ?? '/api').replace(/\/$/, '');
     const impl = options.fetchImpl ?? (globalThis as { fetch?: FetchLike }).fetch;
     if (impl === undefined) throw new Error('RestClient: 当前环境没有 fetch，请注入 fetchImpl');
-    this.fetchImpl = impl;
+    // ⚠️ 浏览器里 `fetch` 必须带 `this === window` 调用，否则抛
+    // `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation`。
+    // 从 globalThis 取的 fetch 若直接存为字段再以 `this.fetchImpl(...)` 调用，receiver 会变成
+    // RestClient 实例 —— 必须绑定回 globalThis（注入的 fetchImpl 为调用方责任，同样绑定无副作用）。
+    this.fetchImpl = impl.bind(globalThis);
     this.tokenProvider = options.tokenProvider;
   }
 
@@ -92,6 +96,11 @@ export class RestClient {
     const result = payload as ActionResult<TData> | undefined;
     if (result === undefined || typeof result !== 'object') {
       throw new RestError(response.status, '响应缺少结果信封', payload);
+    }
+    // REST 三条 controller 的成功/失败体恒带 boolean `success`（07 §0.4）；
+    // 裸报告体（如 `/api/health`）不满足该形状，视为误用而非静默通过。
+    if (typeof result.success !== 'boolean') {
+      throw new RestError(response.status, '响应缺少 success 字段（该 endpoint 不是结果信封形状）', payload);
     }
     if (result.success === false) {
       // REST 业务失败无业务码（07 §0.4），统一 UNKNOWN。
