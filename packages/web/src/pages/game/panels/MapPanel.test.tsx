@@ -577,3 +577,94 @@ describe('MapPanel · 地图→历练秘境峰→挂机的闭环（用户定调�
     });
   });
 });
+
+/**
+ * B1 修复的守门测试：「移动到另一个节点」**不得**把整块面板（画布 + 详情）卸载换成骨架屏。
+ *
+ * 根因：`enter` 曾经同步置面板级 `loading = true`，而 `AsyncBoundary` 的 `loading` 优先级最高
+ * —— 点一下「前往」，画布瞬间消失，WS 慢或正在重连时这个白会一直持续（用户实测「白屏」）。
+ */
+describe('MapPanel · 点「前往」不卸载面板（B1 修复）', () => {
+  const ok = (data: unknown) => ({ data: { success: true, message: 'ok', data } });
+
+  /** 只服务地图域：enter 成功体 + map.list 真值（当前所在 = 东门）。 */
+  function mapHandler(onEnter?: () => Promise<void>): unknown {
+    return async (request: { cmd: number; subCmd: number }) => {
+      if (request.cmd !== MAP_CMD.cmd) return null;
+      if (request.subCmd === MAP_CMD.list) {
+        return ok({ maps: [makeMap(NODES, EDGES, { currentNodeCode: 'qy_gate_e' })], playerPower: 100 });
+      }
+      if (request.subCmd === MAP_CMD.enter) {
+        if (onEnter !== undefined) await onEnter();
+        return ok({
+          node: { ...GATE_E, adjacent: false },
+          playerPower: 100,
+          threshold: 10,
+          firstVisit: true,
+        });
+      }
+      return null;
+    };
+  }
+
+  function setupWith(handler: unknown): ReturnType<typeof createPanelHarness> {
+    const harness = createPanelHarness({ handler: handler as never });
+    harness.seed(() => {
+      harness.root.map.maps = [makeMap(NODES, EDGES)];
+      harness.root.map.nodes = NODES;
+      harness.root.map.edges = EDGES;
+      harness.root.map.selectedMapCode = 'map_qingyun';
+      harness.root.map.playerPower = 100;
+    });
+    return harness;
+  }
+
+  it('enter 在飞时：画布与详情仍在 DOM，只有按钮 loading', async () => {
+    let open: () => void = () => {};
+    const pending = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    const harness = setupWith(mapHandler(() => pending));
+    harness.render(<MapPanel />);
+    await harness.connect();
+
+    const button = screen.getByTestId('map-node-enter-qy_gate_e');
+    await userEvent.click(button);
+
+    await waitFor(() => expect(button).toHaveClass('ant-btn-loading'));
+    // 关键断言：面板没有被换成骨架屏，画布与详情都还在
+    expect(screen.queryByTestId('async-boundary-loading')).toBeNull();
+    expect(screen.getByTestId('map-canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('map-node-card-qy_gate_e')).toBeInTheDocument();
+
+    open();
+    await waitFor(() => expect(harness.root.map.moving).toBe(false));
+    expect(screen.getByTestId('map-canvas')).toBeInTheDocument();
+    expect(screen.queryByTestId('async-boundary-loading')).toBeNull();
+  });
+
+  it('静默刷新失败：保留旧数据，不切骨架屏、不切错误页', async () => {
+    // enter 成功、随后的 map.list 失败
+    const handler = async (request: { cmd: number; subCmd: number }): Promise<unknown> => {
+      if (request.cmd !== MAP_CMD.cmd) return null;
+      if (request.subCmd === MAP_CMD.enter) {
+        return ok({ node: { ...GATE_E, adjacent: false }, playerPower: 100, threshold: 10, firstVisit: true });
+      }
+      if (request.subCmd === MAP_CMD.list) return { errorCode: 500, errorMessage: '刷新失败' };
+      return null;
+    };
+    const harness = setupWith(handler);
+    harness.render(<MapPanel />);
+    await harness.connect();
+
+    await userEvent.click(screen.getByTestId('map-node-enter-qy_gate_e'));
+    await waitFor(() => expect(harness.root.map.moving).toBe(false));
+
+    expect(harness.root.map.nodes).toHaveLength(NODES.length);
+    expect(harness.root.map.error).toBeNull();
+    expect(screen.getByTestId('map-canvas')).toBeInTheDocument();
+    expect(screen.queryByTestId('async-boundary-loading')).toBeNull();
+    expect(screen.queryByTestId('async-boundary-error')).toBeNull();
+    expect(screen.getByTestId('map-node-card-qy_gate_e')).toBeInTheDocument();
+  });
+});

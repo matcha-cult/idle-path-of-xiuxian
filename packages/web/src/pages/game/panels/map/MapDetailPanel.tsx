@@ -20,13 +20,27 @@ export interface MapDetailPanelProps {
   currentCode: string | null;
   /** 当前地图的**全部**对象（P2.0 §3）；本组件按宿主 `nodeCode` 过滤后交给节点卡。 */
   objects?: readonly MapObjectView[];
+  /** 「前往 / 传送」请求进行中（按钮级 loading；面板内容不卸载）。 */
+  moving?: boolean;
+  /** 正在移动的目标节点 code。 */
+  movingTo?: string | null;
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
   onEnterRealm?: (zoneCode: string) => void;
 }
 
 export function MapDetailPanel(props: MapDetailPanelProps) {
-  const { node, playerPower, currentCode, objects = [], onEnter, onWaypoint, onEnterRealm } = props;
+  const {
+    node,
+    playerPower,
+    currentCode,
+    objects = [],
+    moving = false,
+    movingTo = null,
+    onEnter,
+    onWaypoint,
+    onEnterRealm,
+  } = props;
   const state = nodeVisualState(node, currentCode);
   const nodeObjects = objects.filter((object) => object.nodeCode === node.code);
   return (
@@ -39,6 +53,8 @@ export function MapDetailPanel(props: MapDetailPanelProps) {
         playerPower={playerPower}
         current={state === 'current'}
         objects={nodeObjects}
+        moving={moving}
+        movingTo={movingTo}
         onEnter={onEnter}
         onWaypoint={onWaypoint}
         onEnterRealm={onEnterRealm}

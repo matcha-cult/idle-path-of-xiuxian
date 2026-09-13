@@ -33,6 +33,10 @@ export interface MapNodeCardProps {
   current: boolean;
   /** 该节点的职能对象（P2.0 §3；容器按宿主 `nodeCode` 过滤后传入）。 */
   objects?: readonly MapObjectView[];
+  /** 「前往 / 传送」请求进行中（按钮级 loading；面板内容不卸载）。 */
+  moving?: boolean;
+  /** 正在移动的目标节点 code（loading 只给它）。 */
+  movingTo?: string | null;
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
   /** 秘境节点专用：把挂机目标切到该秘境（`zoneCode` 由服务端下发）。 */
@@ -51,11 +55,23 @@ function detailEntries(node: MapNodeView, playerPower: number): KeyValueEntry[] 
 }
 
 export function MapNodeCard(props: MapNodeCardProps) {
-  const { node, playerPower, current, objects = [], onEnter, onWaypoint, onEnterRealm } = props;
+  const {
+    node,
+    playerPower,
+    current,
+    objects = [],
+    moving = false,
+    movingTo = null,
+    onEnter,
+    onWaypoint,
+    onEnterRealm,
+  } = props;
   const waypointReady = canUseWaypoint(node, current ? node.code : null);
   const enterLabel = current ? '当前所在' : enterActionLabel(node);
   // v3 §5：前往只看相邻（山门由服务端恒置 adjacent=true）；战力不参与。
   const canEnter = !current && node.adjacent;
+  // 移动中的反馈**只落在按钮上**：面板（画布 / 详情）全程保持挂载，不闪骨架屏（B1）
+  const thisTarget = moving && movingTo === node.code;
   const enterHint = current
     ? undefined
     : node.adjacent
@@ -104,7 +120,8 @@ export function MapNodeCard(props: MapNodeCardProps) {
                 <span>
                   <Button
                     type="primary"
-                    disabled={!canEnter}
+                    disabled={!canEnter || moving}
+                    loading={thisTarget}
                     data-testid={`map-node-enter-${node.code}`}
                     onClick={() => onEnter(node.code)}
                   >
@@ -116,7 +133,8 @@ export function MapNodeCard(props: MapNodeCardProps) {
                 <Tooltip title={waypointReady ? undefined : '到达该节点后点亮传送点'}>
                   <span>
                     <Button
-                      disabled={!waypointReady}
+                      disabled={!waypointReady || moving}
+                      loading={thisTarget}
                       data-testid={`map-node-waypoint-${node.code}`}
                       onClick={() => onWaypoint(node.code)}
                     >

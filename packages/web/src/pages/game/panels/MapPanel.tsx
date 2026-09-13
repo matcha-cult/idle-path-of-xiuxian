@@ -16,6 +16,7 @@
  * - 服务端只下发已发现节点与两端均已发现的边，面板**不得自行造节点**，也不过滤；
  * - 坐标缺失 / 坐标空间非法（老服务端、手改种子）→ 自动降级到**列表视图**，不崩；
  * - 开发者网格走 `resolveMapDebug(env, search)`（纯前端，后端与协议零参与，§13.1）；
+ * - **`loading`（骨架屏）只用于首屏 / 整图重载**：移动期间面板不卸载，反馈落按钮（B1 修复）；
  * - 协议字段不上屏：`code` 只做 key/testid，`featureKey` 原文不展示。
  */
 import { useRef, useState } from 'react';
@@ -53,8 +54,7 @@ export const MapPanel = observer(function MapPanel() {
   const debug = resolveMapDebug(import.meta.env, window.location.search);
   // 坐标不可用（老服务端 / 手改种子）→ 强制列表视图，绝不用 NaN 去定位
   const mode = gridReady ? view : 'list';
-  /** `<md`：上下堆叠 + 详情降级为底部 Drawer（§12.2）。md 断点未就绪时按桌面处理。 */
-  const compact = screens.md === false;
+  const compact = screens.md === false; // `<md` 上下堆叠 + 详情降级为 Drawer（§12.2）；断点未就绪按桌面
 
   // 详情默认落在当前所在节点；没有位置时退回第一个已发现节点（可能是 null）。
   const fallback = nodes.find((node) => node.code === map.currentCode) ?? nodes[0] ?? null;
@@ -94,12 +94,13 @@ export const MapPanel = observer(function MapPanel() {
         playerPower={map.playerPower}
         currentCode={map.currentCode}
         objects={map.objects}
+        moving={map.moving}
+        movingTo={map.movingTo}
         onEnter={goToNode}
         onWaypoint={(code) => void map.waypoint(code)}
         onEnterRealm={enterRealm}
       />
     );
-
   return (
     <Flex vertical gap={12}>
       <SectionCard
@@ -140,7 +141,6 @@ export const MapPanel = observer(function MapPanel() {
                 ]}
               />
             </div>
-
             <Row gutter={[12, 12]} data-testid="map-main">
               <Col xs={24} md={16} data-testid="map-route">
                 {mode === 'canvas' ? (
