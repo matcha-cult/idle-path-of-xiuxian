@@ -240,6 +240,19 @@ describe('MapPanel · 画布（缺省视图）', () => {
     expect(within(screen.getByTestId('map-canvas')).queryByText('东门')).toBeNull();
   });
 
+  it('全量下发：17 个节点全部渲染到画布（P2.0 §7）', () => {
+    const many = Array.from({ length: 17 }, (_, i) =>
+      makeNode({ id: 100 + i, code: `qy_n_${i}`, name: `点${i}`, gridRow: i, gridCol: i, adjacent: i < 4 }),
+    );
+    const harness = setup((root) => {
+      root.map.nodes = many;
+      root.map.edges = [];
+    });
+    harness.render(<MapPanel />);
+    for (const n of many) expect(screen.getByTestId(`graph-canvas-item-${n.code}`)).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^graph-canvas-item-qy_n_/)).toHaveLength(17);
+  });
+
   it('当前节点是 current 态、已到达是 visited 态、其余是 known 态', () => {
     const harness = setup((root) => {
       root.map.currentCode = 'qy_houshan';
