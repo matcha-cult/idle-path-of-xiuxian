@@ -21,6 +21,7 @@ import { CharacterModule } from './modules/character/character.module.js';
 import { GameModule } from './modules/game/game.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { EdgeModule } from './modules/edge/edge.module.js';
+import { OnlineModule } from './modules/online/online.module.js';
 import { GAME_ACTION_CLASSES, GAME_LOGIC_MODULES } from './ionet/game-actions.js';
 import { appRef } from './ionet/app-ref.js';
 import { verifyBearerHeader, verifyJwt } from './common/auth/jwt.js';
@@ -80,6 +81,7 @@ function tokenFromUrl(url: string): string {
     GameModule,
     HealthModule,
     EdgeModule,
+    OnlineModule,
     ...GAME_LOGIC_MODULES,
   ],
   providers: [
