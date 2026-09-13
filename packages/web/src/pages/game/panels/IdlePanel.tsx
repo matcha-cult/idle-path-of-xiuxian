@@ -104,7 +104,6 @@ export const IdlePanel = observer(function IdlePanel() {
               <Flex vertical gap={12}>
                 <div data-testid="idle-stats">
                   <StatGrid
-                    column={4}
                     items={[
                       { key: 'pending', label: '待结算时长', value: formatDuration(status.pendingHours) },
                       { key: 'effective', label: '有效时长', value: formatDuration(status.effectiveHours) },
@@ -124,7 +123,7 @@ export const IdlePanel = observer(function IdlePanel() {
                 </div>
 
                 <div data-testid="idle-rules">
-                  <KeyValueList column={3} items={ruleEntries(status.config)} />
+                  <KeyValueList column={{ xs: 1, sm: 2, md: 3 }} items={ruleEntries(status.config)} />
                 </div>
               </Flex>
             )}
@@ -162,7 +161,7 @@ export const IdlePanel = observer(function IdlePanel() {
                         这段时间没有可结算的收益，新收益会继续累积
                       </Typography.Text>
                     ) : null}
-                    <KeyValueList column={2} items={settleEntries(last)} />
+                    <KeyValueList column={{ xs: 1, sm: 2 }} items={settleEntries(last)} />
                     <SettlementSummary
                       lingyun={{ gained: last.lingyunGained, total: last.lingyunTotal }}
                       kept={last.kept}

@@ -85,7 +85,7 @@ export const RealmPanel = observer(function RealmPanel() {
     <Flex vertical gap={12}>
       <SectionCard
         title="境界"
-        subtitle={`共 ${TOTAL_REALMS} 境 · 灵韵是唯一的破境燃料`}
+        subtitle="灵韵是唯一的破境燃料"
         extra={
           <Button onClick={() => void realm.load()} data-testid="realm-refresh">
             刷新境界
@@ -103,13 +103,14 @@ export const RealmPanel = observer(function RealmPanel() {
             <Flex vertical gap={12}>
               <div data-testid="realm-progress-stats">
                 <StatGrid
-                  column={4}
                   items={[
                     {
                       key: 'realm',
-                      label: '当前境界',
+                      // 进度说明放 `label`（antd Statistic 的 title：小字灰字），**不要放 `suffix`**——
+                      // v6 里 suffix 与 value 共用 `contentFontSize`，说明文字会被当主数值渲染：
+                      // PC 上折成 2 行、393px 手机上折成 7 行（一字一行）。value 只留境界名。
+                      label: `当前境界 · 第 ${status.realm} / ${TOTAL_REALMS} 境`,
                       value: status.realmName,
-                      suffix: `（第 ${status.realm} 境 / 共 ${TOTAL_REALMS} 境）`,
                     },
                     { key: 'lingyun', label: '剩余灵韵', value: formatCompactNumber(status.lingyun) },
                     {
@@ -186,7 +187,7 @@ export const RealmPanel = observer(function RealmPanel() {
       {status === null ? null : (
         <SectionCard title="破境后解锁" subtitle="下一境可穿的装备阶与可进秘境">
           <div data-testid="realm-unlock">
-            <KeyValueList column={2} items={unlockEntries(status, zone.zones)} />
+            <KeyValueList column={{ xs: 1, sm: 2 }} items={unlockEntries(status, zone.zones)} />
           </div>
         </SectionCard>
       )}

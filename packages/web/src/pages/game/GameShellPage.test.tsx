@@ -74,18 +74,20 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     expect(within(content).queryByTestId('panel-placeholder-root')).toBeNull();
   });
 
-  it('重做进度：zone / realm / idle 已 ready，其余 8 个仍为占位（pending）', () => {
+  it('重做收官：11 域全部 ready，内容区不再出现任何占位', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
     const domains = listGameDomains();
     expect(domains).toHaveLength(11);
-    for (const key of ['zone', 'realm', 'idle']) {
-      expect(domains.find((d) => d.key === key)?.status).toBe('ready');
+    expect(domains.filter((d) => d.status === 'pending')).toHaveLength(0);
+    // 每个 ready 域都必须真的挂上面板，否则 renderGameDomainContent 会静默退回占位
+    for (const domain of domains) {
+      expect(domain.panel, `${domain.key} 缺少 panel`).toBeDefined();
     }
-    expect(domains.filter((d) => d.status === 'pending')).toHaveLength(8);
-    // 默认落在第一个域（境界，已 ready）→ 不再是占位
+    // 默认落在第一个域（境界）→ 渲染真实面板而非占位
     expect(screen.getByTestId('realm-refresh')).toBeInTheDocument();
+    expect(screen.queryByTestId('panel-placeholder-root')).toBeNull();
   });
 });
 

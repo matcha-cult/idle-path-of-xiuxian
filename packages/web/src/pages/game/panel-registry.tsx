@@ -8,7 +8,10 @@
  * - `'ready'` —— 面板已按玩法实现，内容区渲染 `panel`；
  * - `'pending'` —— 面板待重做，内容区渲染 `PanelPlaceholder` 占位。
  * 旧版面板（DTO 字段罗列）已判定不合格；按「玩法驱动」逐个重做，做完把该项翻成 `ready` 并挂上 `panel`
- * —— **只改这一处**，页面壳与导航不需要动。当前进度：zone / realm / idle 已 `ready`，其余 8 个 `pending`。
+ * —— **只改这一处**，页面壳与导航不需要动。
+ *
+ * 当前进度：**11 域全部 `ready`**，M4 阶段二的「重做」已收官。
+ * `'pending'` 分支与 `highlights` 字段保留，作为后续新增游戏域的扩展位（新域先占位再实现）。
  */
 import {
   BookOutlined,
@@ -25,8 +28,16 @@ import {
 } from '@ant-design/icons';
 import { PanelPlaceholder, type SideNavGroup } from '@idle-path/ui-kit';
 import type { ReactNode } from 'react';
+import { BagPanel } from './panels/BagPanel.js';
+import { CombatPanel } from './panels/CombatPanel.js';
+import { EconomyPanel } from './panels/EconomyPanel.js';
+import { EquipPanel } from './panels/EquipPanel.js';
 import { IdlePanel } from './panels/IdlePanel.js';
+import { QuestPanel } from './panels/QuestPanel.js';
 import { RealmPanel } from './panels/RealmPanel.js';
+import { SettingsPanel } from './panels/SettingsPanel.js';
+import { SkillPanel } from './panels/SkillPanel.js';
+import { StoryPanel } from './panels/StoryPanel.js';
 import { ZonePanel } from './panels/ZonePanel.js';
 
 export type GameDomainKey =
@@ -78,50 +89,21 @@ export const SIDE_NAV_GROUPS: ReadonlyArray<{ key: string; label: string }> = [
 
 const DOMAINS: readonly GameDomainEntry[] = [
   // 修行：破境 → 参悟 → 换装
-  {
-    key: 'realm',
-    label: '境界',
-    icon: <ThunderboltOutlined />,
-    group: 'cultivation',
-    status: 'ready',
-    panel: <RealmPanel />,
-  },
-  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'pending',
-    highlights: ['心法/术法槽位板', '神识预算占用条', '参悟消耗与等级上限'] },
-  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'pending',
-    highlights: ['10 槽位总览（含双戒指）', '换装前后属性对比', '阶数 vs 境界的门槛校验'] },
+  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'cultivation', status: 'ready', panel: <RealmPanel /> },
+  { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'ready', panel: <SkillPanel /> },
+  { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'ready', panel: <EquipPanel /> },
   // 器物：选物 → 炼器
-  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'pending',
-    highlights: ['按稀有度/阶数/品类筛选', '物品详情（词缀分阶着色）', '一键装备与丢弃'] },
-  { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'pending',
-    highlights: ['通货与精华持有量', '14 种炼器操作（消耗与可用性）', '炼器前后词缀对比'] },
+  { key: 'bag', label: '背包', icon: <ShoppingOutlined />, group: 'artifacts', status: 'ready', panel: <BagPanel /> },
+  { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'ready', panel: <EconomyPanel /> },
   // 征伐：秘境主轴 + 挂机自动化 + 战斗图鉴
-  {
-    key: 'zone',
-    label: '秘境',
-    icon: <CompassOutlined />,
-    group: 'campaign',
-    status: 'ready',
-    panel: <ZonePanel />,
-  },
-  {
-    key: 'idle',
-    label: '挂机',
-    icon: <ClockCircleOutlined />,
-    group: 'campaign',
-    status: 'ready',
-    panel: <IdlePanel />,
-  },
-  { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending',
-    highlights: ['单位图鉴（阵营/境界/可否击杀）', '掉落池权重与概率', '辨宝法阵规则'] },
+  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'ready', panel: <ZonePanel /> },
+  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'ready', panel: <IdlePanel /> },
+  { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'ready', panel: <CombatPanel /> },
   // 道途：任务与叙事同源
-  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'journey', status: 'pending',
-    highlights: ['章节分组与任务卡', '目标进度实时评估', '一键同步发奖'] },
-  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'journey', status: 'pending',
-    highlights: ['章节/任务剧本时间线', '未读/已读进度', '按节点标记已读'] },
+  { key: 'quest', label: '任务', icon: <ProfileOutlined />, group: 'journey', status: 'ready', panel: <QuestPanel /> },
+  { key: 'story', label: '剧情', icon: <ReadOutlined />, group: 'journey', status: 'ready', panel: <StoryPanel /> },
   // 系统
-  { key: 'settings', label: '设置', icon: <SettingOutlined />, group: 'system', status: 'pending',
-    highlights: ['账号与角色信息', '主题与运行状态', '开发者工具（注入/生成装备）'] },
+  { key: 'settings', label: '设置', icon: <SettingOutlined />, group: 'system', status: 'ready', panel: <SettingsPanel /> },
 ];
 
 /** 取全部域（只读快照）。 */

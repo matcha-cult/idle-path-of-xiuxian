@@ -58,14 +58,33 @@ describe('RealmPanel · 14 境进度与灵韵差额（玩法信息）', () => {
     const stats = screen.getByTestId('realm-progress-stats');
     expect(stats).toHaveTextContent('当前境界');
     expect(stats).toHaveTextContent(REALMS[2] ?? '');
-    expect(stats).toHaveTextContent(/第 3 境/);
-    expect(stats).toHaveTextContent(new RegExp(`共 ${REALMS.length} 境`));
+    expect(stats).toHaveTextContent(new RegExp(`第 3 / ${REALMS.length} 境`));
     expect(stats).toHaveTextContent('剩余灵韵');
     expect(stats).toHaveTextContent('50');
     expect(stats).toHaveTextContent('下一境消耗');
     expect(stats).toHaveTextContent('100');
     expect(stats).toHaveTextContent('T4');
     expect(screen.getByTestId('realm-lingyun-bar')).toHaveTextContent('50 / 100');
+  });
+
+  it('回归：境界进度的说明文字必须落在 title（小字），不能进 value 行', () => {
+    // 曾经的写法把「（第 3 境 / 共 14 境）」塞进 StatItem 的 suffix，而 antd v6 的 suffix
+    // 与 value 共用 contentFontSize → PC 折 2 行、手机折 7 行（一字一行）。
+    // 这里按 antd 的 DOM 结构把「主数值行」和「标题行」分开断言，防止再次退化。
+    const harness = setup((root) => {
+      root.realm.status = makeStatus();
+    });
+    harness.render(<RealmPanel />);
+
+    const cell = screen.getByTestId('realm-progress-stats').querySelector('.ant-statistic');
+    expect(cell?.querySelector('.ant-statistic-title')?.textContent).toBe(
+      `当前境界 · 第 3 / ${REALMS.length} 境`,
+    );
+    // value 行只有境界名：既没有括号，也没有「共 N 境」这类说明
+    const valueLine = cell?.querySelector('.ant-statistic-content')?.textContent ?? '';
+    expect(valueLine).toBe(REALMS[2]);
+    expect(valueLine).not.toContain('境 /');
+    expect(valueLine).not.toContain('第');
   });
 
   it('灵韵不足时给出「差多少」而不是只报错', () => {

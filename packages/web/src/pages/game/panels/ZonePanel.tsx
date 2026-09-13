@@ -67,7 +67,6 @@ export const ZonePanel = observer(function ZonePanel() {
           <Flex vertical gap={12}>
             <div data-testid="zone-progress-stats">
               <StatGrid
-                column={4}
                 items={[
                   { key: 'floor', label: '当前层', value: progress?.floor ?? 0 },
                   { key: 'best', label: '最高层', value: progress?.bestFloor ?? 0 },

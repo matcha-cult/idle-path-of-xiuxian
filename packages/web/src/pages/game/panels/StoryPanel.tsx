@@ -1,117 +1,109 @@
 /**
- * StoryPanel —— 剧情（story 段）。
+ * StoryPanel —— 剧情演出（道途线）。**新版**：按 `10-玩法驱动的面板设计.md` §1.9 重做。
  *
- * 容器模式（与 BagPanel 一致）：只做「store 状态 → ui-kit 组件 props」映射，不写业务规则；
- * 不在挂载时自动拉取（首屏由 `RootStore.loadPanel()` 统一加载）；
- * 三态（loading/error/empty/onRetry）交给 `AsyncBoundary`。
- * ⚠️ **旧版（M3 交付，已判定不合格）**：仅保留其测试以覆盖 store 契约；
- * 新版按「玩法驱动」重做后删除本文件（见 ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md）。
+ * 玩家在这张面板上要回答三个问题（界面三段结构据此组织）：
+ *   1. 剧情进展到哪？→ 左侧章节目录（来自 quest 域，叙事与任务同源）+ 未读数
+ *   2. 能做什么？→ 选章节 / 选任务读取剧本，逐条「标记已读」
+ *   3. 读到了什么？→ `StoryTimeline` 按序展示节点文本与未读/已读状态
+ *
+ * 协议字段不上屏：`nodeKey` 只做 key、`type` 映射中文标签（`StoryTimeline` 负责）、
+ * `questCode` join 成任务名。容器模式：不在挂载时拉取；三态交给 `AsyncBoundary`，
+ * 目录区不参与三态（否则空态下玩家无法选择剧本）。
  */
-import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Button, Flex, Input, Space } from 'antd';
-import type { TableProps } from 'antd';
-import type { StoryNode } from '@idle-path/ionet-transport';
-import { AsyncBoundary, DataTable, SectionCard, Toolbar } from '@idle-path/ui-kit';
+import { useState } from 'react';
+import { Button, Col, Flex, Row, Typography } from 'antd';
+import { AsyncBoundary, SectionCard, StoryTimeline } from '@idle-path/ui-kit';
 import { useRootStore } from '../../../app/root-context.js';
-
-type StoryColumns = NonNullable<TableProps<StoryNode>['columns']>;
-
-const NODE_COLUMNS: StoryColumns = [
-  { title: '节点', dataIndex: 'nodeKey', key: 'nodeKey' },
-  { title: '类型', dataIndex: 'type', key: 'type' },
-  { title: '文本', dataIndex: 'text', key: 'text' },
-  {
-    title: '状态',
-    dataIndex: 'seen',
-    key: 'seen',
-    render: (seen: boolean) => (seen ? '已读' : '未读'),
-  },
-];
+import { StoryDirectory, type StorySelection } from './story/StoryDirectory.js';
+import { questScriptTitle, toNodeViews, unreadCount } from './story/presentation.js';
 
 export const StoryPanel = observer(function StoryPanel() {
-  const { story } = useRootStore();
-  const [chapter, setChapter] = useState('1');
-  const [quest, setQuest] = useState('');
+  const root = useRootStore();
+  const { story, quest } = root;
+  const [selected, setSelected] = useState<StorySelection | null>(null);
+  const chapter = story.chapter;
 
-  const rowActions = (node: StoryNode) => (
-    <Button onClick={() => void story.markSeen(node.nodeKey)} data-testid={`story-seen-${node.nodeKey}`}>
-      标记已读
-    </Button>
-  );
+  /** 选章节 / 选任务：记住选择，并按来源拉取剧本。 */
+  function select(selection: StorySelection): void {
+    setSelected(selection);
+    if (selection.kind === 'chapter') {
+      void story.loadChapter(selection.id);
+    } else {
+      void story.loadQuest(selection.id);
+    }
+  }
+
+  /** 刷新 / 错误重试：有选择时重拉该剧本，否则退回 `load()`（按已加载章节重拉）。 */
+  function reload(): void {
+    if (selected === null) {
+      void story.load();
+      return;
+    }
+    select(selected);
+  }
+
+  const markSeen = (nodeKey: string): void => void story.markSeen(nodeKey);
+  const empty = chapter === null && story.nodes.length === 0 && story.questNodes.length === 0;
+  const unread = unreadCount(story.nodes);
+  const chapterHeading = chapter === null ? '章节剧本' : `章节剧本 · ${chapter.name}`;
 
   return (
     <SectionCard
       title="剧情"
-      subtitle={
-        story.chapter === null
-          ? '未加载章节'
-          : `第 ${story.chapter.chapter} 章 · ${story.chapter.name}（${story.chapter.code}）`
-      }
+      subtitle={chapter === null ? '从左侧目录选择章节或任务，阅读剧本' : `第 ${chapter.chapter} 章 · ${chapter.name}`}
       extra={
-        <Button onClick={() => void story.load()} data-testid="story-refresh">
+        <Button onClick={reload} data-testid="story-refresh">
           刷新剧情
         </Button>
       }
     >
-      <Toolbar
-        left={
-          <Space wrap>
-            <Input
-              value={chapter}
-              onChange={(event) => setChapter(event.target.value)}
-              placeholder="章节序号或 code"
-              data-testid="story-chapter-input"
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={7}>
+          <div data-testid="story-directory">
+            <StoryDirectory
+              chapters={quest.chapters}
+              quests={quest.quests}
+              selected={selected}
+              onSelect={select}
             />
-            <Button onClick={() => void story.loadChapter(chapter)} data-testid="story-load-chapter">
-              加载章节
-            </Button>
-            <Input
-              value={quest}
-              onChange={(event) => setQuest(event.target.value)}
-              placeholder="任务 code"
-              data-testid="story-quest-input"
-            />
-            <Button onClick={() => void story.loadQuest(quest)} data-testid="story-load-quest">
-              加载任务
-            </Button>
-          </Space>
-        }
-        right={
-          <span data-testid="story-node-count">
-            章节 {story.nodes.length} · 任务 {story.questNodes.length}
-          </span>
-        }
-      />
+          </div>
+        </Col>
 
-      <AsyncBoundary
-        loading={story.loading}
-        error={story.error}
-        empty={story.nodes.length === 0 && story.questNodes.length === 0}
-        emptyText="暂无剧情节点，先加载章节或任务"
-        onRetry={() => void story.load()}
-      >
-        <Flex vertical gap={12}>
-          <DataTable<StoryNode>
-            columns={NODE_COLUMNS}
-            dataSource={story.nodes}
-            rowKey="nodeKey"
-            title="章节节点"
-            emptyText="本章暂无剧情节点"
-            rowActions={rowActions}
-          />
-          {story.questNodes.length === 0 ? null : (
-            <DataTable<StoryNode>
-              columns={NODE_COLUMNS}
-              dataSource={story.questNodes}
-              rowKey="nodeKey"
-              title="任务节点"
-              emptyText="该任务暂无剧情节点"
-              rowActions={rowActions}
-            />
-          )}
-        </Flex>
-      </AsyncBoundary>
+        <Col xs={24} md={17}>
+          <AsyncBoundary
+            loading={story.loading}
+            error={story.error}
+            empty={empty}
+            emptyText="从左侧目录选择章节或任务开始阅读"
+            onRetry={reload}
+          >
+            <Flex vertical gap={12}>
+              <Flex vertical gap={4} data-testid="story-chapter-timeline">
+                <Typography.Text strong>
+                  {unread > 0 ? `${chapterHeading}（未读 ${unread}）` : chapterHeading}
+                </Typography.Text>
+                <StoryTimeline
+                  nodes={toNodeViews(story.nodes, markSeen)}
+                  emptyText="本章暂无剧情节点"
+                />
+              </Flex>
+
+              {story.questNodes.length === 0 ? null : (
+                <Flex vertical gap={4} data-testid="story-quest-timeline">
+                  <Typography.Text strong>
+                    {questScriptTitle(story.questNodes, quest.quests)}
+                  </Typography.Text>
+                  <StoryTimeline
+                    nodes={toNodeViews(story.questNodes, markSeen)}
+                    emptyText="该任务暂无剧情节点"
+                  />
+                </Flex>
+              )}
+            </Flex>
+          </AsyncBoundary>
+        </Col>
+      </Row>
     </SectionCard>
   );
 });
