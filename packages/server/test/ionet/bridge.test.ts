@@ -17,13 +17,14 @@ const EXPECTED: Array<[string, number]> = [
   ['RealmAction', CMD_SEGMENTS.realm],
   ['CombatAction', CMD_SEGMENTS.combat],
   ['ZoneAction', CMD_SEGMENTS.zone],
+  ['MapAction', CMD_SEGMENTS.map],
   ['QuestAction', CMD_SEGMENTS.quest],
   ['StoryAction', CMD_SEGMENTS.story],
   ['IdleAction', CMD_SEGMENTS.idle],
 ];
 
 describe('逻辑服路由表边界（任务 4 后由 resolveAction 注册，清单见 game-actions.ts）', () => {
-  test('登记 12 个 Action，顺序与层一致', () => {
+  test('登记 13 个 Action，顺序与层一致', () => {
     assert.deepEqual(GAME_ACTION_CLASSES.map((c) => c.name), EXPECTED.map(([name]) => name));
   });
 

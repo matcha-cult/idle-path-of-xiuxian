@@ -17,10 +17,11 @@ export const ALLOWED_DEPS: Record<string, readonly string[]> = {
   economy: ['item', 'prop'],
   realm: ['character', 'prop'],
   combat: ['item', 'equip'],
-  zone: ['combat', 'item', 'equip'],
+  zone: ['combat', 'item', 'equip', 'map'],
   quest: ['zone', 'combat', 'item'],
   story: ['quest'],
-  idle: ['item', 'equip', 'combat', 'zone'],
+  idle: ['item', 'equip', 'combat', 'zone', 'map'],
+  map: [],
   character: [],
 };
 
@@ -29,7 +30,7 @@ export const LAYER: Record<string, string> = {
   item: 'L-1', character: 'L-1',
   prop: 'L0', equip: 'L0', skill: 'L0',
   economy: 'L1', realm: 'L1', combat: 'L1',
-  zone: 'L2',
+  zone: 'L2', map: 'L2',
   quest: 'L3', story: 'L3',
   idle: 'L4',
 };

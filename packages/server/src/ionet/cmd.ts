@@ -14,7 +14,7 @@
  *   Edge(对外服)  ← NotificationPort 单向投递
  *   L4 idle
  *   L3 quest → story
- *   L2 zone
+ *   L2 zone → map（zone 层数推进挂钩 map；map 不反向依赖 zone）
  *   L1 combat · realm · economy
  *   L0 prop → equip → skill
  *   L-1 item · character(HTTP) · system/stat
@@ -48,6 +48,8 @@ export const CMD_SEGMENTS = {
   story: 120,
   /** L4 挂机逻辑服：离线收益结算循环（依赖 item, equip, combat, zone） */
   idle: 130,
+  /** L2 地图逻辑服：线路图/传送点/秘境发现与离线解锁闸门（依赖 zone 的层数推进挂钩） */
+  map: 140,
 } as const;
 
 /** 系统/健康段 */
@@ -155,6 +157,20 @@ export const IDLE_CMD = {
   cmd: CMD_SEGMENTS.idle,
   status: 1,
   settle: 2,
+} as const;
+
+/**
+ * 地图段（L2，依赖 zone 的层数推进挂钩 + character 战力）
+ * （settings-revision-2 §5 / §7；无旧 REST 对应，纯新增域）
+ */
+export const MAP_CMD = {
+  cmd: CMD_SEGMENTS.map,
+  /** 地图线路图 + 节点 + 边 + 角色进度（只下发已发现节点） */
+  list: 1,
+  /** 跑图：移动到目标节点（已发现 + 战力门槛） */
+  enter: 2,
+  /** 传送：直达已点亮的传送点节点 */
+  waypoint: 3,
 } as const;
 
 /**

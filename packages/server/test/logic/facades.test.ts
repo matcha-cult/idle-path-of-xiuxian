@@ -8,6 +8,7 @@ import { EconomyLogicService } from '../../src/modules/logic/economy/economy.log
 import { RealmLogicService } from '../../src/modules/logic/realm/realm.logic.service.js';
 import { CombatLogicService } from '../../src/modules/logic/combat/combat.logic.service.js';
 import { ZoneLogicService } from '../../src/modules/logic/zone/zone.logic.service.js';
+import { MapLogicService } from '../../src/modules/logic/map/map.logic.service.js';
 import { QuestLogicService } from '../../src/modules/logic/quest/quest.logic.service.js';
 import { StoryLogicService } from '../../src/modules/logic/story/story.logic.service.js';
 import { IdleLogicService } from '../../src/modules/logic/idle/idle.logic.service.js';
@@ -170,6 +171,24 @@ describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicSe
     assert.equal(await svc.chapterStory(1, '1'), 'A');
     assert.equal(await svc.questStory(1, 'q'), 'B');
     assert.equal(await svc.markSeen(1, 'k'), 'C');
+  });
+  test('map（含 zone/idle 复用的两个挂钩）', async () => {
+    const map = {
+      panel: stub(() => 'PANEL'),
+      enter: stub(() => 'ENTER'),
+      waypoint: stub(() => 'WAYPOINT'),
+      onZoneFloorPassed: stub(() => 'HOOK'),
+      zoneIdleGate: stub(() => 'GATE'),
+    };
+    const svc = new MapLogicService(map as never);
+    assert.equal(await svc.list(1), 'PANEL');
+    assert.equal(await svc.enter(1, 'n1'), 'ENTER');
+    assert.equal(await svc.waypoint(1, 'n1'), 'WAYPOINT');
+    const event = { zoneCode: 'z1', floor: 3, isBossFloor: true, cleared: true };
+    assert.equal(await svc.onZoneFloorPassed(1, event), 'HOOK');
+    assert.deepEqual(map.onZoneFloorPassed.last, [1, event]);
+    assert.equal(await svc.zoneIdleGate(1, 'zone_houshan'), 'GATE');
+    assert.deepEqual(map.zoneIdleGate.last, [1, 'zone_houshan']);
   });
   test('idle', async () => {
     const idle = { status: stub(() => 'S'), settle: stub(() => 'T') };

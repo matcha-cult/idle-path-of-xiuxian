@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ZoneService } from '../../../src/modules/logic/zone/internal/zone.service.js';
+import { PlayerPowerService } from '../../../src/modules/character/player-power.service.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/modules/logic/zone/internal/zone.types.js';
 import type { SettleResult } from '../../../src/modules/logic/combat/combat.api.js';
@@ -71,8 +72,19 @@ function makeService(opts: { db: FakeDatabase; character?: Character | null; set
   const character = opts.character === undefined ? makeChar() : opts.character;
   const charStub = { findByUserId: stub(async () => character) };
   const unitStub = { settleKills: stub(async () => opts.settle ?? okSettle()) };
-  const svc = new ZoneService(opts.db as never, charStub as never, unitStub as never);
-  return { svc, charStub, unitStub };
+  // 战力复用 character 域的 PlayerPowerService（同一份 SQL），桩数据库直接喂它
+  const playerPower = new PlayerPowerService(opts.db as never);
+  const mapStub = {
+    onZoneFloorPassed: stub(async () => ({ changed: false, nodeCode: null, reason: 'no_map_node' as const })),
+  };
+  const svc = new ZoneService(
+    opts.db as never,
+    charStub as never,
+    unitStub as never,
+    playerPower as never,
+    mapStub as never,
+  );
+  return { svc, charStub, unitStub, mapStub };
 }
 
 interface ZoneDbOptions {
@@ -533,6 +545,56 @@ describe('ZoneService.challenge 边界', () => {
     const { svc } = makeService({ db, character: makeChar({ realm: 4 }) });
     const res = await svc.challenge(7);
     assert.equal(res.success, true);
+  });
+});
+
+// ===== 地图挂钩（§5.5 / D2）=====
+
+describe('ZoneService.challenge → map 挂钩边界', () => {
+  test('普通层通过 -> 事件 isBossFloor=false / cleared=false', async () => {
+    const z = zoneRow();
+    const db = zoneDb({
+      zones: [z],
+      progress: [{ id: 1, character_id: 11, zone_id: 1, floor: 1, best_floor: 0, cleared: false }],
+      equip: '4',
+      skill: '0',
+    });
+    const { svc, mapStub } = makeService({ db, character: makeChar({ realm: 4 }) });
+    assert.equal((await svc.challenge(7, 'z1')).success, true);
+    assert.equal(mapStub.onZoneFloorPassed.callCount, 1);
+    assert.deepEqual(mapStub.onZoneFloorPassed.last, [
+      11,
+      { zoneCode: 'z1', floor: 1, isBossFloor: false, cleared: false },
+    ]);
+  });
+
+  test('Boss 层通关 -> 事件 isBossFloor=true / cleared=true（D2 解锁点）', async () => {
+    const z = zoneRow();
+    const db = zoneDb({
+      zones: [z],
+      progress: [{ id: 1, character_id: 11, zone_id: 1, floor: 3, best_floor: 2, cleared: false }],
+      equip: '24',
+      skill: '0',
+    });
+    const { svc, mapStub } = makeService({ db, character: makeChar({ realm: 4 }) });
+    assert.equal((await svc.challenge(7, 'z1')).success, true);
+    assert.deepEqual(mapStub.onZoneFloorPassed.last, [
+      11,
+      { zoneCode: 'z1', floor: 3, isBossFloor: true, cleared: true },
+    ]);
+  });
+
+  test('挑战失败（战力不足）-> 不触发挂钩', async () => {
+    const z = zoneRow();
+    const db = zoneDb({
+      zones: [z],
+      progress: [{ id: 1, character_id: 11, zone_id: 1, floor: 1, best_floor: 0, cleared: false }],
+      equip: '0',
+      skill: '0',
+    });
+    const { svc, mapStub } = makeService({ db, character: makeChar({ realm: 4 }) });
+    assert.equal(failingCode(await svc.challenge(7, 'z1')), 'CHALLENGE_FAILED');
+    assert.equal(mapStub.onZoneFloorPassed.callCount, 0);
   });
 });
 

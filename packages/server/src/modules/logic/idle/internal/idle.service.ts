@@ -15,6 +15,7 @@ import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
 import { type FailResult, fail } from '../../../../common/kernel/result.js';
+import { MapLogicService } from '../../map/map.logic.service.js';
 import { ZoneLogicService } from '../../zone/zone.logic.service.js';
 
 interface SettleAnchorRow {
@@ -33,6 +34,7 @@ export class IdleService {
     private readonly characterService: CharacterService,
     private readonly combatLogic: CombatLogicService,
     private readonly zoneLogic: ZoneLogicService,
+    private readonly mapLogic: MapLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -160,6 +162,21 @@ export class IdleService {
     if (!unitCode) {
       const encounter = await this.zoneLogic.encounterForCharacter(character.id, character.realm);
       if (!encounter) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
+
+      // ===== R2 离线闸门（settings-revision-2 §2 第 2 步 / R2-3）=====
+      // 「离线时间只能兑换产出，不能兑换进度」：未解锁离线挂机的秘境不得作为结算目标。
+      //
+      // 过渡规则（必须保留，直到地图形 2/3 定义完）：只有「挂在某个地图节点上的秘境」
+      // 才受新闸门约束。zone_qingyun / zone_miwu / zone_guhai / zone_dajie / zone_hundun
+      // 这 5 个遗留秘境在 game_map_nodes 里没有对应节点，zoneIdleGate.enforced = false，
+      // 其离线结算行为保持不变，避免打断现有游戏。
+      // 退场条件：遗留秘境被重新归属到地图节点后，删除 map.service.ts 的 enforced 分支。
+      // 迁移债由 test/modules/map-seed.test.ts 的「未归属任何地图节点的遗留秘境」用例守着。
+      const gate = await this.mapLogic.zoneIdleGate(character.id, encounter.zoneCode);
+      if (gate.enforced && !gate.unlocked) {
+        return fail('ZONE_NOT_IDLE_UNLOCKED', '秘境未解锁离线挂机：' + encounter.zoneName);
+      }
+
       unitCode = encounter.unitCode;
       zoneInfo = {
         code: encounter.zoneCode,

@@ -5,6 +5,7 @@ import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/common/kernel/result.js';
 import type { SettleResult, SettlementData } from '../../../src/modules/logic/combat/combat.api.js';
 import type { ZoneEncounter } from '../../../src/modules/logic/zone/internal/zone.service.js';
+import type { ZoneIdleGate } from '../../../src/modules/logic/map/map.api.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';
@@ -57,13 +58,25 @@ function makeService(opts: {
   character?: Character | null;
   encounter?: ZoneEncounter | null;
   settle?: SettleResult;
+  gate?: ZoneIdleGate;
 }) {
   const character = opts.character === undefined ? makeChar() : opts.character;
   const charStub = { findByUserId: stub(async () => character) };
   const unitStub = { settleKills: stub(async () => opts.settle ?? okSettle()) };
   const zoneStub = { encounterForCharacter: stub(async () => opts.encounter ?? null) };
-  const svc = new IdleService(opts.db as never, opts.db as never, charStub as never, unitStub as never, zoneStub as never);
-  return { svc, charStub, unitStub, zoneStub };
+  // 默认：不受 R2 闸门约束（遗留秘境口径），需要时用 gate 覆盖
+  const gate: ZoneIdleGate =
+    opts.gate ?? { enforced: false, unlocked: false, nodeCode: null, nodeName: null };
+  const mapStub = { zoneIdleGate: stub(async () => gate) };
+  const svc = new IdleService(
+    opts.db as never,
+    opts.db as never,
+    charStub as never,
+    unitStub as never,
+    zoneStub as never,
+    mapStub as never,
+  );
+  return { svc, charStub, unitStub, zoneStub, mapStub };
 }
 
 interface IdleDbOptions {
@@ -325,5 +338,83 @@ describe('IdleService.settle 单位来源与失败边界', () => {
     assert.equal(failingCode(res), 'UNIT_NOT_FOUND');
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
     assert.equal(unitStub.settleKills.callCount, 1);
+  });
+});
+
+// ===== R2 离线闸门（§2 第 2 步 / R2-3）=====
+
+describe('IdleService.settle R2 离线闸门边界', () => {
+  const HOUSHAN: ZoneEncounter = {
+    zoneCode: 'zone_houshan',
+    zoneName: '后山历练',
+    floor: 1,
+    isBoss: false,
+    unitCode: 'u_r6_dilong',
+  };
+  const HOUSHAN_GATE: ZoneIdleGate = {
+    enforced: true,
+    unlocked: false,
+    nodeCode: 'qy_houshan',
+    nodeName: '后山峰',
+  };
+
+  test('挂在 qy_houshan 且未解锁 -> ZONE_NOT_IDLE_UNLOCKED，且不结算、不写库', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc, unitStub, mapStub } = makeService({
+      db,
+      encounter: HOUSHAN,
+      gate: HOUSHAN_GATE,
+    });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, false);
+    assert.equal(failingCode(res), 'ZONE_NOT_IDLE_UNLOCKED');
+    assert.match(res.message, /后山历练/);
+    assert.deepEqual(mapStub.zoneIdleGate.last, [11, 'zone_houshan']);
+    assert.equal(unitStub.settleKills.callCount, 0);
+    assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
+    assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
+  });
+
+  test('qy_houshan 已解锁 -> 正常结算', async () => {
+    const db = idleDb({ produced: 0, counter: 1 });
+    const { svc, unitStub } = makeService({
+      db,
+      encounter: HOUSHAN,
+      gate: { ...HOUSHAN_GATE, unlocked: true },
+    });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, true);
+    assert.equal(unitStub.settleKills.last?.[1], 'u_r6_dilong');
+  });
+
+  test('遗留 5 个秘境没有地图节点（enforced=false）-> 结算不受影响（回归护栏）', async () => {
+    const legacy: Array<[string, string]> = [
+      ['zone_qingyun', 'u_r1_shanxiao'],
+      ['zone_miwu', 'u_r4_xueyan'],
+      ['zone_guhai', 'u_r7_jiaomo'],
+      ['zone_dajie', 'u_r10_guiwang'],
+      ['zone_hundun', 'u_r13_feishengmo'],
+    ];
+    for (const [zoneCode, unitCode] of legacy) {
+      const db = idleDb({ produced: 0, counter: 1 });
+      const { svc, unitStub, mapStub } = makeService({
+        db,
+        encounter: { zoneCode, zoneName: zoneCode, floor: 1, isBoss: false, unitCode },
+      });
+      const res = await svc.settle(7, undefined, 1);
+      assert.equal(res.success, true, zoneCode + ' 不应被闸门拦截');
+      assert.equal(failingCode(res), undefined, zoneCode);
+      // 闸门确实被查询过，但遗留秘境不强制约束
+      assert.deepEqual(mapStub.zoneIdleGate.last, [11, zoneCode]);
+      assert.equal(unitStub.settleKills.last?.[1], unitCode);
+    }
+  });
+
+  test('显式 unitCode -> 不查秘境，也不触达闸门', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc, mapStub } = makeService({ db, encounter: HOUSHAN, gate: HOUSHAN_GATE });
+    const res = await svc.settle(7, 'mob', 1);
+    assert.equal(res.success, true);
+    assert.equal(mapStub.zoneIdleGate.callCount, 0);
   });
 });

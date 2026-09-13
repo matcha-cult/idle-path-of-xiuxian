@@ -18,6 +18,7 @@ import { EconomyAction } from '../modules/logic/economy/economy.action.js';
 import { RealmAction } from '../modules/logic/realm/realm.action.js';
 import { CombatAction } from '../modules/logic/combat/combat.action.js';
 import { ZoneAction } from '../modules/logic/zone/zone.action.js';
+import { MapAction } from '../modules/logic/map/map.action.js';
 import { QuestAction } from '../modules/logic/quest/quest.action.js';
 import { StoryAction } from '../modules/logic/story/story.action.js';
 import { IdleAction } from '../modules/logic/idle/idle.action.js';
@@ -30,6 +31,7 @@ import { EconomyLogicModule } from '../modules/logic/economy/economy-logic.modul
 import { RealmLogicModule } from '../modules/logic/realm/realm-logic.module.js';
 import { CombatLogicModule } from '../modules/logic/combat/combat-logic.module.js';
 import { ZoneLogicModule } from '../modules/logic/zone/zone-logic.module.js';
+import { MapLogicModule } from '../modules/logic/map/map-logic.module.js';
 import { QuestLogicModule } from '../modules/logic/quest/quest-logic.module.js';
 import { StoryLogicModule } from '../modules/logic/story/story-logic.module.js';
 import { IdleLogicModule } from '../modules/logic/idle/idle-logic.module.js';
@@ -45,6 +47,7 @@ export const GAME_ACTION_CLASSES = [
   RealmAction,    // L1       cmd 80
   CombatAction,   // L1       cmd 90
   ZoneAction,     // L2       cmd 100
+  MapAction,      // L2       cmd 140
   QuestAction,    // L3       cmd 110
   StoryAction,    // L3       cmd 120
   IdleAction,     // L4       cmd 130
@@ -61,6 +64,7 @@ export const GAME_LOGIC_MODULES = [
   RealmLogicModule,
   CombatLogicModule,
   ZoneLogicModule,
+  MapLogicModule,
   QuestLogicModule,
   StoryLogicModule,
   IdleLogicModule,

@@ -9,6 +9,7 @@ import { AuthModule } from '../../src/modules/auth/auth.module.js';
 import { AuthService } from '../../src/modules/auth/auth.service.js';
 import { CharacterModule } from '../../src/modules/character/character.module.js';
 import { CharacterService } from '../../src/modules/character/character.service.js';
+import { PlayerPowerService } from '../../src/modules/character/player-power.service.js';
 import { HealthModule } from '../../src/modules/health/health.module.js';
 import { HealthService } from '../../src/modules/health/health.service.js';
 import { EdgeModule } from '../../src/modules/edge/edge.module.js';
@@ -35,6 +36,8 @@ import { UnitModule } from '../../src/modules/logic/combat/internal/combat-inter
 import { UnitService } from '../../src/modules/logic/combat/internal/unit.service.js';
 import { ZoneModule } from '../../src/modules/logic/zone/internal/zone-internal.module.js';
 import { ZoneService } from '../../src/modules/logic/zone/internal/zone.service.js';
+import { MapModule } from '../../src/modules/logic/map/internal/map-internal.module.js';
+import { MapService } from '../../src/modules/logic/map/internal/map.service.js';
 import { StoryModule } from '../../src/modules/logic/story/internal/story-internal.module.js';
 import { StoryService } from '../../src/modules/logic/story/internal/story.service.js';
 import { RealmModule } from '../../src/modules/logic/realm/internal/realm-internal.module.js';
@@ -57,7 +60,7 @@ describe('根模块接线边界', () => {
     for (const mod of expected) {
       assert.ok(hasModule(imports, mod), `AppModule 缺少导入: ${(mod as {name?:string}).name}`);
     }
-    // 11 个逻辑服模块（提供 Action provider）
+    // 13 个逻辑服模块（提供 Action provider）
     for (const mod of GAME_LOGIC_MODULES) {
       assert.ok(hasModule(imports, mod), `AppModule 缺少逻辑服模块: ${(mod as {name?:string}).name}`);
     }
@@ -80,7 +83,7 @@ describe('根模块接线边界', () => {
       } | undefined;
     assert.ok(options, '未找到 IonetModule 选项');
     // 任务 4：Action 清单交给框架，并由 resolveAction 从容器解析实例
-    assert.equal(options?.actions?.length, 12, 'actions 应为 12 个 Action 类');
+    assert.equal(options?.actions?.length, 13, 'actions 应为 13 个 Action 类');
     assert.equal(typeof options?.resolveAction, 'function', '必须提供 resolveAction');
     assert.equal(typeof options?.wsServer?.authenticate, 'function', '必须提供握手鉴权 authenticate');
     assert.equal(options?.httpServer, false);
@@ -101,7 +104,7 @@ describe('各模块 providers/exports 边界', () => {
   const cases: Array<[string, object, unknown[], unknown[]]> = [
     ['DatabaseModule', DatabaseModule, [DatabaseService], [DatabaseService]],
     ['AuthModule', AuthModule, [AuthService], [AuthService]],
-    ['CharacterModule', CharacterModule, [CharacterService], [CharacterService]],
+    ['CharacterModule', CharacterModule, [CharacterService, PlayerPowerService], [CharacterService, PlayerPowerService]],
     ['HealthModule', HealthModule, [HealthService], [HealthService]],
     ['EdgeModule', EdgeModule, [EdgeService, NOTIFICATION_PORT], [EdgeService, NOTIFICATION_PORT]],
     ['GameModule', GameModule, [GameDatabaseService, RateLimiterService], [GameDatabaseService, RateLimiterService]],
@@ -112,6 +115,7 @@ describe('各模块 providers/exports 边界', () => {
     ['IdleModule', IdleModule, [IdleService], [IdleService]],
     ['UnitModule', UnitModule, [UnitService], [UnitService]],
     ['ZoneModule', ZoneModule, [ZoneService], [ZoneService]],
+    ['MapModule', MapModule, [MapService], [MapService]],
     ['StoryModule', StoryModule, [StoryService], [StoryService]],
     ['realm-internal', RealmModule, [RealmService], [RealmService]],
     ['skill-internal', SkillModule, [SkillService], [SkillService]],

@@ -1,0 +1,581 @@
+/**
+ * MapService 边界测试（settings-revision-2 §5 / §6 / §7）
+ *
+ * 覆盖：发现（只下发已发现节点）/ 跑图门槛（恰好等于通过、差 1 拒绝）/
+ * enter 幂等 / 传送点三态 / 秘境 idle_unlocked 置位与幂等 / 离线闸门过度规则 /
+ * 战力复用（装备数与功法等级变化改变检定结果）。
+ */
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { MapService } from '../../../src/modules/logic/map/internal/map.service.js';
+import { PlayerPowerService } from '../../../src/modules/character/player-power.service.js';
+import { APP_CONFIG } from '../../../src/common/config/app-config.js';
+import { FakeDatabase } from '../../helpers/fake-db.js';
+import { stub } from '../../helpers/stub.js';
+import type { Character } from '../../../src/modules/character/character.service.js';
+
+type Row = Record<string, unknown>;
+
+function makeChar(overrides: Partial<Character> = {}): Character {
+  return {
+    id: 11,
+    userId: 7,
+    nickname: '道友',
+    gender: 'male',
+    title: null,
+    spiritStones: 0,
+    silver: 0,
+    realm: 2,
+    lingyun: 100,
+    jadeSlips: 0,
+    ...overrides,
+  };
+}
+
+function mapRow(overrides: Row = {}): Row {
+  return {
+    id: 1,
+    code: 'map_qingyun',
+    name: '青云宗',
+    world: 'great',
+    order_index: 1,
+    chapter_from: 1,
+    chapter_to: 2,
+    requires_map_code: null,
+    description: null,
+    ...overrides,
+  };
+}
+
+function nodeRow(overrides: Row = {}): Row {
+  return {
+    id: 1,
+    code: 'n1',
+    map_id: 1,
+    name: '入口',
+    ring: 'outer',
+    sector: null,
+    kind: 'route',
+    feature_key: null,
+    level: 1,
+    threshold: 100,
+    has_waypoint: false,
+    chapter: 1,
+    requires_node_code: null,
+    zone_code: null,
+    order_index: 1,
+    ...overrides,
+  };
+}
+
+function edgeRow(overrides: Row = {}): Row {
+  return { id: 1, map_id: 1, from_node_id: 1, to_node_id: 2, bidirectional: true, ...overrides };
+}
+
+function nodeProgressRow(overrides: Row = {}): Row {
+  return {
+    id: 1,
+    character_id: 11,
+    node_id: 1,
+    visited: false,
+    waypoint_unlocked: false,
+    idle_unlocked: false,
+    cleared: false,
+    ...overrides,
+  };
+}
+
+interface MapDbOptions {
+  maps?: Row[];
+  nodes?: Row[];
+  edges?: Row[];
+  progress?: Row[];
+  equip?: string | null;
+  skill?: string | null;
+}
+
+/** 假库：`game_node_progress` 的写入会真的改内存状态，用于验证幂等（重复 enter 不重复写） */
+function mapDb(opts: MapDbOptions = {}) {
+  const maps = opts.maps ?? [];
+  const nodes = opts.nodes ?? [];
+  const edges = opts.edges ?? [];
+  const progress: Row[] = (opts.progress ?? []).map((p) => ({ ...p }));
+  let seq = progress.length;
+  const find = (charId: unknown, nodeId: unknown) =>
+    progress.find((p) => p.character_id === charId && p.node_id === nodeId);
+
+  const db = new FakeDatabase()
+    .on(/FROM game_maps ORDER BY order_index, id/, { rows: maps })
+    .on(/FROM game_map_nodes ORDER BY map_id, order_index, id/, { rows: nodes })
+    .on(/FROM game_map_edges ORDER BY map_id, id/, { rows: edges })
+    .on(/FROM game_map_nodes WHERE code = \$1/, (params) => ({
+      rows: nodes.filter((n) => n.code === params[0]),
+    }))
+    .on(/FROM game_map_nodes WHERE zone_code = \$1 AND kind = 'secret_realm'/, (params) => ({
+      rows: nodes.filter((n) => n.zone_code === params[0] && n.kind === 'secret_realm'),
+    }))
+    .on(/FROM game_node_progress WHERE character_id = \$1 AND node_id = \$2/, (params) => ({
+      rows: progress.filter((p) => p.character_id === params[0] && p.node_id === params[1]),
+    }))
+    .on(/FROM game_node_progress WHERE character_id = \$1$/, (params) => ({
+      rows: progress.filter((p) => p.character_id === params[0]),
+    }))
+    .on(/INSERT INTO game_node_progress/, (params, sql) => {
+      const [charId, nodeId] = params as [number, number, unknown];
+      let row = find(charId, nodeId);
+      if (!row) {
+        seq += 1;
+        row = { id: seq, character_id: charId, node_id: nodeId, visited: false, waypoint_unlocked: false, idle_unlocked: false, cleared: false };
+        progress.push(row);
+      }
+      if (sql.includes('waypoint_unlocked = game_node_progress')) {
+        row.visited = true;
+        row.waypoint_unlocked = Boolean(row.waypoint_unlocked) || Boolean(params[2]);
+      } else {
+        row.idle_unlocked = true;
+        row.cleared = Boolean(row.cleared) || Boolean(params[2]);
+      }
+      return { rows: [row] };
+    })
+    .on(/COUNT\(\*\)::text AS c FROM game_items/, {
+      rows: opts.equip == null ? [] : [{ c: opts.equip }],
+    })
+    .on(/COALESCE\(SUM\(level\), 0\)::text AS s/, {
+      rows: opts.skill == null ? [] : [{ s: opts.skill }],
+    });
+  return { db, progress, maps, nodes, edges };
+}
+
+function makeService(opts: { db: FakeDatabase; character?: Character | null }) {
+  const character = opts.character === undefined ? makeChar() : opts.character;
+  const charStub = { findByUserId: stub(async () => character) };
+  const power = new PlayerPowerService(opts.db as never);
+  const svc = new MapService(opts.db as never, charStub as never, power as never);
+  return { svc, charStub, power };
+}
+
+function failingCode(res: { success: boolean; data?: unknown }): string | undefined {
+  return (res.data as { code?: string } | undefined)?.code;
+}
+
+function codesOf(data: unknown, mapIndex = 0): string[] {
+  const maps = (data as { maps: Array<{ nodes: Array<{ code: string }> }> }).maps;
+  return maps[mapIndex].nodes.map((n) => n.code);
+}
+
+const N1 = nodeRow({ id: 1, code: 'n1', name: '入口', order_index: 1, threshold: 100, has_waypoint: true });
+const N2 = nodeRow({ id: 2, code: 'n2', name: '二阶', order_index: 2, threshold: 100, requires_node_code: 'n1' });
+const N3 = nodeRow({
+  id: 3,
+  code: 'n3',
+  name: '三阶',
+  order_index: 3,
+  threshold: 30,
+  requires_node_code: 'n2',
+  has_waypoint: true,
+});
+const E1 = edgeRow({ id: 1, from_node_id: 1, to_node_id: 2 });
+const E2 = edgeRow({ id: 2, from_node_id: 2, to_node_id: 3 });
+
+// ===== 发现 / 可见性 =====
+
+describe('MapService.panel 发现边界（§5.2 到达即发现）', () => {
+  test('无角色 -> CHARACTER_NOT_FOUND', async () => {
+    const { db } = mapDb();
+    const { svc } = makeService({ db, character: null });
+    assert.equal(failingCode(await svc.panel(7)), 'CHARACTER_NOT_FOUND');
+  });
+
+  test('无进度 -> 只有入口节点下发，且不含通往未发现节点的边', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1, N2, N3], edges: [E1, E2] });
+    const data = (await makeService({ db }).svc.panel(7)).data as {
+      total: number;
+      maps: Array<{ nodes: unknown[]; edges: unknown[] }>;
+    };
+    assert.equal(data.total, 1);
+    assert.deepEqual(codesOf(data), ['n1']);
+    assert.deepEqual(data.maps[0].edges, []);
+  });
+
+  test('前置 visited 后逐个揭开：n1 访问 -> n2 可见；n2 访问 -> n3 可见', async () => {
+    const first = mapDb({
+      maps: [mapRow()],
+      nodes: [N1, N2, N3],
+      edges: [E1, E2],
+      progress: [nodeProgressRow({ id: 1, node_id: 1, visited: true })],
+    });
+    const firstData = (await makeService({ db: first.db }).svc.panel(7)).data as {
+      maps: Array<{ edges: Array<{ fromNodeCode: string; toNodeCode: string }> }>;
+    };
+    assert.deepEqual(codesOf(firstData), ['n1', 'n2']);
+    assert.deepEqual(firstData.maps[0].edges, [{ fromNodeCode: 'n1', toNodeCode: 'n2', bidirectional: true }]);
+
+    const second = mapDb({
+      maps: [mapRow()],
+      nodes: [N1, N2, N3],
+      edges: [E1, E2],
+      progress: [
+        nodeProgressRow({ id: 1, node_id: 1, visited: true }),
+        nodeProgressRow({ id: 2, node_id: 2, visited: true }),
+      ],
+    });
+    const secondData = (await makeService({ db: second.db }).svc.panel(7)).data;
+    assert.deepEqual(codesOf(secondData), ['n1', 'n2', 'n3']);
+  });
+
+  test('requires_node_code 指向不存在节点 -> 永不可见；自身 visited 时兜底可见', async () => {
+    const ghost = nodeRow({ id: 9, code: 'n_ghost', name: '幽灵', order_index: 9, requires_node_code: 'nope' });
+    const hidden = mapDb({ maps: [mapRow()], nodes: [N1, ghost] });
+    const hiddenData = (await makeService({ db: hidden.db }).svc.panel(7)).data;
+    assert.deepEqual(codesOf(hiddenData), ['n1']);
+
+    const selfVisited = mapDb({
+      maps: [mapRow()],
+      nodes: [N1, ghost],
+      progress: [nodeProgressRow({ id: 5, node_id: 9, visited: true })],
+    });
+    const selfData = (await makeService({ db: selfVisited.db }).svc.panel(7)).data;
+    assert.deepEqual(codesOf(selfData), ['n1', 'n_ghost']);
+  });
+
+  test('feature_key 原样下发（未实现系统不做服务端判断）', async () => {
+    const skillNode = nodeRow({ id: 4, code: 'n_skill', name: '藏书阁', feature_key: 'skill', order_index: 4 });
+    const alchemyNode = nodeRow({ id: 5, code: 'n_alchemy', name: '丹霞院', feature_key: 'alchemy', order_index: 5 });
+    const unusedFeature = nodeRow({ id: 6, code: 'n_pvp', name: '天刑台', feature_key: 'pvp', order_index: 6 });
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1, skillNode, alchemyNode, unusedFeature] });
+    const data = (await makeService({ db }).svc.panel(7)).data as {
+      maps: Array<{ nodes: Array<{ code: string; featureKey: string | null }> }>;
+    };
+    const byCode = new Map(data.maps[0].nodes.map((n) => [n.code, n.featureKey]));
+    assert.equal(byCode.get('n_skill'), 'skill');
+    assert.equal(byCode.get('n_alchemy'), 'alchemy');
+    assert.equal(byCode.get('n_pvp'), 'pvp');
+    assert.equal(byCode.get('n1'), null);
+  });
+
+  test('空配置 -> total=0 / maps=[]', async () => {
+    const { db } = mapDb();
+    const data = (await makeService({ db }).svc.panel(7)).data as { total: number; maps: unknown[] };
+    assert.equal(data.total, 0);
+    assert.deepEqual(data.maps, []);
+  });
+});
+
+// ===== 跑图 enter =====
+
+describe('MapService.enter 边界（§5.2 + §6.2）', () => {
+  test('节点不存在（含空串）-> NODE_NOT_FOUND', async () => {
+    for (const code of ['nope', '']) {
+      const { db } = mapDb({ maps: [mapRow()], nodes: [N1] });
+      const res = await makeService({ db }).svc.enter(7, code);
+      assert.equal(failingCode(res), 'NODE_NOT_FOUND');
+      assert.deepEqual((res.data as { nodeCode: string }).nodeCode, code);
+    }
+  });
+
+  test('未发现（前置未访问）-> NODE_LOCKED，且 data 带 requiresNodeCode', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1, N2] });
+    const res = await makeService({ db }).svc.enter(7, 'n2');
+    assert.equal(failingCode(res), 'NODE_LOCKED');
+    assert.deepEqual(res.data, { code: 'NODE_LOCKED', nodeCode: 'n2', requiresNodeCode: 'n1' });
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+
+  test('战力恰好等于门槛 -> 通过；差 1 -> NODE_POWER_NOT_ENOUGH', async () => {
+    const ok = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
+    const okRes = await makeService({ db: ok.db }).svc.enter(7, 'n1');
+    assert.equal(okRes.success, true);
+    assert.equal((okRes.data as { playerPower: number }).playerPower, 100);
+    assert.equal((okRes.data as { threshold: number }).threshold, 100);
+    assert.equal((okRes.data as { firstVisit: boolean }).firstVisit, true);
+
+    const short = mapDb({ maps: [mapRow()], nodes: [N1], equip: '11' });
+    const shortRes = await makeService({ db: short.db }).svc.enter(7, 'n1');
+    assert.equal(failingCode(shortRes), 'NODE_POWER_NOT_ENOUGH');
+    assert.equal((shortRes.data as { playerPower: number }).playerPower, 95);
+    assert.equal((shortRes.data as { threshold: number }).threshold, 100);
+    assert.equal(short.db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+
+  test('装备数变化改变检定结果（战力复用 PlayerPowerService）', async () => {
+    const withEquip = mapDb({ maps: [mapRow()], nodes: [N1], equip: '20' });
+    const without = mapDb({ maps: [mapRow()], nodes: [N1], equip: '0' });
+    assert.equal((await makeService({ db: withEquip.db }).svc.enter(7, 'n1')).success, true);
+    assert.equal(failingCode(await makeService({ db: without.db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
+  });
+
+  test('功法等级变化改变检定结果（战力复用 PlayerPowerService）', async () => {
+    // threshold=102：realm2(40)+equip12(60)=100 差 2；skill=4 -> floor(4/2)=2 -> 恰好 102
+    const node = nodeRow({ id: 1, code: 'n1', threshold: 102, has_waypoint: false });
+    const withSkill = mapDb({ maps: [mapRow()], nodes: [node], equip: '12', skill: '4' });
+    const withSkillRes = await makeService({ db: withSkill.db }).svc.enter(7, 'n1');
+    assert.equal(withSkillRes.success, true);
+    assert.equal((withSkillRes.data as { playerPower: number }).playerPower, 102);
+
+    const noSkill = mapDb({ maps: [mapRow()], nodes: [node], equip: '12', skill: '2' });
+    assert.equal(failingCode(await makeService({ db: noSkill.db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
+  });
+
+  test('首次到达写 visited；带传送点的节点同时点亮 waypoint_unlocked', async () => {
+    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
+    const res = await makeService({ db }).svc.enter(7, 'n1');
+    assert.equal(res.success, true);
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
+    assert.deepEqual(progress, [
+      { id: 1, character_id: 11, node_id: 1, visited: true, waypoint_unlocked: true, idle_unlocked: false, cleared: false },
+    ]);
+    const view = (res.data as { node: { progress: unknown } }).node;
+    assert.deepEqual(view.progress, { visited: true, waypointUnlocked: true, idleUnlocked: false, cleared: false });
+  });
+
+  test('不带传送点的节点 -> waypoint_unlocked 保持 false', async () => {
+    const plain = nodeRow({ id: 1, code: 'n1', has_waypoint: false });
+    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [plain], equip: '12' });
+    await makeService({ db }).svc.enter(7, 'n1');
+    assert.equal(progress[0].waypoint_unlocked, false);
+  });
+
+  test('重复 enter 同一节点幂等：不报错、不重复写、firstVisit 第二次为 false', async () => {
+    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
+    const { svc } = makeService({ db });
+    const first = await svc.enter(7, 'n1');
+    const second = await svc.enter(7, 'n1');
+    assert.equal(first.success, true);
+    assert.equal(second.success, true);
+    assert.equal((first.data as { firstVisit: boolean }).firstVisit, true);
+    assert.equal((second.data as { firstVisit: boolean }).firstVisit, false);
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1, '重复 enter 不应重复写库');
+    assert.equal(progress.length, 1);
+  });
+
+  test('前置已访问后可以进入下一节点（发现链推进）', async () => {
+    const { db, progress } = mapDb({
+      maps: [mapRow()],
+      nodes: [N1, N2],
+      progress: [nodeProgressRow({ id: 1, node_id: 1, visited: true, waypoint_unlocked: true })],
+      equip: '12',
+    });
+    const res = await makeService({ db }).svc.enter(7, 'n2');
+    assert.equal(res.success, true);
+    assert.deepEqual(progress.map((p) => [p.node_id, p.visited]), [[1, true], [2, true]]);
+  });
+});
+
+// ===== 传送点 waypoint =====
+
+describe('MapService.waypoint 边界（§5.2）', () => {
+  test('节点不存在 -> NODE_NOT_FOUND', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1] });
+    assert.equal(failingCode(await makeService({ db }).svc.waypoint(7, 'nope')), 'NODE_NOT_FOUND');
+  });
+
+  test('从未到达过 -> NODE_NOT_VISITED', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1] });
+    const res = await makeService({ db }).svc.waypoint(7, 'n1');
+    assert.equal(failingCode(res), 'NODE_NOT_VISITED');
+    assert.deepEqual(res.data, { code: 'NODE_NOT_VISITED', nodeCode: 'n1' });
+  });
+
+  test('到达过但传送点未点亮 -> WAYPOINT_NOT_UNLOCKED', async () => {
+    const n = nodeRow({ id: 1, code: 'n1', has_waypoint: true });
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [n],
+      progress: [nodeProgressRow({ id: 1, node_id: 1, visited: true, waypoint_unlocked: false })],
+    });
+    const res = await makeService({ db }).svc.waypoint(7, 'n1');
+    assert.equal(failingCode(res), 'WAYPOINT_NOT_UNLOCKED');
+    assert.equal((res.data as { hasWaypoint: boolean }).hasWaypoint, true);
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+
+  test('目标不是传送点节点（has_waypoint=false）-> WAYPOINT_NOT_UNLOCKED 且 hasWaypoint=false', async () => {
+    const n = nodeRow({ id: 1, code: 'n1', has_waypoint: false });
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [n],
+      progress: [nodeProgressRow({ id: 1, node_id: 1, visited: true, waypoint_unlocked: false })],
+    });
+    const res = await makeService({ db }).svc.waypoint(7, 'n1');
+    assert.equal(failingCode(res), 'WAYPOINT_NOT_UNLOCKED');
+    assert.equal((res.data as { hasWaypoint: boolean }).hasWaypoint, false);
+  });
+
+  test('已点亮 -> 可直达，返回节点视图且不写库', async () => {
+    const n = nodeRow({ id: 1, code: 'n1', name: '南门', has_waypoint: true });
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [n],
+      progress: [nodeProgressRow({ id: 1, node_id: 1, visited: true, waypoint_unlocked: true })],
+    });
+    const res = await makeService({ db }).svc.waypoint(7, 'n1');
+    assert.equal(res.success, true);
+    assert.equal((res.data as { node: { code: string; name: string } }).node.code, 'n1');
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+});
+
+// ===== 秘境三态：idle_unlocked 置位 =====
+
+describe('MapService.onZoneFloorPassed 边界（§5.5 / D2）', () => {
+  const REALM = nodeRow({
+    id: 7,
+    code: 'qy_houshan',
+    name: '后山峰',
+    kind: 'secret_realm',
+    zone_code: 'zone_houshan',
+    threshold: 115,
+    order_index: 7,
+  });
+
+  test('非 Boss 层且未通关 -> not_boss，不写库', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
+      zoneCode: 'zone_houshan',
+      floor: 1,
+      isBossFloor: false,
+      cleared: false,
+    });
+    assert.deepEqual(res, { changed: false, nodeCode: null, reason: 'not_boss' });
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+
+  test('Boss 层通过 -> idle_unlocked 置位（changed=true）', async () => {
+    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
+      zoneCode: 'zone_houshan',
+      floor: 3,
+      isBossFloor: true,
+      cleared: true,
+    });
+    assert.deepEqual(res, { changed: true, nodeCode: 'qy_houshan', reason: 'unlocked' });
+    assert.equal((progress[0] as { idle_unlocked: boolean }).idle_unlocked, true);
+    assert.equal((progress[0] as { cleared: boolean }).cleared, true);
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
+  });
+
+  test('幂等：重复置位只写一次，第二次返回 already_unlocked', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const { svc } = makeService({ db });
+    const event = { zoneCode: 'zone_houshan', floor: 3, isBossFloor: true, cleared: true };
+    const first = await svc.onZoneFloorPassed(11, event);
+    const second = await svc.onZoneFloorPassed(11, event);
+    assert.equal(first.changed, true);
+    assert.deepEqual(second, { changed: false, nodeCode: 'qy_houshan', reason: 'already_unlocked' });
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
+  });
+
+  test('已解锁后再传非 Boss 层 -> 不误报 changed', async () => {
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [REALM],
+      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, waypoint_unlocked: false, idle_unlocked: true })],
+    });
+    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
+      zoneCode: 'zone_houshan',
+      floor: 1,
+      isBossFloor: false,
+      cleared: false,
+    });
+    assert.equal(res.changed, false);
+  });
+
+  test('通关但非 Boss 层（兜底）-> 仍置位', async () => {
+    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
+      zoneCode: 'zone_houshan',
+      floor: 2,
+      isBossFloor: false,
+      cleared: true,
+    });
+    assert.equal(res.changed, true);
+    assert.equal(progress[0].idle_unlocked, true);
+  });
+
+  test('没有地图节点的遗留秘境 -> no_map_node，不写库（过渡规则）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
+      zoneCode: 'zone_qingyun',
+      floor: 10,
+      isBossFloor: true,
+      cleared: false,
+    });
+    assert.deepEqual(res, { changed: false, nodeCode: null, reason: 'no_map_node' });
+    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
+  });
+});
+
+// ===== 离线闸门 =====
+
+describe('MapService.zoneIdleGate 边界（R2 过渡规则）', () => {
+  const REALM = nodeRow({ id: 7, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan' });
+
+  test('遗留秘境（无地图节点）-> enforced=false（离线结算不受影响）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    for (const code of ['zone_qingyun', 'zone_miwu', 'zone_guhai', 'zone_dajie', 'zone_hundun']) {
+      const gate = await makeService({ db }).svc.zoneIdleGate(11, code);
+      assert.deepEqual(gate, { enforced: false, unlocked: false, nodeCode: null, nodeName: null }, code);
+    }
+  });
+
+  test('挂在 qy_houshan 且未通关 -> enforced=true / unlocked=false', async () => {
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [REALM],
+      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: false })],
+    });
+    assert.deepEqual(await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan'), {
+      enforced: true,
+      unlocked: false,
+      nodeCode: 'qy_houshan',
+      nodeName: '后山峰',
+    });
+  });
+
+  test('挂在 qy_houshan 且已通关 -> unlocked=true', async () => {
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [REALM],
+      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: true })],
+    });
+    assert.equal((await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan')).unlocked, true);
+  });
+
+  test('无进度行 -> 视为未解锁', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    assert.equal((await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan')).unlocked, false);
+  });
+});
+
+// ===== 战力复用回归 =====
+
+describe('MapService 战力复用（APP_CONFIG.zonePower）', () => {
+  test('panel 的 playerPower 与 ZoneService 同源权重（realm×rw + equip×ew + floor(skill/div)）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '3', skill: '5' });
+    const cfg = APP_CONFIG.zonePower;
+    const expected = 2 * cfg.realmWeight + 3 * cfg.equipWeight + Math.floor(5 / cfg.skillDivisor);
+    const data = (await makeService({ db }).svc.panel(7)).data as { playerPower: number };
+    assert.equal(data.playerPower, expected);
+  });
+
+  /**
+   * 设计意图数值自证（用户定调 `052b146`）：本图历练至第五境。
+   * 4 境裸装战力 80 ≥ 秘境第 1 层门槛 75 → 4 境即可进入历练；
+   * 第 3 层门槛 99 ≤ 5 境裸装 100 → 5 境刚好能破 Boss 解锁离线挂机。
+   */
+  test('4 境裸装可入（80 ≥ 75）；5 境裸装可破第 3 层（100 ≥ 99）', async () => {
+    const cfg = APP_CONFIG.zonePower;
+    const floor1 = nodeRow({ id: 1, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan', threshold: 75 });
+    const floor3 = nodeRow({ id: 1, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan', threshold: 99 });
+
+    const realm4 = mapDb({ maps: [mapRow()], nodes: [floor1], equip: '0' });
+    const enter1 = await makeService({ db: realm4.db, character: makeChar({ realm: 4 }) }).svc.enter(7, 'qy_houshan');
+    assert.equal(enter1.success, true);
+    assert.equal((enter1.data as { playerPower: number }).playerPower, 4 * cfg.realmWeight);
+
+    const realm5 = mapDb({ maps: [mapRow()], nodes: [floor3], equip: '0' });
+    const enter3 = await makeService({ db: realm5.db, character: makeChar({ realm: 5 }) }).svc.enter(7, 'qy_houshan');
+    assert.equal(enter3.success, true);
+    assert.equal((enter3.data as { playerPower: number }).playerPower, 5 * cfg.realmWeight);
+  });
+});

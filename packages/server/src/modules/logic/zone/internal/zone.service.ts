@@ -11,8 +11,10 @@
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { CharacterService } from '../../../character/character.service.js';
+import { PlayerPowerService } from '../../../character/player-power.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
+import { MapLogicService } from '../../map/map.logic.service.js';
 import {
   type FailResult,
   type ZoneProgressRow,
@@ -49,6 +51,8 @@ export class ZoneService {
     private readonly gameDb: GameDatabaseService,
     private readonly characterService: CharacterService,
     private readonly combatLogic: CombatLogicService,
+    private readonly playerPowerService: PlayerPowerService,
+    private readonly mapLogic: MapLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -57,21 +61,12 @@ export class ZoneService {
     return { character };
   }
 
-  async playerPower(characterId: number, realm: number): Promise<number> {
-    const [equip, skills] = await Promise.all([
-      this.gameDb.query<{ c: string }>(
-        "SELECT COUNT(*)::text AS c FROM game_items WHERE character_id = $1 AND status = 'equipped'",
-        [characterId],
-      ),
-      this.gameDb.query<{ s: string }>(
-        'SELECT COALESCE(SUM(level), 0)::text AS s FROM game_learned_skills WHERE character_id = $1',
-        [characterId],
-      ),
-    ]);
-    const cfg = APP_CONFIG.zonePower;
-    const equipCount = Number(equip.rows[0] ? equip.rows[0].c : 0);
-    const skillSum = Number(skills.rows[0] ? skills.rows[0].s : 0);
-    return realm * cfg.realmWeight + equipCount * cfg.equipWeight + Math.floor(skillSum / cfg.skillDivisor);
+  /**
+   * 玩家战力（§6.1，唯一实现在 `character/player-power.service.ts`）。
+   * map 域的地图节点门槛复用同一实现，避免两套战力口径漂移。
+   */
+  playerPower(characterId: number, realm: number): Promise<number> {
+    return this.playerPowerService.compute(characterId, realm);
   }
 
   private async allZones(): Promise<ZoneRow[]> {
@@ -351,6 +346,17 @@ export class ZoneService {
       'INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (character_id, zone_id) DO UPDATE SET floor = EXCLUDED.floor, best_floor = GREATEST(game_zone_progress.best_floor, EXCLUDED.best_floor), cleared = EXCLUDED.cleared, updated_at = CURRENT_TIMESTAMP',
       [character.id, zone.id, nextFloor, nextBest, cleared],
     );
+
+    // 地图层挂钩（settings-revision-2 §5.5 / D2）：本层是 Boss 层且挑战成功（= 击败该秘境
+    // 第一个 Boss）或已通关时，通知 map 域把对应地图节点的 idle_unlocked 置位。
+    // 层数判定留在 zone 域（isBossFloor / max_floor），map 域只负责置位，不重复实现层数逻辑；
+    // 没有地图节点的遗留秘境（zone_qingyun 等 5 个）在 map 域内直接被忽略，行为不变。
+    await this.mapLogic.onZoneFloorPassed(character.id, {
+      zoneCode: zone.code,
+      floor: progress.floor,
+      isBossFloor: boss,
+      cleared,
+    });
 
     return {
       success: true,

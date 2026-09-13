@@ -7,6 +7,7 @@ import {
   EQUIP_CMD,
   IDLE_CMD,
   ITEM_CMD,
+  MAP_CMD,
   PROP_CMD,
   PUBLIC_ACTION_KEYS,
   QUEST_CMD,
@@ -62,9 +63,10 @@ describe('cmd 段分配边界', () => {
     assert.equal(QUEST_CMD.cmd, CMD_SEGMENTS.quest);
     assert.equal(STORY_CMD.cmd, CMD_SEGMENTS.story);
     assert.equal(IDLE_CMD.cmd, CMD_SEGMENTS.idle);
+    assert.equal(MAP_CMD.cmd, CMD_SEGMENTS.map);
   });
   test('每域 subCmd 唯一且 > 0', () => {
-    const domains = { ITEM_CMD, PROP_CMD, EQUIP_CMD, SKILL_CMD, ECONOMY_CMD, REALM_CMD, COMBAT_CMD, ZONE_CMD, QUEST_CMD, STORY_CMD, IDLE_CMD } as const;
+    const domains = { ITEM_CMD, PROP_CMD, EQUIP_CMD, SKILL_CMD, ECONOMY_CMD, REALM_CMD, COMBAT_CMD, ZONE_CMD, QUEST_CMD, STORY_CMD, IDLE_CMD, MAP_CMD } as const;
     for (const [name, spec] of Object.entries(domains)) {
       const subs = Object.entries(spec).filter(([k]) => k !== 'cmd').map(([, v]) => v as number);
       assert.equal(new Set(subs).size, subs.length, `${name} 存在重复 subCmd`);

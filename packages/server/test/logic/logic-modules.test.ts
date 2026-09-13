@@ -24,6 +24,9 @@ import { CombatAction } from '../../src/modules/logic/combat/combat.action.js';
 import { ZoneLogicModule } from '../../src/modules/logic/zone/zone-logic.module.js';
 import { ZoneLogicService } from '../../src/modules/logic/zone/zone.logic.service.js';
 import { ZoneAction } from '../../src/modules/logic/zone/zone.action.js';
+import { MapLogicModule } from '../../src/modules/logic/map/map-logic.module.js';
+import { MapLogicService } from '../../src/modules/logic/map/map.logic.service.js';
+import { MapAction } from '../../src/modules/logic/map/map.action.js';
 import { QuestLogicModule } from '../../src/modules/logic/quest/quest-logic.module.js';
 import { QuestLogicService } from '../../src/modules/logic/quest/quest.logic.service.js';
 import { QuestAction } from '../../src/modules/logic/quest/quest.action.js';
@@ -50,6 +53,7 @@ const SPECS: Spec[] = [
   { name: 'realm', module: RealmLogicModule, facade: RealmLogicService, action: RealmAction },
   { name: 'combat', module: CombatLogicModule, facade: CombatLogicService, action: CombatAction },
   { name: 'zone', module: ZoneLogicModule, facade: ZoneLogicService, action: ZoneAction },
+  { name: 'map', module: MapLogicModule, facade: MapLogicService, action: MapAction },
   { name: 'quest', module: QuestLogicModule, facade: QuestLogicService, action: QuestAction },
   { name: 'story', module: StoryLogicModule, facade: StoryLogicService, action: StoryAction },
   { name: 'idle', module: IdleLogicModule, facade: IdleLogicService, action: IdleAction },
@@ -76,8 +80,8 @@ describe('逻辑服模块接线边界', () => {
     });
   }
 
-  test('11 个逻辑服模块互不重复', () => {
+  test('12 个逻辑服模块互不重复', () => {
     const names = new Set(SPECS.map((s) => s.name));
-    assert.equal(names.size, 11);
+    assert.equal(names.size, 12);
   });
 });
