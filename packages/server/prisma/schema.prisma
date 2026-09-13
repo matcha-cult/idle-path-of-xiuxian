@@ -420,7 +420,6 @@ model game_maps {
   chapter_from      Int      @db.SmallInt
   chapter_to        Int      @db.SmallInt
   requires_map_code String?  @db.VarChar(50)
-  min_realm         Int      @default(1) @db.SmallInt
   description       String?  @db.Text
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @updatedAt @db.Timestamp(6)
@@ -439,7 +438,6 @@ model game_map_nodes {
   feature_key        String?  @db.VarChar(20) // 承载的系统；null = 纯跑图
   level              Int      @db.SmallInt // 怪物境界（固定）
   threshold          Int // 固定战力门槛
-  min_realm          Int      @default(1) @db.SmallInt
   has_waypoint       Boolean  @default(false)
   chapter            Int      @db.SmallInt
   requires_node_code String?  @db.VarChar(50)

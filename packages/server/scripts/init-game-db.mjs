@@ -293,7 +293,6 @@ CREATE TABLE IF NOT EXISTS game_maps (
   chapter_from      SMALLINT NOT NULL,
   chapter_to        SMALLINT NOT NULL,
   requires_map_code VARCHAR(50),
-  min_realm         SMALLINT NOT NULL DEFAULT 1,
   description       TEXT,
   created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -311,7 +310,6 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
   feature_key        VARCHAR(20),          -- skill/craft/quest/alchemy/beast/farm/pvp/discipline/waypoint/profession
   level              SMALLINT NOT NULL,    -- 怪物境界（固定，不随层数上涨）
   threshold          INTEGER NOT NULL,     -- 固定战力门槛（§6 确定性模型）
-  min_realm          SMALLINT NOT NULL DEFAULT 1,
   has_waypoint       BOOLEAN NOT NULL DEFAULT FALSE,
   chapter            SMALLINT NOT NULL,
   requires_node_code VARCHAR(50),
@@ -322,6 +320,10 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
   updated_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS unit_code VARCHAR(50);
+-- min_realm 曾被我加进来，但设计里没有该字段：地图由剧情解锁（D4）、节点由 threshold 检定（§6），
+-- 第三个境界闸门既是死字段、又会挡住「装备够就允许越级打」的设计意图（§6 战力溢出有意义）。
+ALTER TABLE game_maps DROP COLUMN IF EXISTS min_realm;
+ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS min_realm;
 CREATE INDEX IF NOT EXISTS idx_game_map_nodes_map ON game_map_nodes(map_id, order_index);
 
 CREATE TABLE IF NOT EXISTS game_map_edges (
@@ -679,8 +681,8 @@ try {
   await client.query('DELETE FROM game_maps');
   for (const m of maps) {
     await client.query(
-      'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, min_realm, description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.minRealm ?? 1, m.description ?? null],
+      'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.description ?? null],
     );
   }
   await client.query("SELECT setval('game_maps_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_maps));");
@@ -710,8 +712,8 @@ try {
       throw new Error(`节点 ${n.code} 引用了未定义单位: ${unitCode}`);
     }
     const res = await client.query(
-      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, min_realm, has_waypoint, chapter, requires_node_code, zone_code, unit_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, min_realm=EXCLUDED.min_realm, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, unit_code=EXCLUDED.unit_code, order_index=EXCLUDED.order_index RETURNING id',
-      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.minRealm ?? 1, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, unitCode, n.orderIndex],
+      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, has_waypoint, chapter, requires_node_code, zone_code, unit_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, unit_code=EXCLUDED.unit_code, order_index=EXCLUDED.order_index RETURNING id',
+      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, unitCode, n.orderIndex],
     );
     nodeIdByCode.set(n.code, Number(res.rows[0].id));
   }

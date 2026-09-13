@@ -30,7 +30,6 @@ interface MapSeed {
   chapterFrom: number;
   chapterTo: number;
   requiresMapCode?: string | null;
-  minRealm?: number;
 }
 
 interface NodeSeed {
@@ -43,7 +42,6 @@ interface NodeSeed {
   featureKey?: string | null;
   level: number;
   threshold: number;
-  minRealm?: number;
   hasWaypoint?: boolean;
   chapter: number;
   requiresNodeCode?: string | null;
@@ -242,13 +240,29 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('境界与战力区间合法（境界 1~14；minRealm ≤ level；threshold > 0）', () => {
+  test('境界与战力区间合法（境界 1~14；threshold > 0）', () => {
     for (const node of nodes) {
-      assert.ok(Number.isInteger(node.level) && node.level >= 1 && node.level <= 14, `节点 ${node.code} 的 level 越界：${node.level}`);
+      assert.ok(
+        Number.isInteger(node.level) && node.level >= 1 && node.level <= 14,
+        `节点 ${node.code} 的 level 越界：${node.level}`,
+      );
       assert.ok(node.threshold > 0, `节点 ${node.code} 的 threshold 必须为正：${node.threshold}`);
-      const minRealm = node.minRealm ?? 1;
-      assert.ok(minRealm >= 1 && minRealm <= 14, `节点 ${node.code} 的 minRealm 越界：${minRealm}`);
-      assert.ok(minRealm <= node.level, `节点 ${node.code} 的 minRealm(${minRealm}) 高于 level(${node.level})`);
+    }
+  });
+
+  /**
+   * 地图与节点**都不带境界闸门**，这是刻意的：
+   * 地图由剧情解锁（D4），节点由 `threshold` 做确定性检定（§6.1）。
+   * 若再加一道 `minRealm`，既与设计不符（§7.4 的节点表没有这一列），
+   * 又会挡住「装备够就允许越级打」的意图（§6.2：战力溢出本身就是追求）。
+   * 这条断言防止后续地图定义时把这个字段又加回来。
+   */
+  test('地图与节点都不得引入境界闸门字段（越级打是设计意图，不是漏洞）', () => {
+    for (const map of maps) {
+      assert.ok(!('minRealm' in map), `地图 ${map.code} 不应有 minRealm：地图闸门是剧情（D4）`);
+    }
+    for (const node of nodes) {
+      assert.ok(!('minRealm' in node), `节点 ${node.code} 不应有 minRealm：闸门是 threshold（§6）`);
     }
   });
 
