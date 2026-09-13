@@ -336,19 +336,13 @@ CREATE TABLE IF NOT EXISTS game_map_nodes (
 ALTER TABLE game_maps DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS min_realm;
 ALTER TABLE game_map_nodes DROP COLUMN IF EXISTS unit_code;
--- P1 画布增量列（幂等）。已有行没有坐标，先建可空列让老库能过，再由紧随其后的
--- 「坐标回填校验」在库里有老节点时直接报错 —— 宁可让 db:init:game 失败，
--- 也不要在 NOT NULL 上加一个「看起来合法」的默认值把节点静默排成一列。
+-- P1 画布增量列（幂等）。**先建可空列**：老库里的行还没有坐标，直接上 NOT NULL 会失败。
+-- NOT NULL 由本脚本末尾「节点重灌之后」的收口步骤补上（见 promoteMapNodeGridNotNull）——
+-- 放在建表处会有一个竞态：那一刻表里还是**上一轮的旧行**（无坐标），收口被跳过，
+-- 于是新库/老库都会停在「可空」，而 schema.prisma 写的是 NOT NULL。
 ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS grid_row SMALLINT;
 ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS grid_col SMALLINT;
 ALTER TABLE game_map_nodes ADD COLUMN IF NOT EXISTS description TEXT;
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM game_map_nodes WHERE grid_row IS NULL OR grid_col IS NULL) THEN
-    ALTER TABLE game_map_nodes ALTER COLUMN grid_row SET NOT NULL;
-    ALTER TABLE game_map_nodes ALTER COLUMN grid_col SET NOT NULL;
-  END IF;
-END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_game_map_nodes_grid
   ON game_map_nodes(map_id, grid_row, grid_col);
 CREATE INDEX IF NOT EXISTS idx_game_map_nodes_map ON game_map_nodes(map_id, order_index);
@@ -785,6 +779,17 @@ try {
   if (orphanMapRefs > 0) {
     throw new Error(`地图种子存在 ${orphanMapRefs} 处悬空引用（map/requires/zone）`);
   }
+  // P1 画布收口：节点已按种子重灌（坐标齐全且已校验），此刻才把 grid_row/grid_col 提升为 NOT NULL。
+  // 放在建表处是错的：那一刻表里还是上一轮的旧行（无坐标），提升会被跳过且**永远不再重试**。
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM game_map_nodes WHERE grid_row IS NULL OR grid_col IS NULL) THEN
+        ALTER TABLE game_map_nodes ALTER COLUMN grid_row SET NOT NULL;
+        ALTER TABLE game_map_nodes ALTER COLUMN grid_col SET NOT NULL;
+      END IF;
+    END $$;
+  `);
   console.log('[放置·修仙之路] maps: ' + maps.length + ' / nodes: ' + mapNodes.length + ' / edges: ' + edgeCount);
 
   // ===== P6 任务定义（重灌：任务进度为玩家数据，保留） =====
