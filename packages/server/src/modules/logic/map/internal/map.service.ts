@@ -39,6 +39,7 @@ import {
   unlockedMapCodes,
   fail,
   progressView,
+  safeInt,
 } from './map.types.js';
 
 /** 统一的 Action 结果体形状（与 zone 域一致，由骨架包进响应信封） */
@@ -146,6 +147,11 @@ export class MapService {
       requiresNodeCode: node.requires_node_code,
       zoneCode: node.zone_code,
       orderIndex: Number(node.order_index),
+      // P1 画布坐标：0-based 交叉线索引。漏改 SELECT 时这里是 undefined，
+      // safeInt 把它收敛成 0 而不是 NaN（NaN 会被 JSON 序列化成 null 静默进协议）。
+      gridRow: safeInt(node.grid_row, 0),
+      gridCol: safeInt(node.grid_col, 0),
+      description: node.description ?? null,
       progress,
     };
   }
@@ -200,6 +206,10 @@ export class MapService {
         chapterTo: Number(map.chapter_to),
         requiresMapCode: map.requires_map_code,
         description: map.description,
+        // 坐标空间：至少 1 行 1 列，否则前端把画布算成 0×0 宽高（除零 / 空白画布）
+        gridRows: Math.max(1, safeInt(map.grid_rows, 1)),
+        gridCols: Math.max(1, safeInt(map.grid_cols, 1)),
+        backgroundKey: map.background_key ?? null,
         nodes: visible.map((n) => this.nodeView(n, progressView(byNodeId.get(Number(n.id))))),
         edges: mapEdges,
       };

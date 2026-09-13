@@ -17,6 +17,12 @@ export interface MapRow {
   chapter_to: number;
   requires_map_code: string | null;
   description: string | null;
+  /** 坐标空间行数：交叉线索引 `0..grid_rows`（P1 画布，§14.1） */
+  grid_rows: number;
+  /** 坐标空间列数：交叉线索引 `0..grid_cols` */
+  grid_cols: number;
+  /** 预留：底图资源 key（本轮恒为 null） */
+  background_key: string | null;
 }
 
 /** `game_map_nodes` 行（schema.prisma:431-452） */
@@ -37,6 +43,26 @@ export interface MapNodeRow {
   /** kind=secret_realm 时指向 game_zones.code */
   zone_code: string | null;
   order_index: number;
+  /** 0-based 交叉线索引，`0..grid_rows`（P1 画布） */
+  grid_row: number;
+  /** 0-based 交叉线索引，`0..grid_cols` */
+  grid_col: number;
+  /** 风味文案（悬停卡 / 右栏详情） */
+  description: string | null;
+}
+
+/**
+ * 安全整数解析：把驱动返回的「字符串数字 / bigint / null」等收敛成有限整数。
+ *
+ * 为什么需要它：`pg` 对 `SMALLINT` 返回 number、对 `INT8`/聚合返回 string，
+ * 而漏写 `SELECT` 列表时字段是 `undefined` —— 直接 `Number(undefined)` 得到 `NaN`，
+ * `JSON.stringify` 会把 `NaN` 序列化成 `null`，**静默**进入协议。
+ * 这里统一回退到 `fallback`，并拒绝负数（坐标为 0-based 交叉线索引，负值非法）。
+ */
+export function safeInt(value: unknown, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.trunc(n);
 }
 
 /** `game_map_edges` 行（schema.prisma:454-463） */

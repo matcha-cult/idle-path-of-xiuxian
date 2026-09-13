@@ -9,7 +9,11 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { MapService } from '../../../src/modules/logic/map/internal/map.service.js';
 import { PlayerPowerService } from '../../../src/modules/character/player-power.service.js';
-import { unlockedMapCodes, type MapRow } from '../../../src/modules/logic/map/internal/map.types.js';
+import {
+  safeInt,
+  unlockedMapCodes,
+  type MapRow,
+} from '../../../src/modules/logic/map/internal/map.types.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
@@ -44,6 +48,10 @@ function mapRow(overrides: Row = {}): Row {
     chapter_to: 2,
     requires_map_code: null,
     description: null,
+    // P1 画布坐标空间（缺省 21×21，与 schema 默认值一致）
+    grid_rows: 21,
+    grid_cols: 21,
+    background_key: null,
     ...overrides,
   };
 }
@@ -65,6 +73,10 @@ function nodeRow(overrides: Row = {}): Row {
     requires_node_code: null,
     zone_code: null,
     order_index: 1,
+    // P1 画布坐标：0-based 交叉线索引
+    grid_row: 0,
+    grid_col: 0,
+    description: null,
     ...overrides,
   };
 }
@@ -183,6 +195,125 @@ const N3 = nodeRow({
 });
 const E1 = edgeRow({ id: 1, from_node_id: 1, to_node_id: 2 });
 const E2 = edgeRow({ id: 2, from_node_id: 2, to_node_id: 3 });
+
+// ===== P1 画布：坐标 / 底图列（historical bug：只改 interface 漏改 SELECT → Number(undefined) = NaN）=====
+
+describe('MapService.panel 画布坐标映射（P1）', () => {
+  test('DTO 的 gridRow/gridCol 是有限整数且落在 0..gridRows / 0..gridCols 内', async () => {
+    const maps = [mapRow({ grid_rows: 21, grid_cols: 21 })];
+    const nodes = [
+      nodeRow({ id: 1, code: 'n1', grid_row: 0, grid_col: 21 }),
+      nodeRow({ id: 2, code: 'n2', grid_row: 21, grid_col: 0, requires_node_code: 'n1' }),
+    ];
+    // 两个节点都要已发现才会下发（发现规则见 §5.2）
+    const progress = [nodeProgressRow({ id: 1, node_id: 1, visited: true }), nodeProgressRow({ id: 2, node_id: 2, visited: true })];
+    const { db } = mapDb({ maps, nodes, progress });
+    const data = (await makeService({ db }).svc.panel(7)).data as {
+      maps: Array<{
+        gridRows: number;
+        gridCols: number;
+        backgroundKey: string | null;
+        nodes: Array<{ code: string; gridRow: number; gridCol: number; description: string | null }>;
+      }>;
+    };
+    const view = data.maps[0];
+    assert.equal(view.gridRows, 21);
+    assert.equal(view.gridCols, 21);
+    assert.equal(view.backgroundKey, null);
+    for (const node of view.nodes) {
+      for (const value of [node.gridRow, node.gridCol]) {
+        assert.ok(Number.isFinite(value), `${node.code} 的坐标不是有限数：${value}`);
+        assert.ok(Number.isInteger(value), `${node.code} 的坐标不是整数：${value}`);
+        assert.ok(value >= 0, `${node.code} 的坐标为负：${value}`);
+        assert.ok(value <= 21, `${node.code} 的坐标越界：${value}`);
+      }
+    }
+    // 两端（0 与 grid_cols / grid_rows）必须原样保留，不做 ±1 偏移
+    assert.deepStrictEqual(
+      view.nodes.map((n) => [n.gridRow, n.gridCol]),
+      [[0, 21], [21, 0]],
+    );
+  });
+
+  test('description 映射到 DTO；缺失时收敛为 null（不出现 undefined）', async () => {
+    const maps = [mapRow()];
+    const nodes = [
+      nodeRow({ id: 1, code: 'n1', description: '常年妖兽出没' }),
+      nodeRow({ id: 2, code: 'n2', requires_node_code: 'n1', description: undefined }),
+    ];
+    // n2 的前置 n1 已访问，两个节点才都会下发
+    const progress = [nodeProgressRow({ id: 1, node_id: 1, visited: true })];
+    const { db } = mapDb({ maps, nodes, progress });
+    const data = (await makeService({ db }).svc.panel(7)).data as {
+      maps: Array<{ nodes: Array<{ code: string; description: string | null }> }>;
+    };
+    const byCode = new Map(data.maps[0].nodes.map((n) => [n.code, n.description]));
+    assert.equal(byCode.get('n1'), '常年妖兽出没');
+    assert.equal(byCode.get('n2'), null);
+  });
+
+  test('缺列 / 非法列（undefined、NaN、负数、字符串数字）都不产出 NaN', async () => {
+    const maps = [mapRow({ grid_rows: undefined, grid_cols: 'abc' })];
+    const nodes = [
+      nodeRow({ id: 1, code: 'n1', grid_row: undefined, grid_col: undefined }),
+      nodeRow({ id: 2, code: 'n2', requires_node_code: 'n1', grid_row: Number.NaN, grid_col: -3 }),
+      nodeRow({ id: 3, code: 'n3', requires_node_code: 'n2', grid_row: '7', grid_col: '12.9' }),
+    ];
+    // 前置链逐个「已访问」，三个节点才都在下发集合里
+    const progress = [
+      nodeProgressRow({ id: 1, node_id: 1, visited: true }),
+      nodeProgressRow({ id: 2, node_id: 2, visited: true }),
+    ];
+    const { db } = mapDb({ maps, nodes, progress });
+    const data = (await makeService({ db }).svc.panel(7)).data as {
+      maps: Array<{
+        gridRows: number;
+        gridCols: number;
+        nodes: Array<{ code: string; gridRow: number; gridCol: number }>;
+      }>;
+    };
+    const view = data.maps[0];
+    // 缺列 → 回退 1（至少 1×1，前端不会算出 0 宽高画布）；非法字符串同理
+    assert.equal(view.gridRows, 1);
+    assert.equal(view.gridCols, 1);
+    const byCode = new Map(view.nodes.map((n) => [n.code, n]));
+    assert.deepStrictEqual([byCode.get('n1')?.gridRow, byCode.get('n1')?.gridCol], [0, 0]);
+    assert.deepStrictEqual([byCode.get('n2')?.gridRow, byCode.get('n2')?.gridCol], [0, 0]);
+    // 字符串数字取整（12.9 → 12），不保留小数
+    assert.deepStrictEqual([byCode.get('n3')?.gridRow, byCode.get('n3')?.gridCol], [7, 12]);
+    for (const node of view.nodes) {
+      assert.ok(Number.isFinite(node.gridRow) && Number.isFinite(node.gridCol), `${node.code} 产出 NaN`);
+    }
+  });
+
+  test('enter / waypoint 的成功响应同样带坐标（不是只有 panel 有）', async () => {
+    const maps = [mapRow()];
+    // 门槛 30：2 境裸装战力 40 够用（否则 enter 会因战力不足失败）
+    const nodes = [nodeRow({ id: 1, code: 'n1', grid_row: 4, grid_col: 9, has_waypoint: true, threshold: 30 })];
+    const { db } = mapDb({ maps, nodes });
+    const enter = (await makeService({ db }).svc.enter(7, 'n1')).data as {
+      node: { gridRow: number; gridCol: number };
+    };
+    assert.deepStrictEqual([enter.node.gridRow, enter.node.gridCol], [4, 9]);
+    const waypoint = (await makeService({ db }).svc.waypoint(7, 'n1')).data as {
+      node: { gridRow: number; gridCol: number };
+    };
+    assert.deepStrictEqual([waypoint.node.gridRow, waypoint.node.gridCol], [4, 9]);
+  });
+
+  test('safeInt 边界：NaN / Infinity / null / undefined / 负数 / 小数 / 字符串数字', () => {
+    assert.equal(safeInt(undefined, 5), 5);
+    assert.equal(safeInt(null, 5), 0); // Number(null) === 0，合法整数
+    assert.equal(safeInt(Number.NaN, 5), 5);
+    assert.equal(safeInt(Number.POSITIVE_INFINITY, 5), 5);
+    assert.equal(safeInt(-1, 5), 5);
+    assert.equal(safeInt(0, 5), 0);
+    assert.equal(safeInt(3.9, 5), 3);
+    assert.equal(safeInt('12', 5), 12);
+    assert.equal(safeInt('', 5), 0);
+    assert.equal(safeInt('abc', 5), 5);
+  });
+});
 
 // ===== 发现 / 可见性 =====
 
@@ -599,6 +730,9 @@ describe('地图解锁（D4：章节完成即解锁下一张地图）', () => {
     chapter_to: 2,
     requires_map_code: null,
     description: null,
+    grid_rows: 21,
+    grid_cols: 21,
+    background_key: null,
   } satisfies MapRow;
   /** 第二张图：要求前置地图 map_qingyun 的 chapter_to（= 2）已完成。 */
   const SECOND_MAP = {
@@ -611,6 +745,9 @@ describe('地图解锁（D4：章节完成即解锁下一张地图）', () => {
     chapter_to: 3,
     requires_map_code: 'map_qingyun',
     description: null,
+    grid_rows: 21,
+    grid_cols: 21,
+    background_key: null,
   } satisfies MapRow;
 
   test('纯规则：无前置=解锁；前置章节未完成=锁定；已完成=解锁', () => {

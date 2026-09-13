@@ -737,6 +737,16 @@ export interface MapNodeView {
   /** kind=secret_realm 时指向 game_zones.code，否则 null */
   zoneCode: string | null;
   orderIndex: number;
+  /**
+   * 画布坐标：**0-based 交叉线索引**，`0..gridRows` / `0..gridCols`（P1 画布，§14.1）。
+   *
+   * 含义是「第 gridRow 条横线 × 第 gridCol 条竖线」的**交叉点**，不是格子中心；
+   * 像素换算为 `col * CELL_PX`。服务端只做列映射，**不做任何布局计算**。
+   */
+  gridRow: number;
+  gridCol: number;
+  /** 风味文案（悬停卡 / 右栏详情）；null = 无文案 */
+  description: string | null;
   progress: NodeProgressView;
 }
 
@@ -763,6 +773,15 @@ export interface MapView {
   chapterTo: number;
   requiresMapCode: string | null;
   description: string | null;
+  /** 坐标空间行数：交叉线索引 `0..gridRows`（P1 画布） */
+  gridRows: number;
+  /** 坐标空间列数：交叉线索引 `0..gridCols` */
+  gridCols: number;
+  /**
+   * 底图资源 key（前端注册表解析成资源路径，与 `feature-registry` 同一做法）。
+   * 本轮恒为 null = 不画底图；数据库里存 key 而不是 URL，换 CDN/文件名时不必改库。
+   */
+  backgroundKey: string | null;
   nodes: MapNodeView[];
   edges: MapEdgeView[];
 }
