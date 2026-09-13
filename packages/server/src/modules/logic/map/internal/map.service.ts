@@ -34,6 +34,7 @@ import {
   type MapNodeRow,
   type MapObjectRow,
   type MapRow,
+  type MapStateRow,
   type NodeProgressRow,
   type NodeProgressView,
   discoveredCodes,
@@ -138,6 +139,34 @@ export class MapService {
       [characterId, nodeId],
     );
     return rows.rows[0] ?? null;
+  }
+
+  /**
+   * 当前所在节点 id（P2.0 §5）。
+   *
+   * 无行 = 新角色 → `null`；`current_node_id` 指向**已删节点**（配置漂移）时也返回 null，
+   * 由「入口规则」兜底（四门可进），而不是崩。
+   */
+  private async currentNodeId(characterId: number): Promise<number | null> {
+    const rows = await this.gameDb.query<MapStateRow>(
+      'SELECT current_node_id FROM game_map_state WHERE character_id = $1',
+      [characterId],
+    );
+    const raw = rows.rows[0]?.current_node_id ?? null;
+    if (raw == null) return null;
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  /** 写当前所在（幂等 upsert；`map.enter` / `map.waypoint` 成功后调用）。 */
+  private async setCurrentNodeId(characterId: number, nodeId: number): Promise<void> {
+    await this.gameDb.query(
+      `INSERT INTO game_map_state (character_id, current_node_id)
+       VALUES ($1, $2)
+       ON CONFLICT (character_id)
+       DO UPDATE SET current_node_id = EXCLUDED.current_node_id, updated_at = CURRENT_TIMESTAMP`,
+      [characterId, nodeId],
+    );
   }
 
   /** 节点视图（协议 dto.ts 的 `MapNodeView`） */
@@ -293,6 +322,8 @@ export class MapService {
       idleUnlocked: Boolean(existing?.idle_unlocked),
       cleared: Boolean(existing?.cleared),
     };
+    // P2.0 §5：到达即更新「当前所在」——与进度写库分开，重复 enter 也要把位置落库（幂等 upsert）。
+    await this.setCurrentNodeId(character.id, Number(node.id));
     return {
       success: true,
       message: '已到达：' + node.name,
@@ -332,6 +363,8 @@ export class MapService {
         data: { code: 'WAYPOINT_NOT_UNLOCKED', nodeCode: node.code, hasWaypoint: Boolean(node.has_waypoint) },
       };
     }
+    // P2.0 §5：传送成功后同样更新「当前所在」。语义不变：仍要求传送点已点亮。
+    await this.setCurrentNodeId(character.id, Number(node.id));
     return {
       success: true,
       message: '已传送至：' + node.name,

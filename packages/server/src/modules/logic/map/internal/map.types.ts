@@ -127,6 +127,12 @@ export interface NodeProgressRow {
   cleared: boolean;
 }
 
+/** `game_map_state` 行（P2.0 §5）：角色当前所在。`current_node_id` 可空 = 新角色。 */
+export interface MapStateRow {
+  character_id: number;
+  current_node_id: number | null;
+}
+
 /** 单节点进度视图（协议 dto.ts 的 `NodeProgressView` 同形） */
 export interface NodeProgressView {
   visited: boolean;

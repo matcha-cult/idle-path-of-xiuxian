@@ -387,6 +387,14 @@ CREATE TABLE IF NOT EXISTS game_node_progress (
 );
 CREATE INDEX IF NOT EXISTS idx_game_node_progress_character ON game_node_progress(character_id);
 
+-- 角色当前所在（P2.0 §5）：map.enter / map.waypoint 成功后写入；NULL = 新角色（四门任进）
+CREATE TABLE IF NOT EXISTS game_map_state (
+  id              SERIAL PRIMARY KEY,
+  character_id    INTEGER NOT NULL UNIQUE,
+  current_node_id INTEGER,
+  updated_at      TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS game_quest_defs (
   id           SERIAL PRIMARY KEY,
   code         VARCHAR(50) NOT NULL UNIQUE,

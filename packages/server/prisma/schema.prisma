@@ -501,3 +501,13 @@ model game_node_progress {
   @@index([character_id])
 }
 
+// 角色当前所在（P2.0 §5）。任务书模型省略了主键；Prisma 要求恰好一个 @id，
+// 故补一个自增代理键（语义不变：`character_id` 仍唯一）。
+// `map.enter` 与 `map.waypoint` 成功后都写这里；`current_node_id = null` = 新角色（四门任进）。
+model game_map_state {
+  id              Int      @id @default(autoincrement())
+  character_id    Int      @unique
+  current_node_id Int?
+  updated_at      DateTime @updatedAt @db.Timestamp(6)
+}
+

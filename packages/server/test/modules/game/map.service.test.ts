@@ -103,6 +103,8 @@ interface MapDbOptions {
   nodes?: Row[];
   edges?: Row[];
   progress?: Row[];
+  /** 角色当前所在（`game_map_state`，P2.0 §5）。 */
+  state?: Row[];
   equip?: string | null;
   skill?: string | null;
   /** 已完成的章节序号（D4 地图解锁闸门的依据）。 */
@@ -115,6 +117,7 @@ function mapDb(opts: MapDbOptions = {}) {
   const nodes = opts.nodes ?? [];
   const edges = opts.edges ?? [];
   const progress: Row[] = (opts.progress ?? []).map((p) => ({ ...p }));
+  const state: Row[] = (opts.state ?? []).map((s) => ({ ...s }));
   let seq = progress.length;
   const find = (charId: unknown, nodeId: unknown) =>
     progress.find((p) => p.character_id === charId && p.node_id === nodeId);
@@ -152,6 +155,21 @@ function mapDb(opts: MapDbOptions = {}) {
       }
       return { rows: [row] };
     })
+    // P2.0 §5：角色当前所在（game_map_state）的读写
+    .on(/FROM game_map_state WHERE character_id = \$1/, (params) => ({
+      rows: state.filter((s) => s.character_id === params[0]),
+    }))
+    .on(/INSERT INTO game_map_state/, (params) => {
+      const [charId, nodeId] = params as [number, number];
+      let row = state.find((s) => s.character_id === charId);
+      if (!row) {
+        row = { character_id: charId, current_node_id: nodeId };
+        state.push(row);
+      } else {
+        row.current_node_id = nodeId;
+      }
+      return { rows: [row] };
+    })
     .on(/COUNT\(\*\)::text AS c FROM game_items/, {
       rows: opts.equip == null ? [] : [{ c: opts.equip }],
     })
@@ -162,7 +180,7 @@ function mapDb(opts: MapDbOptions = {}) {
     .on(/FROM game_chapter_progress p/, {
       rows: (opts.completedChapters ?? []).map((chapter) => ({ chapter })),
     });
-  return { db, progress, maps, nodes, edges };
+  return { db, progress, maps, nodes, edges, state };
 }
 
 function makeService(opts: { db: FakeDatabase; character?: Character | null }) {
@@ -496,6 +514,58 @@ describe('MapService.enter 边界（§5.2 + §6.2）', () => {
     const res = await makeService({ db }).svc.enter(7, 'n2');
     assert.equal(res.success, true);
     assert.deepEqual(progress.map((p) => [p.node_id, p.visited]), [[1, true], [2, true]]);
+  });
+});
+
+// ===== 当前所在（P2.0 §5）=====
+
+describe('MapService 当前所在 game_map_state（P2.0 §5）', () => {
+  test('enter 成功后写入 current_node_id（新角色首次建档）', async () => {
+    const { db, state } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
+    const res = await makeService({ db }).svc.enter(7, 'n1');
+    assert.equal(res.success, true);
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 1 }]);
+  });
+
+  test('enter 失败（战力不足）不得写 current_node_id', async () => {
+    const { db, state } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '0' });
+    assert.equal(failingCode(await makeService({ db }).svc.enter(7, 'n1')), 'NODE_POWER_NOT_ENOUGH');
+    assert.deepEqual(state, []);
+    assert.equal(db.callsMatching(/INSERT INTO game_map_state/).length, 0);
+  });
+
+  test('waypoint 成功后也更新 current_node_id（语义不变：仍要求已点亮）', async () => {
+    const { db, state } = mapDb({
+      maps: [mapRow()],
+      nodes: [N1, N3],
+      edges: [E1, E2],
+      progress: [nodeProgressRow({ id: 1, node_id: 3, visited: true, waypoint_unlocked: true })],
+      state: [{ character_id: 11, current_node_id: 1 }],
+    });
+    const res = await makeService({ db }).svc.waypoint(7, 'n3');
+    assert.equal(res.success, true);
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 3 }]);
+  });
+
+  test('waypoint 失败（未点亮）不得写 current_node_id', async () => {
+    const { db, state } = mapDb({
+      maps: [mapRow()],
+      nodes: [N3],
+      progress: [nodeProgressRow({ id: 1, node_id: 3, visited: true, waypoint_unlocked: false })],
+      state: [{ character_id: 11, current_node_id: 1 }],
+    });
+    assert.equal(failingCode(await makeService({ db }).svc.waypoint(7, 'n3')), 'WAYPOINT_NOT_UNLOCKED');
+    assert.deepEqual(state, [{ character_id: 11, current_node_id: 1 }]);
+    assert.equal(db.callsMatching(/INSERT INTO game_map_state/).length, 0);
+  });
+
+  test('重复 enter 同一节点：current_node_id 幂等（不重复建档）', async () => {
+    const { db, state } = mapDb({ maps: [mapRow()], nodes: [N1], equip: '12' });
+    const { svc } = makeService({ db });
+    await svc.enter(7, 'n1');
+    await svc.enter(7, 'n1');
+    assert.equal(state.length, 1);
+    assert.equal(state[0].current_node_id, 1);
   });
 });
 
