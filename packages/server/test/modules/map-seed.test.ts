@@ -30,6 +30,11 @@ interface MapSeed {
   chapterFrom: number;
   chapterTo: number;
   requiresMapCode?: string | null;
+  /** P1 画布坐标空间（交叉线条数 = gridRows + 1） */
+  gridRows?: number;
+  gridCols?: number;
+  /** 底图资源 key：本轮恒为 null（P4 才填） */
+  backgroundKey?: string | null;
 }
 
 interface NodeSeed {
@@ -47,6 +52,11 @@ interface NodeSeed {
   requiresNodeCode?: string | null;
   zoneCode?: string | null;
   orderIndex: number;
+  /** P1 画布：0-based 交叉线索引（`0..gridRows` / `0..gridCols`） */
+  gridRow?: number;
+  gridCol?: number;
+  /** 风味文案（悬停卡 / 右栏详情） */
+  description?: string | null;
 }
 
 interface EdgeSeed {

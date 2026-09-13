@@ -13,7 +13,10 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "orderIndex": 1
+    "orderIndex": 1,
+    "description": "青石山门朝东，晨光最先照到这里。",
+    "gridRow": 10,
+    "gridCol": 21
   },
   {
     "code": "qy_gate_s",
@@ -29,7 +32,10 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "orderIndex": 2
+    "orderIndex": 2,
+    "description": "南麓坡缓，山下香客多由此上山。",
+    "gridRow": 21,
+    "gridCol": 10
   },
   {
     "code": "qy_gate_w",
@@ -45,7 +51,10 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "orderIndex": 3
+    "orderIndex": 3,
+    "description": "西门外是万丈云海，风急雾重。",
+    "gridRow": 9,
+    "gridCol": 0
   },
   {
     "code": "qy_gate_n",
@@ -61,7 +70,10 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "orderIndex": 4
+    "orderIndex": 4,
+    "description": "北门背靠雪岭，常年寒气逼人。",
+    "gridRow": 0,
+    "gridCol": 12
   },
   {
     "code": "qy_approach",
@@ -77,7 +89,10 @@
     "chapter": 1,
     "requiresNodeCode": "qy_gate_e",
     "zoneCode": null,
-    "orderIndex": 5
+    "orderIndex": 5,
+    "description": "新入门的弟子在此登记名册，领腰牌。",
+    "gridRow": 1,
+    "gridCol": 8
   },
   {
     "code": "qy_peak_tianshu",
@@ -93,7 +108,10 @@
     "chapter": 1,
     "requiresNodeCode": "qy_approach",
     "zoneCode": null,
-    "orderIndex": 6
+    "orderIndex": 6,
+    "description": "北斗第一峰，剑修在此开脉。",
+    "gridRow": 1,
+    "gridCol": 10
   },
   {
     "code": "qy_peak_tianxuan",
@@ -109,7 +127,10 @@
     "chapter": 1,
     "requiresNodeCode": "qy_peak_tianshu",
     "zoneCode": null,
-    "orderIndex": 7
+    "orderIndex": 7,
+    "description": "峰顶有巨岩如磨，日夜转动不息。",
+    "gridRow": 4,
+    "gridCol": 17
   },
   {
     "code": "qy_peak_tianji",
@@ -125,7 +146,10 @@
     "chapter": 1,
     "requiresNodeCode": "qy_peak_tianxuan",
     "zoneCode": null,
-    "orderIndex": 8
+    "orderIndex": 8,
+    "description": "云雾缭绕，峰腰遍植灵茶。",
+    "gridRow": 10,
+    "gridCol": 19
   },
   {
     "code": "qy_peak_tianquan",
@@ -141,7 +165,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_tianji",
     "zoneCode": null,
-    "orderIndex": 9
+    "orderIndex": 9,
+    "description": "权峰多机关，据说是器修手笔。",
+    "gridRow": 17,
+    "gridCol": 17
   },
   {
     "code": "qy_peak_yuheng",
@@ -157,7 +184,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_tianquan",
     "zoneCode": null,
-    "orderIndex": 10
+    "orderIndex": 10,
+    "description": "衡峰如一杆玉尺，横亘在南天。",
+    "gridRow": 19,
+    "gridCol": 10
   },
   {
     "code": "qy_peak_kaiyang",
@@ -173,7 +203,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_yuheng",
     "zoneCode": null,
-    "orderIndex": 11
+    "orderIndex": 11,
+    "description": "夕阳把整面崖壁照成金红。",
+    "gridRow": 17,
+    "gridCol": 4
   },
   {
     "code": "qy_peak_yaoguang",
@@ -189,7 +222,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_kaiyang",
     "zoneCode": null,
-    "orderIndex": 12
+    "orderIndex": 12,
+    "description": "北斗之柄，峰下即是内门地界。",
+    "gridRow": 11,
+    "gridCol": 1
   },
   {
     "code": "qy_houshan",
@@ -205,7 +241,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_yaoguang",
     "zoneCode": "zone_houshan",
-    "orderIndex": 13
+    "orderIndex": 13,
+    "description": "后山常年妖兽出没，宗门以此历练门人。",
+    "gridRow": 4,
+    "gridCol": 4
   },
   {
     "code": "qy_zhishitang",
@@ -221,7 +260,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_peak_yaoguang",
     "zoneCode": null,
-    "orderIndex": 14
+    "orderIndex": 14,
+    "description": "宗门庶务都在这座堂里交割。",
+    "gridRow": 14,
+    "gridCol": 4
   },
   {
     "code": "qy_neimen",
@@ -237,7 +279,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_zhishitang",
     "zoneCode": null,
-    "orderIndex": 15
+    "orderIndex": 15,
+    "description": "演武的石坪，晨钟一响便有弟子在此列队。",
+    "gridRow": 10,
+    "gridCol": 3
   },
   {
     "code": "qy_chuansong",
@@ -253,7 +298,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "orderIndex": 16
+    "orderIndex": 16,
+    "description": "阵纹常年不灭，另一端连着各峰。",
+    "gridRow": 7,
+    "gridCol": 4
   },
   {
     "code": "qy_cangshuge",
@@ -269,7 +317,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "orderIndex": 17
+    "orderIndex": 17,
+    "description": "九层木阁，藏尽宗门功法与旧档。",
+    "gridRow": 14,
+    "gridCol": 6
   },
   {
     "code": "qy_jielvtang",
@@ -285,7 +336,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "orderIndex": 18
+    "orderIndex": 18,
+    "description": "堂前立着历代祖师的戒碑。",
+    "gridRow": 10,
+    "gridCol": 5
   },
   {
     "code": "qy_chuangongya",
@@ -301,7 +355,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "orderIndex": 19
+    "orderIndex": 19,
+    "description": "崖壁上刀痕剑迹纵横，都是前辈留招。",
+    "gridRow": 7,
+    "gridCol": 6
   },
   {
     "code": "qy_danxiayuan",
@@ -317,7 +374,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "orderIndex": 20
+    "orderIndex": 20,
+    "description": "炉火整日不熄，丹香飘出半里。",
+    "gridRow": 14,
+    "gridCol": 10
   },
   {
     "code": "qy_baiqige",
@@ -333,7 +393,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "orderIndex": 21
+    "orderIndex": 21,
+    "description": "阁中炉锤声不绝，锻的是门中弟子的兵器。",
+    "gridRow": 12,
+    "gridCol": 7
   },
   {
     "code": "qy_lingshouyuan",
@@ -349,7 +412,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "orderIndex": 22
+    "orderIndex": 22,
+    "description": "灵兽各有脾性，苑中弟子须得耐心。",
+    "gridRow": 9,
+    "gridCol": 7
   },
   {
     "code": "qy_lingtian",
@@ -365,7 +431,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "orderIndex": 23
+    "orderIndex": 23,
+    "description": "灵田按节气轮种，药香混着泥土气。",
+    "gridRow": 7,
+    "gridCol": 10
   },
   {
     "code": "qy_tianxingtai",
@@ -381,7 +450,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "orderIndex": 24
+    "orderIndex": 24,
+    "description": "宗门弟子在此比试，点到为止。",
+    "gridRow": 12,
+    "gridCol": 11
   },
   {
     "code": "qy_jindi",
@@ -397,7 +469,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "orderIndex": 25
+    "orderIndex": 25,
+    "description": "重重禁制封锁，非长老不得入内。",
+    "gridRow": 12,
+    "gridCol": 9
   },
   {
     "code": "qy_hufaxieyuan",
@@ -413,7 +488,10 @@
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "orderIndex": 26
+    "orderIndex": 26,
+    "description": "护法长老静修之处，院中寂然无声。",
+    "gridRow": 9,
+    "gridCol": 11
   },
   {
     "code": "qy_summit",
@@ -429,6 +507,9 @@
     "chapter": 2,
     "requiresNodeCode": "qy_hufaxieyuan",
     "zoneCode": null,
-    "orderIndex": 27
+    "orderIndex": 27,
+    "description": "一峰独高，云海尽在脚下。",
+    "gridRow": 10,
+    "gridCol": 10
   }
 ]
