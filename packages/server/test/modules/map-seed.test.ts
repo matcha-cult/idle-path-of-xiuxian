@@ -46,7 +46,6 @@ interface NodeSeed {
   chapter: number;
   requiresNodeCode?: string | null;
   zoneCode?: string | null;
-  unitCode?: string | null;
   orderIndex: number;
 }
 
@@ -64,6 +63,8 @@ interface ZoneSeed {
   name: string;
   maxFloor: number;
   bossEveryFloors?: number;
+  unitCode?: string;
+  bossCode?: string;
 }
 
 interface UnitSeed {
@@ -82,7 +83,8 @@ function loadJson<T>(file: string): T {
 const maps = loadJson<MapSeed[]>('maps.json');
 const nodes = loadJson<NodeSeed[]>('map-nodes.json');
 const edges = loadJson<EdgeSeed[]>('map-edges.json');
-const zones = loadJson<ZoneSeed[]>('zones.json');
+const zonesRaw = loadJson<ZoneSeed[]>('zones.json');
+const zones = zonesRaw;
 const units = loadJson<UnitSeed[]>('unit-templates.json');
 
 const nodeByCode = new Map(nodes.map((n) => [n.code, n]));
@@ -188,37 +190,45 @@ describe('地图种子 · R2 已拍板硬规则', () => {
     }
   });
 
-  test('D3 保底：每张地图至少一个挂机点，否则「没时间上线也有得挂」不成立', () => {
-    for (const map of maps) {
-      const count = nodes.filter((n) => n.mapCode === map.code && n.kind === 'idle_spot').length;
-      assert.ok(count >= 1, `地图 ${map.code} 没有挂机点`);
-    }
+  /**
+   * 用户修正：**挂机只能在「历练秘境峰」** —— 地图上不散布挂机点。
+   * 因此 `kind` 只有 route / secret_realm / summit，且「能挂机的地方」就是秘境本身
+   * （击败首个 Boss 后解锁离线挂机，D2）。这条断言防止后续地图定义时又把 idle_spot 加回来。
+   */
+  test('挂机只能在历练秘境峰：不得存在 idle_spot 节点', () => {
+    const bad = nodes.filter((n) => n.kind === 'idle_spot').map((n) => n.code);
+    assert.deepStrictEqual(bad, [], `不允许散布挂机点（挂机只能在历练秘境峰）：${bad.join(', ')}`);
   });
 
-  test('D3 前提：挂机点必须声明刷什么单位，且非挂机点不得带单位', () => {
+  test('地图节点不得自带产出单位（秘境产出由 game_zones.unit_code 决定）', () => {
     for (const node of nodes) {
-      if (node.kind === 'idle_spot') {
-        assert.ok(node.unitCode != null, `挂机点 ${node.code} 未声明产出单位，服务端无从结算`);
-      } else {
-        assert.ok(node.unitCode == null, `非挂机点 ${node.code} 不应带 unitCode（${node.unitCode}）`);
-      }
+      assert.ok(!('unitCode' in node), `节点 ${node.code} 不应带 unitCode`);
     }
   });
 
-  test('D3 前提：挂机点刷的单位必须存在、可击杀、且产灵韵', () => {
-    for (const node of nodes.filter((n) => n.kind === 'idle_spot')) {
-      const unit = unitByCode.get(node.unitCode ?? '');
-      assert.ok(unit !== undefined, `挂机点 ${node.code} 指向不存在的单位 ${node.unitCode}`);
-      // 「挂机点刷友好 NPC」是最容易犯的配置错：这里必须拦住
-      assert.strictEqual(unit?.camp, 'hostile', `挂机点 ${node.code} 刷的是 ${unit?.camp} 单位（${unit?.code}）`);
-      assert.strictEqual(unit?.givesLingyun, true, `挂机点 ${node.code} 的单位 ${unit?.code} 不产灵韵`);
-      assert.ok(unit?.dropTable != null, `挂机点 ${node.code} 的单位 ${unit?.code} 没有掉落表，挂机永远不产出物品`);
-      // 单位境界应与节点等级同一档，否则挂机收益与难度不匹配
-      assert.ok(
-        Math.abs((unit?.realm ?? 0) - node.level) <= 1,
-        `挂机点 ${node.code} 的等级 ${node.level} 与单位境界 ${unit?.realm} 相差过大`,
-      );
+  test('历练秘境峰（唯一秘境）必须指向真实 zone，且该 zone 声明了刷什么单位与 Boss', () => {
+    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
+      const zone = zoneByCode.get(node.zoneCode ?? '');
+      assert.ok(zone !== undefined, `秘境节点 ${node.code} 的 zone 缺失`);
+      const raw = zonesRaw.find((z) => z.code === node.zoneCode);
+      assert.ok(raw !== undefined && raw.unitCode != null, `秘境 ${node.zoneCode} 未声明 unitCode（挂机无从结算）`);
+      assert.ok(raw !== undefined && raw.bossCode != null, `秘境 ${node.zoneCode} 未声明 bossCode（D2 无从解锁）`);
+      const unit = unitByCode.get(raw?.unitCode ?? '');
+      assert.strictEqual(unit?.camp, 'hostile', `秘境 ${node.zoneCode} 刷的不是敌对单位`);
+      assert.ok((unit?.realm ?? 99) <= 5, `秘境 ${node.zoneCode} 的单位境界超过本图上限（第五境）`);
     }
+  });
+
+  /**
+   * 用户设定：青云宗这张图把玩家**历练到第五境**。
+   * 因此全图怪物境界 ≤ 5，门槛也必须落在 1~5 境的可达范围内
+   * （5 境裸装战力 = 5×20 = 100；门槛高过它就等于这张图自己把自己锁死）。
+   */
+  test('本图历练到第五境：怪物境界 ≤ 5，且门槛不超 5 境裸装战力（100）', () => {
+    const overLevel = nodes.filter((n) => n.level > 5).map((n) => n.code);
+    assert.deepStrictEqual(overLevel, [], `怪物境界超过第五境：${overLevel.join(', ')}`);
+    const overGate = nodes.filter((n) => n.threshold > 100).map((n) => n.code);
+    assert.deepStrictEqual(overGate, [], `门槛超过 5 境裸装战力（100）：${overGate.join(', ')}`);
   });
 
   test('§5.2：每张地图至少一个传送点，否则传送体系形同虚设', () => {
@@ -324,11 +334,12 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('青云宗实践样板的结构特征（回归护栏：27 节点 / 7 传送点 / 3 挂机点 / 1 秘境）', () => {
+  test('青云宗实践样板的结构特征（回归护栏：27 节点 / 7 传送点 / 1 历练秘境峰）', () => {
     const qingyun = nodes.filter((n) => n.mapCode === 'map_qingyun');
     assert.strictEqual(qingyun.length, 27, '青云宗节点数变化了 —— 若是有意调整，请同步 §7.4 的节点表');
     assert.strictEqual(qingyun.filter((n) => n.hasWaypoint === true).length, 7);
-    assert.strictEqual(qingyun.filter((n) => n.kind === 'idle_spot').length, 3);
+    // 挂机只能在历练秘境峰 → 全图只有 1 个秘境、0 个挂机点
+    assert.strictEqual(qingyun.filter((n) => n.kind === 'idle_spot').length, 0);
     assert.strictEqual(qingyun.filter((n) => n.kind === 'secret_realm').length, 1);
     // 八峰：七职业峰 + 一历练秘境峰（用户构想的核心结构特征）
     const peaks = qingyun.filter((n) => n.ring === 'peaks');

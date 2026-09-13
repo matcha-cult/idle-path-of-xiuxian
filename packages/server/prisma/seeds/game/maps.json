@@ -3,11 +3,11 @@
     "id": 1,
     "code": "map_qingyun",
     "name": "青云宗",
-    "world": "great",
+    "world": "world_qingyun",
     "orderIndex": 1,
     "chapterFrom": 1,
     "chapterTo": 2,
     "requiresMapCode": null,
-    "description": "四门八峰·内环功能·中央主峰"
+    "description": "四门八峰·内环功能·中央主峰（本图历练至第五境）"
   }
 ]

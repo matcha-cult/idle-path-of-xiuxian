@@ -442,7 +442,6 @@ model game_map_nodes {
   chapter            Int      @db.SmallInt
   requires_node_code String?  @db.VarChar(50)
   zone_code          String?  @db.VarChar(50) // kind=secret_realm 时指向 game_zones.code
-  unit_code          String?  @db.VarChar(50) // kind=idle_spot 时指向 game_unit_templates.code（挂机刷什么）
   order_index        Int
   created_at         DateTime @default(now()) @db.Timestamp(6)
   updated_at         DateTime @updatedAt @db.Timestamp(6)

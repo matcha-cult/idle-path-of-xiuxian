@@ -13,7 +13,6 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 1
   },
   {
@@ -30,7 +29,6 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 2
   },
   {
@@ -47,7 +45,6 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 3
   },
   {
@@ -64,7 +61,6 @@
     "chapter": 1,
     "requiresNodeCode": null,
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 4
   },
   {
@@ -73,7 +69,7 @@
     "name": "外门接引区",
     "ring": "approach",
     "sector": null,
-    "kind": "idle_spot",
+    "kind": "route",
     "featureKey": null,
     "level": 1,
     "threshold": 10,
@@ -81,7 +77,6 @@
     "chapter": 1,
     "requiresNodeCode": "qy_gate_e",
     "zoneCode": null,
-    "unitCode": "u_r1_shanxiao",
     "orderIndex": 5
   },
   {
@@ -98,7 +93,6 @@
     "chapter": 1,
     "requiresNodeCode": "qy_approach",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 6
   },
   {
@@ -115,7 +109,6 @@
     "chapter": 1,
     "requiresNodeCode": "qy_peak_tianshu",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 7
   },
   {
@@ -132,7 +125,6 @@
     "chapter": 1,
     "requiresNodeCode": "qy_peak_tianxuan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 8
   },
   {
@@ -146,10 +138,9 @@
     "level": 4,
     "threshold": 65,
     "hasWaypoint": false,
-    "chapter": 1,
+    "chapter": 2,
     "requiresNodeCode": "qy_peak_tianji",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 9
   },
   {
@@ -163,10 +154,9 @@
     "level": 4,
     "threshold": 70,
     "hasWaypoint": false,
-    "chapter": 1,
+    "chapter": 2,
     "requiresNodeCode": "qy_peak_tianquan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 10
   },
   {
@@ -180,10 +170,9 @@
     "level": 5,
     "threshold": 85,
     "hasWaypoint": false,
-    "chapter": 1,
+    "chapter": 2,
     "requiresNodeCode": "qy_peak_yuheng",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 11
   },
   {
@@ -197,10 +186,9 @@
     "level": 5,
     "threshold": 90,
     "hasWaypoint": false,
-    "chapter": 1,
+    "chapter": 2,
     "requiresNodeCode": "qy_peak_kaiyang",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 12
   },
   {
@@ -211,13 +199,12 @@
     "sector": "NW",
     "kind": "secret_realm",
     "featureKey": null,
-    "level": 6,
-    "threshold": 115,
+    "level": 5,
+    "threshold": 75,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_peak_yaoguang",
     "zoneCode": "zone_houshan",
-    "unitCode": null,
     "orderIndex": 13
   },
   {
@@ -228,13 +215,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": "quest",
-    "level": 4,
-    "threshold": 70,
+    "level": 3,
+    "threshold": 55,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_peak_yaoguang",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 14
   },
   {
@@ -243,7 +229,7 @@
     "name": "内门广场",
     "ring": "inner",
     "sector": null,
-    "kind": "idle_spot",
+    "kind": "route",
     "featureKey": "waypoint",
     "level": 4,
     "threshold": 70,
@@ -251,7 +237,6 @@
     "chapter": 2,
     "requiresNodeCode": "qy_zhishitang",
     "zoneCode": null,
-    "unitCode": "u_r4_xueyan",
     "orderIndex": 15
   },
   {
@@ -268,7 +253,6 @@
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 16
   },
   {
@@ -279,13 +263,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": "skill",
-    "level": 5,
-    "threshold": 90,
+    "level": 4,
+    "threshold": 75,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 17
   },
   {
@@ -296,13 +279,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": "discipline",
-    "level": 5,
-    "threshold": 90,
+    "level": 4,
+    "threshold": 75,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 18
   },
   {
@@ -313,13 +295,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": "skill",
-    "level": 5,
-    "threshold": 90,
+    "level": 4,
+    "threshold": 75,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_neimen",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 19
   },
   {
@@ -331,12 +312,11 @@
     "kind": "route",
     "featureKey": "alchemy",
     "level": 5,
-    "threshold": 95,
+    "threshold": 90,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 20
   },
   {
@@ -348,12 +328,11 @@
     "kind": "route",
     "featureKey": "craft",
     "level": 5,
-    "threshold": 95,
+    "threshold": 90,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 21
   },
   {
@@ -365,12 +344,11 @@
     "kind": "route",
     "featureKey": "beast",
     "level": 5,
-    "threshold": 95,
+    "threshold": 90,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 22
   },
   {
@@ -379,15 +357,14 @@
     "name": "灵田药园",
     "ring": "inner",
     "sector": null,
-    "kind": "idle_spot",
+    "kind": "route",
     "featureKey": "farm",
     "level": 5,
-    "threshold": 95,
+    "threshold": 90,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_cangshuge",
     "zoneCode": null,
-    "unitCode": "u_r5_tongmo",
     "orderIndex": 23
   },
   {
@@ -398,13 +375,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": "pvp",
-    "level": 6,
-    "threshold": 110,
+    "level": 5,
+    "threshold": 95,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 24
   },
   {
@@ -415,13 +391,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": null,
-    "level": 6,
-    "threshold": 110,
+    "level": 5,
+    "threshold": 95,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 25
   },
   {
@@ -432,13 +407,12 @@
     "sector": null,
     "kind": "route",
     "featureKey": null,
-    "level": 6,
-    "threshold": 110,
+    "level": 5,
+    "threshold": 95,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_danxiayuan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 26
   },
   {
@@ -449,13 +423,12 @@
     "sector": null,
     "kind": "summit",
     "featureKey": null,
-    "level": 6,
-    "threshold": 120,
+    "level": 5,
+    "threshold": 100,
     "hasWaypoint": false,
     "chapter": 2,
     "requiresNodeCode": "qy_hufaxieyuan",
     "zoneCode": null,
-    "unitCode": null,
     "orderIndex": 27
   }
 ]
