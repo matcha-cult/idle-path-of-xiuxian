@@ -60,7 +60,7 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     expect(content.querySelector('.ant-card-head-title')?.textContent).toBe('境界');
   });
 
-  it('点击侧栏条目切换内容区（秘境 → 秘境占位）', async () => {
+  it('点击侧栏条目切换内容区（秘境已按玩法重做 → 渲染真实面板而非占位）', async () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
@@ -68,14 +68,19 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     await userEvent.click(screen.getByRole('menuitem', { name: /秘境/ }));
 
     const content = screen.getByTestId('shell-content');
-    expect(content.querySelector('.ant-card-head-title')?.textContent).toBe('秘境');
-    expect(within(content).getByTestId('panel-placeholder-highlights')).toBeInTheDocument();
+    expect(within(content).getByTestId('zone-refresh')).toBeInTheDocument();
+    expect(within(content).queryByTestId('panel-placeholder-root')).toBeNull();
   });
 
-  it('全部 11 个域当前均为占位状态（旧版面板判定不合格，待按玩法重做）', () => {
+  it('重做进度：zone 已 ready，其余 10 个仍为占位（pending）', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
-    expect(listGameDomains().every((d) => d.status === 'pending')).toBe(true);
+
+    const domains = listGameDomains();
+    expect(domains).toHaveLength(11);
+    expect(domains.find((d) => d.key === 'zone')?.status).toBe('ready');
+    expect(domains.filter((d) => d.status === 'pending')).toHaveLength(10);
+    // 默认落在第一个域（境界，仍 pending）→ 显示占位
     expect(screen.getByTestId('panel-placeholder-status')).toHaveTextContent('重做中');
   });
 });
@@ -174,7 +179,8 @@ describe('GameShellPage · 移动端（视口 393，PC/移动双端兼容）', (
 
     await userEvent.click(screen.getByRole('menuitem', { name: /秘境/ }));
     await waitFor(() => expect(menuButton).toHaveAttribute('aria-expanded', 'false'));
-    expect(screen.getByTestId('shell-content').querySelector('.ant-card-head-title')?.textContent).toBe('秘境');
+    // zone 已按玩法重做 → 渲染真实面板（自带 SectionCard 标题），不再是占位
+    expect(within(screen.getByTestId('shell-content')).getByTestId('zone-refresh')).toBeInTheDocument();
   });
 
   it('HUD 取值不被压成竖排（仍能读到完整文本）', () => {

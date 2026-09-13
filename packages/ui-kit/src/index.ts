@@ -56,12 +56,15 @@ export * from './data/ResourceGrid/index.js';
 export * from './data/KeyValueList/index.js';
 export * from './data/StatItem/index.js';
 export * from './data/StatGrid/index.js';
+export * from './data/StatCompare/index.js';
+export * from './data/PagedGrid/index.js';
 
 // ===== feedback =====
 export * from './feedback/AsyncBoundary/index.js';
 export * from './feedback/ConfirmAction/index.js';
 export * from './feedback/SubmitButton/index.js';
 export * from './feedback/PanelPlaceholder/index.js';
+export * from './feedback/LockedHint/index.js';
 
 // ===== form =====
 export * from './form/TextField/index.js';
@@ -79,3 +82,4 @@ export * from './game/ResourceBar/index.js';
 export * from './game/QuantityInput/index.js';
 export * from './game/EmptyHint/index.js';
 export * from './game/ActionBar/index.js';
+export * from './game/SettlementSummary/index.js';

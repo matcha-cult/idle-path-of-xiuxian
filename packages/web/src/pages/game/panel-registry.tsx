@@ -5,10 +5,10 @@
  * **不需要**改 `GameShellPage`、也不需要 switch/if。
  *
  * `status`：
- * - `'ready'` —— 面板已按玩法实现，内容区渲染 `children`；
+ * - `'ready'` —— 面板已按玩法实现，内容区渲染 `panel`；
  * - `'pending'` —— 面板待重做，内容区渲染 `PanelPlaceholder` 占位。
- * 当前 11 个域全部处于 `pending`（旧版面板只是 DTO 字段罗列，已判定不合格；
- * 新版按「玩法驱动」逐个重做后把 status 翻成 `ready` —— 只改这一处）。
+ * 旧版面板（DTO 字段罗列）已判定不合格；按「玩法驱动」逐个重做，做完把该项翻成 `ready` 并挂上 `panel`
+ * —— **只改这一处**，页面壳与导航不需要动。当前进度：zone 已 `ready`，其余 10 个 `pending`。
  */
 import {
   BookOutlined,
@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons';
 import { PanelPlaceholder, type SideNavGroup } from '@idle-path/ui-kit';
 import type { ReactNode } from 'react';
+import { ZonePanel } from './panels/ZonePanel.js';
 
 export type GameDomainKey =
   | 'bag'
@@ -87,8 +88,14 @@ const DOMAINS: readonly GameDomainEntry[] = [
   { key: 'economy', label: '通货·炼器', icon: <WalletOutlined />, group: 'artifacts', status: 'pending',
     highlights: ['通货与精华持有量', '14 种炼器操作（消耗与可用性）', '炼器前后词缀对比'] },
   // 征伐：秘境主轴 + 挂机自动化 + 战斗图鉴
-  { key: 'zone', label: '秘境', icon: <CompassOutlined />, group: 'campaign', status: 'pending',
-    highlights: ['当前层与战力门槛对比', '秘境列表与解锁条件', '挑战结算：灵韵/掉落/分拣结果'] },
+  {
+    key: 'zone',
+    label: '秘境',
+    icon: <CompassOutlined />,
+    group: 'campaign',
+    status: 'ready',
+    panel: <ZonePanel />,
+  },
   { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'pending',
     highlights: ['待结算时长与预计收益', '结算明细与日产出额度', '当前挂机秘境与层数'] },
   { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending',

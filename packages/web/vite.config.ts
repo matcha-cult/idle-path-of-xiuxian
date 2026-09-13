@@ -58,5 +58,7 @@ export default defineConfig({
     // 20s 在并发负载下会偶发超时。放宽到 60s 保 CI 稳定（性能债已登记 local-pending-work 1.11）
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // 同上：限制 worker 数，避免多个重型面板用例互相挤到超时
+    maxWorkers: '50%',
   },
 } as never);

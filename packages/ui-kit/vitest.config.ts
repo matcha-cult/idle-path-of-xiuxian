@@ -13,6 +13,8 @@ export default defineConfig({
     // 放宽到 60s 保 CI 稳定（性能债已登记 local-pending-work 1.11）。
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // 每台 worker 都是完整 jsdom + antd CSS-in-JS，默认按 CPU 数拉满会互相挤到超时（实测偶发）
+    maxWorkers: '50%',
     coverage: {
       provider: 'v8',
       reporter: ['text-summary'],
