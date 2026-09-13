@@ -8,7 +8,7 @@
  * - `'ready'` —— 面板已按玩法实现，内容区渲染 `panel`；
  * - `'pending'` —— 面板待重做，内容区渲染 `PanelPlaceholder` 占位。
  * 旧版面板（DTO 字段罗列）已判定不合格；按「玩法驱动」逐个重做，做完把该项翻成 `ready` 并挂上 `panel`
- * —— **只改这一处**，页面壳与导航不需要动。当前进度：zone 已 `ready`，其余 10 个 `pending`。
+ * —— **只改这一处**，页面壳与导航不需要动。当前进度：zone / realm / idle 已 `ready`，其余 8 个 `pending`。
  */
 import {
   BookOutlined,
@@ -25,6 +25,8 @@ import {
 } from '@ant-design/icons';
 import { PanelPlaceholder, type SideNavGroup } from '@idle-path/ui-kit';
 import type { ReactNode } from 'react';
+import { IdlePanel } from './panels/IdlePanel.js';
+import { RealmPanel } from './panels/RealmPanel.js';
 import { ZonePanel } from './panels/ZonePanel.js';
 
 export type GameDomainKey =
@@ -76,8 +78,14 @@ export const SIDE_NAV_GROUPS: ReadonlyArray<{ key: string; label: string }> = [
 
 const DOMAINS: readonly GameDomainEntry[] = [
   // 修行：破境 → 参悟 → 换装
-  { key: 'realm', label: '境界', icon: <ThunderboltOutlined />, group: 'cultivation', status: 'pending',
-    highlights: ['14 境进度轨与当前境', '突破消耗与差额', '突破后解锁的装备阶/秘境门槛'] },
+  {
+    key: 'realm',
+    label: '境界',
+    icon: <ThunderboltOutlined />,
+    group: 'cultivation',
+    status: 'ready',
+    panel: <RealmPanel />,
+  },
   { key: 'skill', label: '功法', icon: <BookOutlined />, group: 'cultivation', status: 'pending',
     highlights: ['心法/术法槽位板', '神识预算占用条', '参悟消耗与等级上限'] },
   { key: 'equip', label: '装备', icon: <ToolOutlined />, group: 'cultivation', status: 'pending',
@@ -96,8 +104,14 @@ const DOMAINS: readonly GameDomainEntry[] = [
     status: 'ready',
     panel: <ZonePanel />,
   },
-  { key: 'idle', label: '挂机', icon: <ClockCircleOutlined />, group: 'campaign', status: 'pending',
-    highlights: ['待结算时长与预计收益', '结算明细与日产出额度', '当前挂机秘境与层数'] },
+  {
+    key: 'idle',
+    label: '挂机',
+    icon: <ClockCircleOutlined />,
+    group: 'campaign',
+    status: 'ready',
+    panel: <IdlePanel />,
+  },
   { key: 'combat', label: '战斗图鉴', icon: <FireOutlined />, group: 'campaign', status: 'pending',
     highlights: ['单位图鉴（阵营/境界/可否击杀）', '掉落池权重与概率', '辨宝法阵规则'] },
   // 道途：任务与叙事同源

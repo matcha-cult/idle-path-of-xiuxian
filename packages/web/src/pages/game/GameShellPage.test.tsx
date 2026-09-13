@@ -50,14 +50,16 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     expect(listGameDomainKeys()).toHaveLength(11);
   });
 
-  it('默认选中第一个域（修行·境界），内容区显示其占位', () => {
+  it('默认选中第一个域（修行·境界），内容区渲染真实面板而非占位', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
     const content = screen.getByTestId('shell-content');
-    expect(within(content).getByTestId('panel-placeholder-root')).toBeInTheDocument();
-    // 内容区标题来自 Card head，侧栏也有同名条目，故按容器限定
-    expect(content.querySelector('.ant-card-head-title')?.textContent).toBe('境界');
+    expect(within(content).getByTestId('realm-refresh')).toBeInTheDocument();
+    expect(within(content).queryByTestId('panel-placeholder-root')).toBeNull();
+    // 内容区标题来自 Card head，侧栏也有同名条目，故按容器限定；
+    // 面板自己的 SectionCard 会带玩法副标题（如「境界 · 共 14 境…」），故只断言前缀
+    expect(content.querySelector('.ant-card-head-title')?.textContent).toContain('境界');
   });
 
   it('点击侧栏条目切换内容区（秘境已按玩法重做 → 渲染真实面板而非占位）', async () => {
@@ -72,16 +74,18 @@ describe('GameShellPage · 导航（分组按玩法因果链：修行/器物/征
     expect(within(content).queryByTestId('panel-placeholder-root')).toBeNull();
   });
 
-  it('重做进度：zone 已 ready，其余 10 个仍为占位（pending）', () => {
+  it('重做进度：zone / realm / idle 已 ready，其余 8 个仍为占位（pending）', () => {
     const harness = makeHarness();
     harness.render(<GameShellPage />);
 
     const domains = listGameDomains();
     expect(domains).toHaveLength(11);
-    expect(domains.find((d) => d.key === 'zone')?.status).toBe('ready');
-    expect(domains.filter((d) => d.status === 'pending')).toHaveLength(10);
-    // 默认落在第一个域（境界，仍 pending）→ 显示占位
-    expect(screen.getByTestId('panel-placeholder-status')).toHaveTextContent('重做中');
+    for (const key of ['zone', 'realm', 'idle']) {
+      expect(domains.find((d) => d.key === key)?.status).toBe('ready');
+    }
+    expect(domains.filter((d) => d.status === 'pending')).toHaveLength(8);
+    // 默认落在第一个域（境界，已 ready）→ 不再是占位
+    expect(screen.getByTestId('realm-refresh')).toBeInTheDocument();
   });
 });
 
