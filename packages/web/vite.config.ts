@@ -1,9 +1,19 @@
 import path from 'node:path';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+// vitest 1.6 的 worker 数有两个坑，只设 maxWorkers 一定跑不起来（实测）：
+//   1. `maxWorkers` 只接受数字：'50%' 是 2.x 语法，`Number('50%')` → NaN，
+//      tinypool 里变成 `new Array(NaN)` → `RangeError: Invalid array length`；
+//   2. `minWorkers` 未显式给出时默认取 `numCpus - 1`，任何更小的 maxWorkers 都会撞上
+//      `options.minThreads and options.maxThreads must not conflict`。
+// 两个一起钉死为「一半核数」，对核数不同的机器自适应。
+const maxWorkers = Math.max(1, Math.floor(availableParallelism() / 2));
+const minWorkers = maxWorkers;
 
 /**
  * 同源代理：REST /api → 后端，WS /ws → 后端（免 CORS）。
@@ -59,6 +69,7 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
     // 同上：限制 worker 数，避免多个重型面板用例互相挤到超时
-    maxWorkers: '50%',
+    maxWorkers,
+    minWorkers,
   },
 } as never);
