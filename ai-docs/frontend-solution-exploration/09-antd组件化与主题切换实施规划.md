@@ -175,10 +175,11 @@ HUD 内建连接状态与一键换肤（游戏态不再用悬浮按钮）。
 （`@idle-path/ui-kit/testing`，两包 setup 共用）以覆盖移动断点。
 过程中又用 antd CLI 抓到一条 v6 弃用：`Drawer width` → `size`（已改，登记进 AGENTS.local §6 对照表）。
 
-**阶段二 · 面板按玩法重做（待开工）**：以
-`ai-docs/frontend-solution-exploration/10-玩法驱动的面板设计.md` 为规格，
-逐个替换 `panel-registry` 里的 `status: 'pending'` → `'ready'`，并删除对应旧版面板文件。
-另需处理：JS bundle 拆包（`manualChunks` + 面板 `React.lazy`）。
+**阶段二 · 面板按玩法重做（进行中）**：规格 = `10-玩法驱动的面板设计.md`；
+**接续入口 = `11-面板重做进度与接续手册.md`**（进度表 / 标准步骤 7 步 / store API 速查 / 已锁定约定 / 剩余清单 / 已知坑）。
+样板：`packages/web/src/pages/game/panels/ZonePanel.tsx`（秘境，已 ready）。
+批次：① 6 个待建 ui-kit 组件 → ② 境界/挂机 → ③ 背包/装备/功法 → ④ 炼器 → ⑤ 任务/剧情/战斗图鉴/设置。
+收口：删旧版面板 + JS 拆包（`manualChunks` + 面板 `React.lazy`）+ 文档打勾。
 
 > **M1 已交付实测（2026-09-13）**：ui-kit 单测 31 例、web 单测 67 例 + 真后端 e2e 1 例全绿；
 > `pnpm -r run build` exit 0；`styles.css` 硬编码色值 0 命中；ui-kit 源码业务/mobx/node 依赖 0 命中；
