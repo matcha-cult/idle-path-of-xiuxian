@@ -184,12 +184,21 @@ export class ZoneService {
    * 在线历练上下文（P3.0 T4）：当前秘境 + 层进度 + 战力 + 本层门槛 / 遭遇单位 / 层加成。
    *
    * 全部走既有派生函数（`floorRequirement` / `isBossFloor` / `tierOffsetBonusFor` /
-   * `dropDrawBonusFor`），**不另写一套战力检定**；无当前秘境返回 `null`。
+   * `dropDrawBonusFor`），**不另写一套战力检定**。
+   *
+   * ⚠️ 与 `challenge` / `idle` 的一处刻意的差异：在线历练**只认 `zone.enter` 写入的当前秘境**
+   * （`game_zone_state` 有行），**不使用 `currentZoneId` 的「已解锁最低 order 兜底」** ——
+   * 否则一个从没进过任何秘境的角色会被自动算成「正在历练」，与「进入历练」的交互语义矛盾。
+   * 没有当前秘境 → 返回 `null`（tick 不推进；面板给 reason='no_realm'）。
    */
   async onlineContext(characterId: number, realm: number): Promise<ZoneOnlineContext | null> {
-    const zoneId = await this.currentZoneId(characterId, realm);
+    const state = await this.gameDb.query<ZoneStateRow>(
+      'SELECT * FROM game_zone_state WHERE character_id = $1',
+      [characterId],
+    );
+    const zoneId = state.rows[0]?.current_zone_id;
     if (zoneId == null) return null;
-    const zone = await this.zoneById(zoneId);
+    const zone = await this.zoneById(Number(zoneId));
     if (!zone) return null;
     const progress = progressOf(await this.progressRow(characterId, zone.id));
     const power = await this.playerPower(characterId, realm);

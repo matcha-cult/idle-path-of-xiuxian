@@ -635,3 +635,83 @@ describe('OnlineExploreService · 把帧交给推送服务（T5）', () => {
     await assert.doesNotReject(() => service.runTick(1_000));
   });
 });
+
+// ===== T7：断线中途 / 解锁只推一次 / 会话断开不补算 =====
+
+describe('OnlineExploreService · 会话断开中途（T7 离线不推进）', () => {
+  test('在线 5 拍后断开：再跑 20 拍 floorKills 与 advanceFloor 都一动不动', async () => {
+    const { service, sessions, zoneService, combatLogic } = makeService({
+      context: context({ playerPower: 75, floorRequirement: 75 }),
+    });
+    sessions.touch(7, 0);
+    for (let i = 0; i < 5; i++) await service.runTick(i * 1_000);
+    assert.equal(service.stateOf(11)?.floorKills, 5);
+    const settleCalls = combatLogic.settleKills.callCount;
+
+    // 会话断开（判死 / 主动登出 / 页面隐藏都会走到这里）
+    sessions.forget(7);
+    for (let i = 5; i < 25; i++) await service.runTick(i * 1_000);
+
+    assert.equal(service.stateOf(11)?.floorKills, 5, '离线期间击杀累计一动不动');
+    assert.equal(combatLogic.settleKills.callCount, settleCalls, '离线不产出');
+    assert.equal(zoneService.advanceFloor.callCount, 0, '离线不涨层');
+  });
+
+  test('短暂断线后重新上线：从上次的会话进度继续（不补算离线时长）', async () => {
+    const { service, sessions } = makeService({ context: context({ playerPower: 75, floorRequirement: 75 }) });
+    sessions.touch(7, 0);
+    for (let i = 0; i < 5; i++) await service.runTick(i * 1_000);
+    sessions.forget(7);
+    // 断线 10 分钟：一拍都没推进（仍在 30 分钟内存治理窗口内）
+    await service.runTick(600_000);
+    assert.equal(service.stateOf(11)?.floorKills, 5);
+    // 重新上线，只从第 6 只继续 —— 离线的那 10 分钟不补算
+    sessions.touch(7, 601_000);
+    await service.runTick(601_000);
+    assert.equal(service.stateOf(11)?.floorKills, 6);
+  });
+});
+
+describe('OnlineExploreService · 解锁推送只发生一次（T7 幂等）', () => {
+  test('击败 Boss 解锁：所有推送帧里 idle_unlocked 只出现一次', async () => {
+    const port = {
+      sent: [] as Array<{ cmd: number; subCmd: number; data: unknown }>,
+      broadcast: () => undefined,
+      sendTo: (_userId: number, message: { cmd: number; subCmd: number; data: unknown }) => {
+        port.sent.push(message);
+        return true;
+      },
+    };
+    const notifier = new OnlineNotifyService(port as never);
+    const built = makeService({ notifier });
+    const harness = realmHarness({ playerPower: 100 });
+    // 先把层推到 Boss 层（模拟前面两层的成果），再让钩子报告「首次解锁」
+    await harness.advanceFloor(11, 5, { floor: 1, bestFloor: 0, maxFloor: 3 });
+    await harness.advanceFloor(11, 5, { floor: 2, bestFloor: 1, maxFloor: 3 });
+    let bossPasses = 0;
+    built.zoneService.onlineContext = stub(async () => harness.contextOf()) as never;
+    built.zoneService.advanceFloor = stub(harness.advanceFloor) as never;
+    built.mapLogic.onZoneFloorPassed = stub(
+      async (_characterId: number, event: { isBossFloor: boolean }) => {
+        if (!event.isBossFloor) {
+          return { changed: false, nodeCode: 'qy_peak_xunlian', reason: 'not_boss' };
+        }
+        bossPasses++;
+        // 真实实现里第二次起是 already_unlocked（幂等）
+        return bossPasses === 1
+          ? { changed: true, nodeCode: 'qy_peak_xunlian', reason: 'unlocked' }
+          : { changed: false, nodeCode: 'qy_peak_xunlian', reason: 'already_unlocked' };
+      },
+    ) as never;
+
+    built.sessions.touch(7, 0);
+    for (let i = 0; i < 120; i++) await built.service.runTick(i * 1_000);
+
+    const unlockedFrames = port.sent.filter((message) =>
+      ((message.data as { events?: string[] }).events ?? []).includes('idle_unlocked'),
+    );
+    assert.equal(unlockedFrames.length, 1, '解锁只推一次（后续 already_unlocked 不再发事件）');
+    assert.equal(bossPasses, 1, 'Boss 层只通过一次');
+    assert.ok(port.sent.length >= 2, '涨层 / Boss 层 / 解锁各自有帧');
+  });
+});

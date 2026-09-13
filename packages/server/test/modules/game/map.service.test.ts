@@ -1003,6 +1003,54 @@ describe('MapService.zoneIdleGate 边界（R2 过渡规则）', () => {
   });
 });
 
+describe('MapService.secretRealmNodeView（P3.0 T4 在线历练白名单）', () => {
+  const REALM = nodeRow({ id: 7, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan' });
+
+  test('命中秘境节点 -> 返回 nodeCode/nodeName + 该角色的 idle_unlocked', async () => {
+    const { db } = mapDb({
+      maps: [mapRow()],
+      nodes: [REALM],
+      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: true })],
+    });
+    assert.deepEqual(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), {
+      nodeCode: 'qy_houshan',
+      nodeName: '后山峰',
+      idleUnlocked: true,
+    });
+  });
+
+  test('无进度行 -> idleUnlocked=false（不是 undefined）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    assert.deepEqual(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), {
+      nodeCode: 'qy_houshan',
+      nodeName: '后山峰',
+      idleUnlocked: false,
+    });
+  });
+
+  test('遗留秘境（无 secret_realm 节点）-> null（在线也不推进）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    for (const code of ['zone_qingyun', 'zone_miwu', 'zone_guhai', 'zone_dajie', 'zone_hundun', '不存在']) {
+      assert.equal(await makeService({ db }).svc.secretRealmNodeView(11, code), null, code);
+    }
+  });
+
+  test('kind 不是 secret_realm 的同 zone_code 节点不算（只认秘境峰）', async () => {
+    const route = nodeRow({ id: 8, code: 'qy_fake', name: '假峰', kind: 'route', zone_code: 'zone_houshan' });
+    const { db } = mapDb({ maps: [mapRow()], nodes: [route] });
+    assert.equal(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), null);
+  });
+
+  test('与 zoneIdleGate 解耦：enforced 语义不参与在线判定（同输入可同时为一真一假）', async () => {
+    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
+    const svc = makeService({ db }).svc;
+    // qy_houshan：闸门 enforced=true；遗留秘境：enforced=false 但在线白名单同样是 null
+    assert.equal((await svc.zoneIdleGate(11, 'zone_houshan')).enforced, true);
+    assert.equal((await svc.zoneIdleGate(11, 'zone_qingyun')).enforced, false);
+    assert.equal(await svc.secretRealmNodeView(11, 'zone_qingyun'), null);
+  });
+});
+
 // ===== 战力复用回归 =====
 
 describe('MapService 战力复用（APP_CONFIG.zonePower）', () => {
