@@ -14,7 +14,7 @@ import { useMemo } from 'react';
 import { Typography } from 'antd';
 import type { MapEdgeView, MapNodeView } from '@idle-path/ionet-transport';
 import { GraphCanvas, type GraphCanvasItem, type GraphCanvasLink } from '@idle-path/ui-kit';
-import { MapNodePin, ICON_PX } from './MapNodePin.js';
+import { MapNodePin } from './MapNodePin.js';
 import {
   LOCKED_HINT,
   isNodeInteractive,
@@ -122,7 +122,7 @@ export function MapCanvas(props: MapCanvasProps) {
           data-testid="map-canvas-grid-badge"
           style={{ position: 'absolute', zIndex: 2, top: 4, left: 8, fontSize: 11 }}
         >
-          开发者网格：交叉线 0..{gridRows} / 0..{gridCols}（图标 {ICON_PX}px）
+          开发者网格：交叉线 0..{gridRows} / 0..{gridCols}（图标 30~40px · 按环层）
         </Typography.Text>
       ) : null}
       <GraphCanvas

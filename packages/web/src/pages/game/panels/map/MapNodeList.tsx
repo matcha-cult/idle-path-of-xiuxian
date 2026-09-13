@@ -26,7 +26,7 @@ export function MapNodeList(props: MapNodeListProps) {
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         列表视图（按环层分组）：画布放不下时的兜底。
       </Typography.Text>
-      <MapCanvasLegend compact showUnknown={false} />
+      <MapCanvasLegend compact />
       <MapRouteCard nodes={nodes} edges={edges} currentCode={currentCode} onSelect={onSelect} />
     </Flex>
   );

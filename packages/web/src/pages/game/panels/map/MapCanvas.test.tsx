@@ -80,14 +80,14 @@ function setup(overrides: Partial<Parameters<typeof MapCanvas>[0]> = {}) {
 }
 
 describe('MapCanvas · 渲染派生', () => {
-  it('每个已下发节点都渲染一个枢纽；名字不上画布', () => {
+  it('每个已下发节点都渲染一个枢纽，且名字写在图上（视觉 v2）', () => {
     setup();
     expect(screen.getByTestId('graph-canvas-item-a')).toBeInTheDocument();
     expect(screen.getByTestId('graph-canvas-item-b')).toBeInTheDocument();
     expect(screen.getByTestId('graph-canvas-item-c')).toBeInTheDocument();
     const canvas = screen.getByTestId('map-canvas');
-    expect(canvas.textContent).not.toContain('甲');
-    expect(canvas.textContent).not.toContain('乙');
+    expect(canvas.textContent).toContain('甲');
+    expect(canvas.textContent).toContain('乙');
   });
 
   it('连线派生自边：两端都下发才画；悬挂边丢弃', () => {

@@ -1,50 +1,65 @@
 /**
- * `MapCanvasLegend` —— 画布图例（四态 + 四类枢纽），供**右栏与底部提示条共用**同一份数据。
+ * `MapCanvasLegend` —— 画布图例，**与画布同一套视觉语言**（`19-...任务书.md` §4/§5）。
  *
- * 规格来源：`14-地图画布方案探讨.md` §11.1 第 7/8 条（PoE 的右侧图例栏）。
- * 图例内容与画布**同一口径**：`state` 名字来自 `presentation.ts`，颜色只用 antd token。
- * 纯展示、受控：不读 store、不发请求。
+ * ⚠️ 视觉规格 v2 起旧图例（四态 + 四类 glyph）已经**描述不了画布**：
+ * `MapNodePin` 不再用 glyph 区分类型、也不再按 current/visited/known 配色。
+ * 所以本组件重写为两段：
+ *   1. **环层 = 形状 + 语义色**（门圆角方 / 峰圆 / 院六边形 / 主峰八角星）—— 形状复用 `PinShape`，
+ *      图例与画布永远是同一套几何；
+ *   2. **可交互性 = 饱和度**（当前所在金色光晕 / 可交互高饱和实线 / 不可交互去饱和实线）。
+ *
+ * `compact`（列表视图头部）只留可交互性一段 —— 列表视图里没有形状，列环层形状只会误导。
+ * 纯展示、受控：不读 store、不发请求；协议值不上屏。
  */
 import { Flex, Typography, theme } from 'antd';
-import { nodeStateLabel, type NodeVisualState } from './canvas-view.js';
+import { PinShape, ringTone } from './MapNodePin.js';
+import { RING_SHAPE_LABEL, RING_TIERS, type RingTier } from './pin-shapes.js';
+import { ringLabel } from './presentation.js';
 
 export interface MapCanvasLegendProps {
-  /** 是否包含「未发现」一项。默认包含（说明「不下发轮廓」的规则，见任务书 §7）。 */
-  showUnknown?: boolean;
-  /** 紧凑模式（底部提示条用）：一行四态，不展示枢纽类型。 */
+  /** 紧凑模式（列表视图头部用）：只列可交互性，不列环层形状。 */
   compact?: boolean;
 }
 
-/** 图例顺序：从「我现在在哪」到「我还没去过」（与玩家关注度一致）。 */
-const STATES: readonly NodeVisualState[] = ['current', 'visited', 'known', 'unknown'];
+type Token = ReturnType<typeof theme.useToken>['token'];
 
-/** 枢纽类型图例（glyph 与 `MapNodePin` 同一套）。 */
-const KINDS: readonly { key: string; glyph: string; label: string }[] = [
-  { key: 'waypoint', glyph: '◆', label: '传送点' },
-  { key: 'secret_realm', glyph: '⚔', label: '秘境' },
-  { key: 'summit', glyph: '★', label: '主峰' },
-  { key: 'route', glyph: '●', label: '普通地点' },
+/** 图例缩略图边长（形状与画布同源，只是小一号）。 */
+const GLYPH_PX = 14;
+
+/** 可交互性三态（视觉 v2：不再按 visited/known 配色）。 */
+const LEGEND_STATES: readonly { key: string; label: string }[] = [
+  { key: 'current', label: '当前所在（金色光晕）' },
+  { key: 'interactive', label: '可交互（高饱和实线）' },
+  { key: 'locked', label: '不可交互（去饱和实线）' },
 ];
 
-/** 四态 / 四类的中文名与 glyph 是**渲染信息**，颜色才是 token。 */
-function stateGlyph(state: NodeVisualState): string {
-  if (state === 'current') return '◉';
-  if (state === 'visited') return '●';
-  if (state === 'unknown') return '○';
-  return '○';
+/** 可交互性圆点色：当前=金 / 可交互=主色 / 不可交互=去饱和。 */
+function stateDot(token: Token, key: string): string {
+  if (key === 'current') return token.colorWarning;
+  if (key === 'interactive') return token.colorPrimary;
+  return token.colorTextQuaternary;
+}
+
+/** 环层缩略图：形状与颜色都来自画布那一套（`PinShape` + `ringTone`）。 */
+function RingGlyph({ token, tier }: { token: Token; tier: RingTier }) {
+  const tone = ringTone(token, tier);
+  return (
+    <svg width={GLYPH_PX} height={GLYPH_PX} viewBox={`0 0 ${GLYPH_PX} ${GLYPH_PX}`} aria-hidden="true">
+      <PinShape
+        tier={tier}
+        size={GLYPH_PX}
+        stroke={token.colorTextSecondary}
+        strokeWidth={1.5}
+        fill={tone}
+        fillOpacity={0.85}
+      />
+    </svg>
+  );
 }
 
 export function MapCanvasLegend(props: MapCanvasLegendProps) {
-  const { showUnknown = true, compact = false } = props;
+  const { compact = false } = props;
   const { token } = theme.useToken();
-  const states = STATES.filter((state) => showUnknown || state !== 'unknown');
-
-  const dot = (state: NodeVisualState): string =>
-    state === 'current'
-      ? token.colorPrimary
-      : state === 'visited'
-        ? token.colorSuccess
-        : token.colorTextTertiary;
 
   return (
     <Flex
@@ -54,24 +69,24 @@ export function MapCanvasLegend(props: MapCanvasLegendProps) {
       wrap
       align="center"
     >
-      {states.map((state) => (
-        <Flex key={state} gap={6} align="center" data-testid={`map-canvas-legend-state-${state}`}>
-          <span style={{ color: dot(state), fontSize: 13, lineHeight: 1 }}>{stateGlyph(state)}</span>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {nodeStateLabel(state)}
-          </Typography.Text>
-        </Flex>
-      ))}
       {compact
         ? null
-        : KINDS.map((kind) => (
-            <Flex key={kind.key} gap={6} align="center" data-testid={`map-canvas-legend-kind-${kind.key}`}>
-              <span style={{ color: token.colorTextSecondary, fontSize: 13, lineHeight: 1 }}>{kind.glyph}</span>
+        : RING_TIERS.map((tier) => (
+            <Flex key={tier} gap={6} align="center" data-testid={`map-canvas-legend-ring-${tier}`}>
+              <RingGlyph token={token} tier={tier} />
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {kind.label}
+                {ringLabel(tier)}（{RING_SHAPE_LABEL[tier]}）
               </Typography.Text>
             </Flex>
           ))}
+      {LEGEND_STATES.map((state) => (
+        <Flex key={state.key} gap={6} align="center" data-testid={`map-canvas-legend-state-${state.key}`}>
+          <span style={{ color: stateDot(token, state.key), fontSize: 13, lineHeight: 1 }}>●</span>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {state.label}
+          </Typography.Text>
+        </Flex>
+      ))}
     </Flex>
   );
 }

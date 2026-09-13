@@ -232,12 +232,14 @@ describe('MapPanel · 首屏与三态', () => {
 });
 
 describe('MapPanel · 画布（缺省视图）', () => {
-  it('画布渲染每个已下发节点，图上不写名字', () => {
+  it('画布渲染每个已下发节点，且名字写在图上（视觉 v2：形状塞不下名字，必须靠文字）', () => {
     const harness = setup();
     harness.render(<MapPanel />);
     expect(screen.getByTestId('map-canvas')).toBeInTheDocument();
     for (const node of NODES) expect(pin(node.code)).toBeInTheDocument();
-    expect(within(screen.getByTestId('map-canvas')).queryByText('东门')).toBeNull();
+    const canvas = within(screen.getByTestId('map-canvas'));
+    expect(canvas.getByText('东门')).toBeInTheDocument();
+    expect(canvas.getByText('青云主峰')).toBeInTheDocument();
   });
 
   it('全量下发：17 个节点全部渲染到画布（P2.0 §7）', () => {
