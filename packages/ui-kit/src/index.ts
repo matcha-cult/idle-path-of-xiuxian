@@ -13,7 +13,7 @@
  * - `layout/`     页面壳、区块卡片、工具条、配置驱动 Tab
  * - `pluggable/`  可插拔注册表（纯 TS，无 React 运行时依赖）
  * - `data/`       表格、卡片网格、键值列表、统计
- * - `feedback/`   四态门、二次确认、提交按钮
+ * - `feedback/`   四态门、渲染期错误兜底、二次确认、提交按钮
  * - `form/`       schema 驱动表单与字段
  * - `game/`       游戏语义通用件（稀有度、物品卡、资源条、动作条…）
  */
@@ -66,6 +66,7 @@ export * from './data/DropPoolTable/index.js';
 
 // ===== feedback =====
 export * from './feedback/AsyncBoundary/index.js';
+export * from './feedback/ErrorBoundary/index.js';
 export * from './feedback/ConfirmAction/index.js';
 export * from './feedback/SubmitButton/index.js';
 export * from './feedback/PanelPlaceholder/index.js';

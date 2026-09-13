@@ -30,7 +30,7 @@ import {
   ToolOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
-import { PanelPlaceholder, type SideNavGroup } from '@idle-path/ui-kit';
+import { ErrorBoundary, PanelPlaceholder, type SideNavGroup } from '@idle-path/ui-kit';
 import type { ReactNode } from 'react';
 import { BagPanel } from './panels/BagPanel.js';
 import { CombatPanel } from './panels/CombatPanel.js';
@@ -135,16 +135,32 @@ export function createGamePanelGroups(): SideNavGroup[] {
   })).filter((group) => group.items.length > 0);
 }
 
-/** 内容区节点：`ready` 渲染面板，`pending` 渲染占位。 */
+/** 内容区节点：`ready` 渲染面板，`pending` 渲染占位；**每个域外层包一层 `ErrorBoundary`**。 */
 export function renderGameDomainContent(key: string): ReactNode {
   const domain = getGameDomain(key);
   if (domain === undefined) return null;
-  if (domain.status === 'ready' && domain.panel !== undefined) return domain.panel;
+  const content =
+    domain.status === 'ready' && domain.panel !== undefined ? (
+      domain.panel
+    ) : (
+      <PanelPlaceholder
+        title={domain.label}
+        {...(domain.highlights === undefined ? {} : { highlights: domain.highlights })}
+      />
+    );
+  // 白屏兜底（用户实测 B1「点前往 → 白屏」）：React 18 未捕获的 render 期异常会卸载整棵树，
+  // 包一层 boundary 后变成一张可读、可复制的错误卡。`key` 跟着域走 —— 换域重新挂载，
+  // 错误态不会粘住下一个面板。`onError` 里额外打一条 console.error，方便用户直接复制。
   return (
-    <PanelPlaceholder
-      title={domain.label}
-      {...(domain.highlights === undefined ? {} : { highlights: domain.highlights })}
-    />
+    <ErrorBoundary
+      key={domain.key}
+      title={`「${domain.label}」渲染出错`}
+      onError={(error, info) => {
+        console.error(`[panel:${domain.key}] 渲染出错`, error, info.componentStack);
+      }}
+    >
+      {content}
+    </ErrorBoundary>
   );
 }
 
