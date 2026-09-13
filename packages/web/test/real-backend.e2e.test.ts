@@ -85,7 +85,7 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     expect(root.item.error).toBeNull();
   }, 45_000);
 
-  it('地图画布坐标端到端：/api → WS → DTO 的 gridRow/gridCol 是界内整数', async () => {
+  it('地图端到端（P2.0）：20×20 坐标 / 17 枢纽全量下发 / 4 山门可前往 / 相邻与对象层', async () => {
     const username = `webmap_${Date.now()}`;
     root = new RootStore({
       wsUrl: `ws://127.0.0.1:${port}/ws`,
@@ -102,13 +102,15 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     const map = root.map.maps.find((entry) => entry.code === 'map_qingyun');
     expect(map, '青云宗必须在已解锁地图里').toBeDefined();
     // 坐标空间必须随 DTO 下发（漏改 SELECT 的经典故障：这里会拿到 undefined / NaN）
-    expect(map?.gridRows).toBe(21);
-    expect(map?.gridCols).toBe(21);
+    expect(map?.gridRows).toBe(20);
+    expect(map?.gridCols).toBe(20);
     expect(map?.backgroundKey).toBeNull();
 
-    // 未发现节点不下发：首次进入地图只有四方山门
-    const codes = root.map.nodes.map((node) => node.code).sort();
-    expect(codes).toEqual(['qy_gate_e', 'qy_gate_n', 'qy_gate_s', 'qy_gate_w']);
+    // 全量下发：17 枢纽（四门 + 八峰 + 四院 + 主峰）一开始就全在（v3 取代「未发现不下发」）
+    expect(root.map.nodes).toHaveLength(17);
+    expect(root.map.nodes.filter((n) => n.ring === 'peaks')).toHaveLength(8);
+    expect(root.map.nodes.filter((n) => n.ring === 'inner')).toHaveLength(4);
+    expect(root.map.nodes.find((n) => n.code === 'qy_summit')).toBeDefined();
 
     for (const node of root.map.nodes) {
       expect(Number.isInteger(node.gridRow), `${node.name} 缺 gridRow`).toBe(true);
@@ -117,18 +119,36 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
       expect(node.gridCol).toBeGreaterThanOrEqual(0);
       expect(node.gridRow).toBeLessThanOrEqual(map?.gridRows ?? 0);
       expect(node.gridCol).toBeLessThanOrEqual(map?.gridCols ?? 0);
+      expect(typeof node.adjacent, `${node.name} 缺 adjacent`).toBe('boolean');
       // 风味文案本轮落库（悬停卡 / 右栏详情用）
       expect(typeof node.description).toBe('string');
+      // 已发现列表本轮必含新结构的四个环层
     }
 
-    // 跑图到达后新节点带着坐标一起下发（画布要能立刻画出来）
-    const gate = root.map.nodes.find((node) => node.code === 'qy_gate_e');
-    expect(gate).toBeDefined();
+    // 新角色：currentNodeCode=null，可前往的恰好 4 个山门（入口规则）
+    expect(map?.currentNodeCode ?? root.map.currentCode).toBeNull();
+    const adjacentCodes = root.map.nodes.filter((n) => n.adjacent).map((n) => n.code).sort();
+    expect(adjacentCodes).toEqual(['qy_gate_e', 'qy_gate_n', 'qy_gate_s', 'qy_gate_w']);
+
+    // 对象层：11 个职能入口全量下发，宿主限四院 / 主峰
+    expect(map?.objects).toHaveLength(11);
+    expect(map?.objects.some((o) => o.nodeCode === 'qy_baigongyuan' && o.name === '百器阁')).toBe(true);
+
+    // enter 东门 -> currentCode 更新；相邻集合 = 四门 ∪ 东门两邻峰（第六 / 第七峰）
     await root.map.enter('qy_gate_e');
     expect(root.map.currentCode).toBe('qy_gate_e');
-    const approach = root.map.nodes.find((node) => node.code === 'qy_approach');
-    expect(approach, '到达东门后接引区应被发现').toBeDefined();
-    expect(Number.isInteger(approach?.gridRow)).toBe(true);
-    expect(Number.isInteger(approach?.gridCol)).toBe(true);
+    const afterEnter = root.map.nodes.filter((n) => n.adjacent).map((n) => n.code);
+    expect(afterEnter).toContain('qy_peak_6');
+    expect(afterEnter).toContain('qy_peak_7');
+
+    // 不相邻且非山门 -> 服务端 NODE_NOT_ADJACENT（位置不变，业务失败只走 toast）
+    await root.map.enter('qy_peak_3');
+    expect(root.map.currentCode).toBe('qy_gate_e');
+
+    // 传送点：从未到达的西门 -> 业务失败；已到达的东门 -> 成功且更新位置
+    await root.map.waypoint('qy_gate_w');
+    expect(root.map.currentCode).toBe('qy_gate_e');
+    await root.map.waypoint('qy_gate_e');
+    expect(root.map.currentCode).toBe('qy_gate_e');
   }, 45_000);
 });
