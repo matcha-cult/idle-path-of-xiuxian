@@ -187,9 +187,12 @@ export class RootStore {
   }
 
   /**
-   * 并发拉取面板：item/equip/skill/economy/realm/quest/zone/idle。
+   * 并发拉取面板：item/equip/skill/economy/realm/quest/zone/idle/story/combat。
    * 每个域 Store 的 load() 内部已 try/catch；这里再兜一层 `.catch`，
    * 确保 `Promise.all` 绝不因单个域失败而 reject。
+   *
+   * 说明：`prop` 段没有读接口（只有 discard/generate 两个写 Action），
+   * 其 load() 仅复位状态，故不在此列——道具数据由 item 域承担。
    */
   async loadPanel(): Promise<void> {
     await Promise.all([
@@ -201,6 +204,8 @@ export class RootStore {
       this.quest.load().catch(() => undefined),
       this.zone.load().catch(() => undefined),
       this.idle.load().catch(() => undefined),
+      this.story.load().catch(() => undefined),
+      this.combat.load().catch(() => undefined),
     ]);
   }
 
