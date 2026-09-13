@@ -36,6 +36,7 @@ import {
   type NodeProgressRow,
   type NodeProgressView,
   discoveredCodes,
+  unlockedMapCodes,
   fail,
   progressView,
 } from './map.types.js';
@@ -76,6 +77,22 @@ export class MapService {
   private async allEdges(): Promise<MapEdgeRow[]> {
     const rows = await this.gameDb.query<MapEdgeRow>('SELECT * FROM game_map_edges ORDER BY map_id, id');
     return rows.rows;
+  }
+
+  /**
+   * 该角色**已完成**的章节序号 —— D4「章节完成即解锁下一张地图」的判定依据。
+   *
+   * 只取 `status='completed'`（与 `chapter.service.ts:88` 同口径），
+   * 规则本身在 `unlockedMapCodes`（纯函数，可不连库单测）。
+   */
+  private async completedChapters(characterId: number): Promise<Set<number>> {
+    const rows = await this.gameDb.query<{ chapter: number }>(
+      `SELECT c.chapter FROM game_chapter_progress p
+         JOIN game_chapters c ON c.id = p.chapter_id
+        WHERE p.character_id = $1 AND p.status = 'completed'`,
+      [characterId],
+    );
+    return new Set(rows.rows.map((r) => Number(r.chapter)));
   }
 
   private async progressRows(characterId: number): Promise<NodeProgressRow[]> {
@@ -145,17 +162,20 @@ export class MapService {
   async panel(userId: number): Promise<MapActionResult> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-    const [maps, nodes, edges, progressRows, power] = await Promise.all([
+    const [maps, nodes, edges, progressRows, power, completed] = await Promise.all([
       this.allMaps(),
       this.allNodes(),
       this.allEdges(),
       this.progressRows(character.id),
       this.playerPowerService.compute(character.id, character.realm),
+      this.completedChapters(character.id),
     ]);
     const byNodeId = this.progressMap(progressRows);
     const discovered = discoveredCodes(nodes, byNodeId);
     const codeById = new Map(nodes.map((n) => [Number(n.id), n.code]));
-    const views = maps.map((map) => {
+    // D4：只下发**已解锁**的地图 —— 未解锁的世界连轮廓都不出现（与「未发现节点不下发」同口径）
+    const unlocked = unlockedMapCodes(maps, completed);
+    const views = maps.filter((map) => unlocked.has(map.code)).map((map) => {
       const visible = nodes.filter(
         (n) => Number(n.map_id) === Number(map.id) && discovered.has(n.code),
       );

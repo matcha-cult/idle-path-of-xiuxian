@@ -108,3 +108,39 @@ export function discoveredCodes(
   }
   return discovered;
 }
+
+/**
+ * 地图解锁判定（R2 D4 / §5.6）：**章节完成即解锁**。
+ *
+ * 规则：`requires_map_code` 为 null 的地图是入口（本世界的第一张图）；
+ * 其余地图要求**其前置地图的 `chapter_to` 章节已完成** ——
+ * 即「推完前置图的最后一章 → 解锁下一张图」。
+ *
+ * 判定按 `order_index` 升序单趟推进，因此支持链式（图 3 要求图 2、图 2 要求图 1）。
+ * 前置地图不存在（配置错误）时该图**永不解锁** —— 与 `discoveredCodes` 同一口径：
+ * **配置错误表现为锁定，而不是把不该开放的世界放行**。
+ *
+ * 为什么把规则放这里而不是散在 SQL 里：它是玩法规则，且必须能不连库地单测
+ * （链式、缺前置、章节未完成三种情形）。
+ */
+export function unlockedMapCodes(
+  maps: readonly MapRow[],
+  completedChapters: ReadonlySet<number>,
+): Set<string> {
+  const ordered = [...maps].sort((a, b) => Number(a.order_index) - Number(b.order_index));
+  const byCode = new Map(maps.map((m) => [m.code, m]));
+  const unlocked = new Set<string>();
+  for (const map of ordered) {
+    const requires = map.requires_map_code;
+    if (requires == null || requires === '') {
+      unlocked.add(map.code);
+      continue;
+    }
+    const predecessor = byCode.get(requires);
+    if (predecessor === undefined) continue; // 前置不存在 → 永不解锁（配置错误的保守表现）
+    if (unlocked.has(predecessor.code) && completedChapters.has(Number(predecessor.chapter_to))) {
+      unlocked.add(map.code);
+    }
+  }
+  return unlocked;
+}

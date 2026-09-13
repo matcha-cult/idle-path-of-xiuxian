@@ -9,6 +9,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { MapService } from '../../../src/modules/logic/map/internal/map.service.js';
 import { PlayerPowerService } from '../../../src/modules/character/player-power.service.js';
+import { unlockedMapCodes, type MapRow } from '../../../src/modules/logic/map/internal/map.types.js';
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
@@ -37,7 +38,7 @@ function mapRow(overrides: Row = {}): Row {
     id: 1,
     code: 'map_qingyun',
     name: '青云宗',
-    world: 'great',
+    world: 'world_qingyun',
     order_index: 1,
     chapter_from: 1,
     chapter_to: 2,
@@ -92,6 +93,8 @@ interface MapDbOptions {
   progress?: Row[];
   equip?: string | null;
   skill?: string | null;
+  /** 已完成的章节序号（D4 地图解锁闸门的依据）。 */
+  completedChapters?: number[];
 }
 
 /** 假库：`game_node_progress` 的写入会真的改内存状态，用于验证幂等（重复 enter 不重复写） */
@@ -142,6 +145,10 @@ function mapDb(opts: MapDbOptions = {}) {
     })
     .on(/COALESCE\(SUM\(level\), 0\)::text AS s/, {
       rows: opts.skill == null ? [] : [{ s: opts.skill }],
+    })
+    // D4 地图解锁的判定依据：已完成章节（status='completed'）
+    .on(/FROM game_chapter_progress p/, {
+      rows: (opts.completedChapters ?? []).map((chapter) => ({ chapter })),
     });
   return { db, progress, maps, nodes, edges };
 }
@@ -577,5 +584,92 @@ describe('MapService 战力复用（APP_CONFIG.zonePower）', () => {
     const enter3 = await makeService({ db: realm5.db, character: makeChar({ realm: 5 }) }).svc.enter(7, 'qy_houshan');
     assert.equal(enter3.success, true);
     assert.equal((enter3.data as { playerPower: number }).playerPower, 5 * cfg.realmWeight);
+  });
+});
+
+describe('地图解锁（D4：章节完成即解锁下一张地图）', () => {
+  /** 第一张图（显式 `MapRow`：纯规则函数要求结构化类型，不能用宽松的 `Row`）。 */
+  const FIRST_MAP = {
+    id: 1,
+    code: 'map_qingyun',
+    name: '青云宗',
+    world: 'world_qingyun',
+    order_index: 1,
+    chapter_from: 1,
+    chapter_to: 2,
+    requires_map_code: null,
+    description: null,
+  } satisfies MapRow;
+  /** 第二张图：要求前置地图 map_qingyun 的 chapter_to（= 2）已完成。 */
+  const SECOND_MAP = {
+    id: 2,
+    code: 'map_second',
+    name: '下一张图',
+    world: 'world_qingyun',
+    order_index: 2,
+    chapter_from: 3,
+    chapter_to: 3,
+    requires_map_code: 'map_qingyun',
+    description: null,
+  } satisfies MapRow;
+
+  test('纯规则：无前置=解锁；前置章节未完成=锁定；已完成=解锁', () => {
+    const maps = [FIRST_MAP, SECOND_MAP];
+    assert.deepStrictEqual(
+      [...unlockedMapCodes(maps, new Set<number>())].sort(),
+      ['map_qingyun'],
+      '入口图应解锁，链式图在章节未完成时应锁定',
+    );
+    assert.deepStrictEqual(
+      [...unlockedMapCodes(maps, new Set([2]))].sort(),
+      ['map_qingyun', 'map_second'],
+      '完成前置图的 chapter_to（2）后应解锁下一张图',
+    );
+    assert.deepStrictEqual(
+      [...unlockedMapCodes(maps, new Set([1]))],
+      ['map_qingyun'],
+      '完成的是 chapter_from 而不是 chapter_to 时不应解锁（闸门看的是前置图最后一章）',
+    );
+  });
+
+  test('纯规则：前置地图不存在（配置错误）时永不解锁，而不是放行', () => {
+    const orphan = { ...SECOND_MAP, requires_map_code: 'map_nowhere' };
+    assert.deepStrictEqual(
+      [...unlockedMapCodes([FIRST_MAP, orphan], new Set([2]))].sort(),
+      ['map_qingyun'],
+    );
+  });
+
+  test('纯规则：链式推进（图3 要求图2、图2 要求图1）逐级解锁', () => {
+    const third = { ...SECOND_MAP, id: 3, code: 'map_third', order_index: 3, chapter_from: 4, chapter_to: 4, requires_map_code: 'map_second' } satisfies MapRow;
+    const maps = [FIRST_MAP, SECOND_MAP, third];
+    assert.deepStrictEqual([...unlockedMapCodes(maps, new Set([2]))].sort(), ['map_qingyun', 'map_second']);
+    assert.deepStrictEqual(
+      [...unlockedMapCodes(maps, new Set([2, 3]))].sort(),
+      ['map_qingyun', 'map_second', 'map_third'],
+    );
+  });
+
+  test('服务级：未解锁的地图不出现在 panel() 下发结果里', async () => {
+    const { db } = mapDb({ maps: [FIRST_MAP, SECOND_MAP], completedChapters: [] });
+    const { svc } = makeService({ db });
+
+    const result = await svc.panel(7);
+
+    assert.strictEqual(result.success, true);
+    const data = result.data as { total: number; maps: Array<{ code: string }> };
+    assert.strictEqual(data.total, 1, 'total 应只数已解锁地图');
+    assert.deepStrictEqual(data.maps.map((m) => m.code), ['map_qingyun']);
+  });
+
+  test('服务级：前置章节完成后，下一张图出现（且节点边界照旧只下发已发现的）', async () => {
+    const { db } = mapDb({ maps: [FIRST_MAP, SECOND_MAP], completedChapters: [2] });
+    const { svc } = makeService({ db });
+
+    const result = await svc.panel(7);
+
+    const data = result.data as { total: number; maps: Array<{ code: string }> };
+    assert.strictEqual(data.total, 2);
+    assert.deepStrictEqual(data.maps.map((m) => m.code).sort(), ['map_qingyun', 'map_second']);
   });
 });
