@@ -51,7 +51,11 @@ export function NumberField(props: NumberFieldProps) {
         precision={precision}
         placeholder={placeholder}
         disabled={disabled}
-        addonAfter={addonAfter}
+        // 走 antd v6 的 `suffix`（5.20.0+）而不是已弃用的 `addonAfter`：
+        // v6 只要看到 `addonAfter` 这个键就发弃用提示（即使值是 undefined）。
+        // 语义上也更贴：本 prop 的文档就是「输入框**后缀**内容（单位等）」，
+        // 渲染在输入框内右侧，比挂在框外的 addon 区块更符合「单位」的直觉。
+        {...(addonAfter === undefined ? {} : { suffix: addonAfter })}
         data-testid={`number-field-${name}`}
       />
     </Form.Item>

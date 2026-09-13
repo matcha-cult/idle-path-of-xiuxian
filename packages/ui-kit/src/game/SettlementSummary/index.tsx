@@ -61,7 +61,7 @@ export interface SettlementSummaryProps {
   blockedByTier?: number;
   /** 附加掉落资源（通货 / 精华，code → 数量）；缺省或全空时不渲染标签区。 */
   resources?: SettlementResources;
-  /** code → 中文名（调用方给；缺省或返回空串时直接显示 code）。 */
+  /** code → 中文名（调用方给；缺省或返回空串时显示「未知资源」占位，**不回显 code**）。 */
   nameOf?: (code: string) => string;
   /** 掉落物品展示区（调用方渲染 `ItemCard` 列表等）；非空时渲染在数值区下方。 */
   items?: ReactNode;
@@ -91,6 +91,9 @@ interface ResourceTagEntry {
   label: string;
 }
 
+/** 资源 code 查不到中文名时的占位。**绝不回退成 code 本身**：协议 code 只能做 key / testid，不许上屏。 */
+const UNKNOWN_RESOURCE_LABEL = '未知资源';
+
 /** 把 currencies / essences 摊平成 `名称 ×数量` 标签；空对象不产出条目。 */
 function collectResourceTags(
   resources: SettlementResources | undefined,
@@ -104,7 +107,7 @@ function collectResourceTags(
   return groups.flatMap(([group, entries]) =>
     Object.entries(entries ?? {}).map(([code, count]) => ({
       key: `${group}:${code}`,
-      label: `${nameOf?.(code) || code} ×${plainText(count)}`,
+      label: `${nameOf?.(code) || UNKNOWN_RESOURCE_LABEL} ×${plainText(count)}`,
     })),
   );
 }

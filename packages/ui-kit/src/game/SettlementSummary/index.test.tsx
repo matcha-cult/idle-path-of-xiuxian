@@ -20,7 +20,8 @@ describe('SettlementSummary', () => {
         discarded={0}
         blockedByTier={4}
         resources={{ currencies: { gold: 2 }, essences: { fire: 3 } }}
-        nameOf={(code) => NAMES[code] ?? code}
+        // 目录里没有的 code 返回空串（而不是把 code 当名字回显）——与真实调用方口径一致
+        nameOf={(code) => NAMES[code] ?? ''}
         items={<span>掉落清单</span>}
       />,
     );
@@ -58,6 +59,8 @@ describe('SettlementSummary', () => {
         salvaged={{ count: 2, lingyun: Number.POSITIVE_INFINITY }}
         discarded={Number.NaN}
         resources={{ currencies: { gold: Number.NaN } }}
+        // 显式给名字，让本用例只盯「数值降级」，不与「未知 code 的命名回退」纠缠
+        nameOf={() => '金'}
       />,
     );
 
@@ -65,7 +68,7 @@ describe('SettlementSummary', () => {
     expect(screen.getByTestId('settlement-kept')).toHaveTextContent('—');
     expect(screen.getByTestId('settlement-salvaged')).toHaveTextContent('2 件 → 灵韵 —');
     expect(screen.getByTestId('settlement-discarded')).toHaveTextContent('—');
-    expect(screen.getByText('gold ×—')).toBeInTheDocument();
+    expect(screen.getByText('金 ×—')).toBeInTheDocument();
   });
 
   it('边界：负数照常带符号显示，且不加正向 Tag', () => {
@@ -85,7 +88,7 @@ describe('SettlementSummary', () => {
     expect(screen.getByTestId('settlement-sold')).toHaveTextContent('2 件 → 灵石 -20');
   });
 
-  it('空对象与缺省 nameOf：空 resources 不出标签区，未知 code 原样显示', () => {
+  it('空对象与缺省 nameOf：空 resources 不出标签区，未知 code 显示占位而非 code', () => {
     const { unmount } = render(
       <SettlementSummary
         lingyun={{ gained: 1 }}
@@ -103,7 +106,23 @@ describe('SettlementSummary', () => {
         resources={{ essences: { unknown: 4 } }}
       />,
     );
-    expect(screen.getByText('unknown ×4')).toBeInTheDocument();
+    // 协议 code 不许上屏：缺 nameOf / 名称为空串时退化为中文占位
+    expect(screen.getByText('未知资源 ×4')).toBeInTheDocument();
+    expect(screen.queryByText('unknown ×4')).toBeNull();
+    expect(screen.getByTestId('settlement-resources').textContent).not.toContain('unknown');
+  });
+
+  it('nameOf 返回空串（目录未加载）时同样不外泄 code', () => {
+    render(
+      <SettlementSummary
+        lingyun={{ gained: 1 }}
+        kept={1}
+        resources={{ currencies: { chaos: 2 } }}
+        nameOf={() => ''}
+      />,
+    );
+    expect(screen.getByText('未知资源 ×2')).toBeInTheDocument();
+    expect(screen.getByTestId('settlement-resources').textContent).not.toContain('chaos');
   });
 
   it('可访问性：数值区是可读表格，六段语义标签齐全', () => {
