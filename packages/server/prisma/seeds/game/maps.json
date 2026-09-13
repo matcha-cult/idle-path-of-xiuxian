@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "code": "map_qingyun",
+    "name": "青云宗",
+    "world": "great",
+    "orderIndex": 1,
+    "chapterFrom": 1,
+    "chapterTo": 2,
+    "requiresMapCode": null,
+    "minRealm": 1,
+    "description": "四门八峰·内环功能·中央主峰"
+  }
+]

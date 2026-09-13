@@ -408,3 +408,72 @@ model game_drop_entries {
   @@index([drop_table_id])
 }
 
+// ===== R2 地图层（settings-revision-2 §5 / §7）=====
+// 地图是「地点宿主」：节点可承载系统（feature_key），未实现的系统在 UI 显示未开放，
+// 因此地图层的落地不被 炼丹/御兽/PVP 等未实现系统阻塞。
+model game_maps {
+  id                Int      @id @default(autoincrement())
+  code              String   @unique @db.VarChar(50)
+  name              String   @db.VarChar(50)
+  world             String   @default("great") @db.VarChar(20) // great=大世界 / other=异界
+  order_index       Int
+  chapter_from      Int      @db.SmallInt
+  chapter_to        Int      @db.SmallInt
+  requires_map_code String?  @db.VarChar(50)
+  min_realm         Int      @default(1) @db.SmallInt
+  description       String?  @db.Text
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  updated_at        DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([order_index])
+}
+
+model game_map_nodes {
+  id                 Int      @id @default(autoincrement())
+  code               String   @unique @db.VarChar(50)
+  map_id             Int
+  name               String   @db.VarChar(50)
+  ring               String   @db.VarChar(20) // outer/approach/peaks/inner/summit
+  sector             String?  @db.VarChar(4) // N/NE/E/SE/S/SW/W/NW
+  kind               String   @db.VarChar(20) // route/idle_spot/secret_realm/summit
+  feature_key        String?  @db.VarChar(20) // 承载的系统；null = 纯跑图
+  level              Int      @db.SmallInt // 怪物境界（固定）
+  threshold          Int // 固定战力门槛
+  min_realm          Int      @default(1) @db.SmallInt
+  has_waypoint       Boolean  @default(false)
+  chapter            Int      @db.SmallInt
+  requires_node_code String?  @db.VarChar(50)
+  zone_code          String?  @db.VarChar(50) // kind=secret_realm 时指向 game_zones.code
+  order_index        Int
+  created_at         DateTime @default(now()) @db.Timestamp(6)
+  updated_at         DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([map_id, order_index])
+}
+
+model game_map_edges {
+  id            Int     @id @default(autoincrement())
+  map_id        Int
+  from_node_id  Int
+  to_node_id    Int
+  bidirectional Boolean @default(true)
+
+  @@unique([map_id, from_node_id, to_node_id])
+  @@index([map_id])
+}
+
+// 节点进度：visited=跑图到达；waypoint_unlocked=传送点已点亮；idle_unlocked=可离线挂机（D2）
+model game_node_progress {
+  id                Int      @id @default(autoincrement())
+  character_id      Int
+  node_id           Int
+  visited           Boolean  @default(false)
+  waypoint_unlocked Boolean  @default(false)
+  idle_unlocked     Boolean  @default(false)
+  cleared           Boolean  @default(false)
+  updated_at        DateTime @updatedAt @db.Timestamp(6)
+
+  @@unique([character_id, node_id])
+  @@index([character_id])
+}
+

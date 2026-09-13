@@ -88,5 +88,23 @@
     "requirePrevBestFloor": 5,
     "tierBonusEveryFloors": 5,
     "dropBonusEveryFloors": 3
+  },
+  {
+    "id": 6,
+    "code": "zone_houshan",
+    "name": "后山历练",
+    "chapter": 2,
+    "orderIndex": 6,
+    "minRealm": 5,
+    "unitCode": "u_r6_dilong",
+    "bossCode": "u_boss_dongfuzhu",
+    "basePower": 115,
+    "powerStep": 12,
+    "maxFloor": 3,
+    "lingyunBonusPerFloor": 8,
+    "bossEveryFloors": 3,
+    "requirePrevBestFloor": 0,
+    "tierBonusEveryFloors": 0,
+    "dropBonusEveryFloors": 1
   }
 ]

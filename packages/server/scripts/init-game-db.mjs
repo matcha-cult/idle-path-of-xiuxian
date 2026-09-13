@@ -281,6 +281,71 @@ CREATE TABLE IF NOT EXISTS game_idle_counters (
   UNIQUE (character_id, day)
 );
 
+-- ===== R2 地图层（settings-revision-2 §5 / §7）=====
+-- 地图是「地点宿主」：节点可承载系统（feature_key），未实现的系统在 UI 上显示未开放，
+-- 因此地图层的落地不被 炼丹/御兽/PVP 等未实现系统阻塞。
+CREATE TABLE IF NOT EXISTS game_maps (
+  id                SERIAL PRIMARY KEY,
+  code              VARCHAR(50) NOT NULL UNIQUE,
+  name              VARCHAR(50) NOT NULL,
+  world             VARCHAR(20) NOT NULL DEFAULT 'great', -- great=大世界 / other=异界（§5.6 预留）
+  order_index       INTEGER NOT NULL,
+  chapter_from      SMALLINT NOT NULL,
+  chapter_to        SMALLINT NOT NULL,
+  requires_map_code VARCHAR(50),
+  min_realm         SMALLINT NOT NULL DEFAULT 1,
+  description       TEXT,
+  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_maps_order ON game_maps(order_index);
+
+CREATE TABLE IF NOT EXISTS game_map_nodes (
+  id                 SERIAL PRIMARY KEY,
+  code               VARCHAR(50) NOT NULL UNIQUE,
+  map_id             INTEGER NOT NULL,
+  name               VARCHAR(50) NOT NULL,
+  ring               VARCHAR(20) NOT NULL, -- outer/approach/peaks/inner/summit
+  sector             VARCHAR(4),           -- N/NE/E/SE/S/SW/W/NW（八峰按方位排布）
+  kind               VARCHAR(20) NOT NULL, -- route/idle_spot/secret_realm/summit
+  feature_key        VARCHAR(20),          -- skill/craft/quest/alchemy/beast/farm/pvp/discipline/waypoint/profession
+  level              SMALLINT NOT NULL,    -- 怪物境界（固定，不随层数上涨）
+  threshold          INTEGER NOT NULL,     -- 固定战力门槛（§6 确定性模型）
+  min_realm          SMALLINT NOT NULL DEFAULT 1,
+  has_waypoint       BOOLEAN NOT NULL DEFAULT FALSE,
+  chapter            SMALLINT NOT NULL,
+  requires_node_code VARCHAR(50),
+  zone_code          VARCHAR(50),          -- kind=secret_realm 时指向 game_zones.code
+  order_index        INTEGER NOT NULL,
+  created_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_map_nodes_map ON game_map_nodes(map_id, order_index);
+
+CREATE TABLE IF NOT EXISTS game_map_edges (
+  id            SERIAL PRIMARY KEY,
+  map_id        INTEGER NOT NULL,
+  from_node_id  INTEGER NOT NULL,
+  to_node_id    INTEGER NOT NULL,
+  bidirectional BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (map_id, from_node_id, to_node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_map_edges_map ON game_map_edges(map_id);
+
+-- 节点进度：visited=跑图到达；waypoint_unlocked=传送点已点亮；idle_unlocked=可离线挂机（D2）
+CREATE TABLE IF NOT EXISTS game_node_progress (
+  id                SERIAL PRIMARY KEY,
+  character_id      INTEGER NOT NULL,
+  node_id           INTEGER NOT NULL,
+  visited           BOOLEAN NOT NULL DEFAULT FALSE,
+  waypoint_unlocked BOOLEAN NOT NULL DEFAULT FALSE,
+  idle_unlocked     BOOLEAN NOT NULL DEFAULT FALSE,
+  cleared           BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (character_id, node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_game_node_progress_character ON game_node_progress(character_id);
+
 CREATE TABLE IF NOT EXISTS game_quest_defs (
   id           SERIAL PRIMARY KEY,
   code         VARCHAR(50) NOT NULL UNIQUE,
@@ -388,7 +453,7 @@ function jstr(value) {
 try {
   await client.connect();
   await client.query(ddl);
-  console.log('[放置·修仙之路] game tables ok (28 张表)');
+  console.log('[放置·修仙之路] game tables ok (32 张表)');
 
   // ===== 重灌配置种子（幂等） =====
   // 基底/词缀/池为纯配置表，全量重灌（种子带显式 id，重灌不改变存量引用关系）；
@@ -602,6 +667,79 @@ try {
     console.warn('[放置·修仙之路] 警告：' + orphanZoneRefs + ' 条秘境进度/当前秘境引用不存在的秘境（种子 id 漂移）');
   }
   console.log('[放置·修仙之路] zones: ' + zones.length);
+
+  // ===== R2 地图层（重灌配置；game_node_progress 是玩家数据，保留）=====
+  // 顺序：maps → nodes（引用 map_id / zone_id）→ edges（引用 node_id）。
+  // 节点/边是纯配置，全量重灌；进度表不动，避免清掉玩家已点亮的传送点。
+  const maps = await loadJson('maps.json');
+  await client.query('DELETE FROM game_map_edges');
+  await client.query('DELETE FROM game_map_nodes');
+  await client.query('DELETE FROM game_maps');
+  for (const m of maps) {
+    await client.query(
+      'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, min_realm, description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.minRealm ?? 1, m.description ?? null],
+    );
+  }
+  await client.query("SELECT setval('game_maps_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_maps));");
+
+  const mapIdByCode = new Map();
+  for (const row of (await client.query('SELECT id, code FROM game_maps')).rows) {
+    mapIdByCode.set(row.code, Number(row.id));
+  }
+  const zoneIdByCode = new Map();
+  for (const row of (await client.query('SELECT id, code FROM game_zones')).rows) {
+    zoneIdByCode.set(row.code, Number(row.id));
+  }
+
+  const mapNodes = await loadJson('map-nodes.json');
+  const nodeIdByCode = new Map();
+  for (const n of mapNodes) {
+    const mapId = mapIdByCode.get(n.mapCode);
+    if (mapId === undefined) throw new Error(`map-nodes.json 引用了未定义地图: ${n.mapCode}`);
+    const zoneCode = n.zoneCode ?? null;
+    if (zoneCode != null && !zoneIdByCode.has(zoneCode)) {
+      throw new Error(`节点 ${n.code} 引用了未定义秘境: ${zoneCode}`);
+    }
+    const res = await client.query(
+      'INSERT INTO game_map_nodes (code, map_id, name, ring, sector, kind, feature_key, level, threshold, min_realm, has_waypoint, chapter, requires_node_code, zone_code, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, map_id=EXCLUDED.map_id, ring=EXCLUDED.ring, sector=EXCLUDED.sector, kind=EXCLUDED.kind, feature_key=EXCLUDED.feature_key, level=EXCLUDED.level, threshold=EXCLUDED.threshold, min_realm=EXCLUDED.min_realm, has_waypoint=EXCLUDED.has_waypoint, chapter=EXCLUDED.chapter, requires_node_code=EXCLUDED.requires_node_code, zone_code=EXCLUDED.zone_code, order_index=EXCLUDED.order_index RETURNING id',
+      [n.code, mapId, n.name, n.ring, n.sector ?? null, n.kind, n.featureKey ?? null, n.level, n.threshold, n.minRealm ?? 1, n.hasWaypoint ?? false, n.chapter, n.requiresNodeCode ?? null, zoneCode, n.orderIndex],
+    );
+    nodeIdByCode.set(n.code, Number(res.rows[0].id));
+  }
+  await client.query("SELECT setval('game_map_nodes_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_map_nodes));");
+
+  const mapEdges = await loadJson('map-edges.json');
+  let edgeCount = 0;
+  for (const e of mapEdges) {
+    const mapId = mapIdByCode.get(e.mapCode);
+    const fromId = nodeIdByCode.get(e.fromNodeCode);
+    const toId = nodeIdByCode.get(e.toNodeCode);
+    if (mapId === undefined || fromId === undefined || toId === undefined) {
+      throw new Error(`map-edges.json 引用未定义对象: ${e.mapCode} ${e.fromNodeCode}→${e.toNodeCode}`);
+    }
+    await client.query(
+      'INSERT INTO game_map_edges (map_id, from_node_id, to_node_id, bidirectional) VALUES ($1,$2,$3,$4) ON CONFLICT (map_id, from_node_id, to_node_id) DO UPDATE SET bidirectional=EXCLUDED.bidirectional',
+      [mapId, fromId, toId, e.bidirectional ?? true],
+    );
+    edgeCount += 1;
+  }
+
+  // 自检：节点/边的悬空引用（种子 id 漂移或改名时立刻暴露，而不是等到玩家点进去）
+  const orphanNodes = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_map_nodes n LEFT JOIN game_maps m ON m.id = n.map_id WHERE m.id IS NULL',
+  );
+  const orphanRequires = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_map_nodes n WHERE n.requires_node_code IS NOT NULL AND NOT EXISTS (SELECT 1 FROM game_map_nodes p WHERE p.code = n.requires_node_code)',
+  );
+  const orphanZones = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_map_nodes n LEFT JOIN game_zones z ON z.code = n.zone_code WHERE n.zone_code IS NOT NULL AND z.id IS NULL',
+  );
+  const orphanMapRefs = Number(orphanNodes.rows[0].c) + Number(orphanRequires.rows[0].c) + Number(orphanZones.rows[0].c);
+  if (orphanMapRefs > 0) {
+    throw new Error(`地图种子存在 ${orphanMapRefs} 处悬空引用（map/requires/zone）`);
+  }
+  console.log('[放置·修仙之路] maps: ' + maps.length + ' / nodes: ' + mapNodes.length + ' / edges: ' + edgeCount);
 
   // ===== P6 任务定义（重灌：任务进度为玩家数据，保留） =====
   const questDefs = await loadJson('quest-defs.json');
