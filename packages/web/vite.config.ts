@@ -46,7 +46,11 @@ export default defineConfig({
     // 默认 jsdom（组件测试）；Store/协议测试在文件头用 `// @vitest-environment node` 覆盖
     environment: 'jsdom',
     setupFiles: ['./test/setup-ui.ts'],
-    include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
+    // 组件/面板测试与被测文件同目录（src/**），跨包/夹具测试放 test/**
+    include: ['test/**/*.test.ts', 'test/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     css: false,
+    // antd + jsdom 渲染成本高（Table/CSS-in-JS），并发跑时默认 5s 会偶发超时
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 } as never);

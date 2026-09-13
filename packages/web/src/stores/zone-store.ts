@@ -6,9 +6,10 @@
  * `zone.progress` 在「尚未进入任何秘境」时返回 `ZONE_NOT_FOUND`（BusinessError），
  * 这是正常初始态，因此 load() 里单独吞掉，不影响 zones 列表展示。
  */
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import { businessCodeOf, businessErrorMessage, businessMessageOf } from '@idle-path/ionet-transport';
 import type { ZoneChallengeData, ZoneProgressData, ZoneView } from '@idle-path/ionet-transport';
+import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
 export class ZoneStore {
@@ -25,12 +26,16 @@ export class ZoneStore {
   loading = false;
   error: string | null = null;
 
+  /** 竞态守卫：仅最后一次发起的加载允许回写状态（规划 09 §6.2 B5）。 */
+  private readonly guard = new LoadGuard();
+
   constructor(private readonly ctx: StoreContext) {
-    makeAutoObservable<this, 'ctx'>(this, { ctx: false }, { autoBind: true });
+    makeAutoObservable<this, 'ctx' | 'guard'>(this, { ctx: false, guard: false, zones: observable.shallow }, { autoBind: true });
   }
 
   /** 同时拉取秘境列表 + 当前进度。 */
   async load(): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
@@ -41,6 +46,7 @@ export class ZoneStore {
       ]);
       const zonesData = zonesResult.data;
       if (zonesData === undefined) throw new Error('秘境列表响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       const progressData = progressResult === null ? undefined : progressResult.data;
       runInAction(() => {
         this.zones = zonesData.zones;
@@ -49,14 +55,17 @@ export class ZoneStore {
         this.progress = progressData ?? null;
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '秘境加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

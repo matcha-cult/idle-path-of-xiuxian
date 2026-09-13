@@ -149,16 +149,22 @@ export class SessionStore {
     if (this.token === null) return false;
     runInAction(() => {
       this.busy = true;
+      this.errorMessage = null;
     });
     try {
       const result = await this.rest.character.create(nickname, gender);
       runInAction(() => {
         this.character = result.data?.character ?? null;
         this.hasCharacter = result.data?.hasCharacter ?? true;
+        this.errorMessage = null;
       });
       this.toast.success('角色创建成功');
       return true;
     } catch (error) {
+      runInAction(() => {
+        // 与 login 一致：页面内联可展示的错误文案（同一条也会进 ToastStore）
+        this.errorMessage = error instanceof Error ? error.message : String(error);
+      });
       if (error instanceof RestError && error.status === 401) this.handleUnauthorized();
       else this.toast.fromError(error, '创建角色失败');
       return false;

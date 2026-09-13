@@ -1,60 +1,86 @@
-import { useState } from 'react';
+/**
+ * CharacterCreatePage —— 建角（REST `POST /api/character/create`，07 §1.4）。
+ *
+ * 容器层：表单交给 antd `Form`，提交交给 `SessionStore.createCharacter`。
+ */
 import { observer } from 'mobx-react-lite';
+import { Alert, Button, Card, Flex, Form, Typography } from 'antd';
+import { useState } from 'react';
+import { SelectField, SubmitButton, TextField } from '@idle-path/ui-kit';
 import { useRootStore } from '../app/root-context.js';
 
-/** 建角（REST `POST /api/character/create`，07 §1.4）。 */
+interface CharacterFormValues {
+  nickname?: string;
+  gender?: 'male' | 'female';
+}
+
 export const CharacterCreatePage = observer(function CharacterCreatePage() {
   const root = useRootStore();
-  const [nickname, setNickname] = useState('');
-  const [gender, setGender] = useState<'male' | 'female'>('male');
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = nickname.trim().length > 0 && nickname.trim().length <= 50 && !submitting;
+  const submit = async (values: CharacterFormValues): Promise<void> => {
+    const nickname = (values.nickname ?? '').trim();
+    const gender = values.gender ?? 'male';
+    if (nickname.length === 0) return;
+    setSubmitting(true);
+    try {
+      await root.createCharacter(nickname, gender);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="auth-page">
-      <form
-        className="card auth-card"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!canSubmit) return;
-          setSubmitting(true);
-          void root.createCharacter(nickname.trim(), gender).finally(() => setSubmitting(false));
-        }}
-      >
-        <h1 className="auth-card__title">开辟道途</h1>
-        <p className="auth-card__subtitle">
+    <Flex align="center" justify="center" vertical gap="middle" data-testid="character-create-page">
+      <Card style={{ width: 420 }}>
+        <Typography.Title level={4}>开辟道途</Typography.Title>
+        <Typography.Paragraph type="secondary" data-testid="character-create-account">
           道号：{root.session.user?.username ?? '—'}（尚未创建角色）
-        </p>
+        </Typography.Paragraph>
 
-        <label className="field">
-          <span>角色昵称（≤50 字符）</span>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="例如：验收道友" />
-        </label>
+        <Form<CharacterFormValues>
+          layout="vertical"
+          initialValues={{ gender: 'male' }}
+          onFinish={(values) => void submit(values)}
+          disabled={submitting}
+          data-testid="character-create-form"
+        >
+          <TextField
+            name="nickname"
+            label="角色昵称（≤50 字符）"
+            required
+            maxLength={50}
+            placeholder="例如：验收道友"
+          />
+          <SelectField
+            name="gender"
+            label="性别"
+            required
+            options={[
+              { label: '男', value: 'male' },
+              { label: '女', value: 'female' },
+            ]}
+          />
 
-        <div className="field">
-          <span>性别</span>
-          <div className="radio-row">
-            <label className="radio">
-              <input type="radio" checked={gender === 'male'} onChange={() => setGender('male')} /> 男
-            </label>
-            <label className="radio">
-              <input type="radio" checked={gender === 'female'} onChange={() => setGender('female')} /> 女
-            </label>
-          </div>
-        </div>
+          {root.session.errorMessage !== null ? (
+            <Alert
+              type="error"
+              showIcon
+              title={root.session.errorMessage}
+              data-testid="character-create-error"
+              style={{ marginBottom: 12 }}
+            />
+          ) : null}
 
-        {root.session.errorMessage !== null ? (
-          <div className="form-error">{root.session.errorMessage}</div>
-        ) : null}
+          <SubmitButton loading={submitting} block>
+            创建角色
+          </SubmitButton>
+        </Form>
 
-        <button className="btn btn--primary" type="submit" disabled={!canSubmit}>
-          {submitting ? '创建中…' : '创建角色'}
-        </button>
-        <button className="btn btn--link" type="button" onClick={() => root.logout()}>
+        <Button type="link" block onClick={() => root.logout()} data-testid="character-create-logout">
           退出登录
-        </button>
-      </form>
-    </div>
+        </Button>
+      </Card>
+    </Flex>
   );
 });

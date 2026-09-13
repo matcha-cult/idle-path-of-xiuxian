@@ -5,7 +5,7 @@
  * 内被 try/catch 吞掉，写入 `error` 供 UI 展示，并经 `toast.fromError` 统一转译；
  * `load()` 之外的写操作成功后主动刷新对应列表，保持 UI 与服务端一致。
  */
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import type {
   BaseView,
   ItemView,
@@ -13,6 +13,7 @@ import type {
   PickupRuleUpdateInput,
   PickupRuleView,
 } from '@idle-path/ionet-transport';
+import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
 /** 图鉴基底一次拉取上限（服务端 pageSize 上限 100）。 */
@@ -36,18 +37,23 @@ export class ItemStore {
   loading = false;
   error: string | null = null;
 
+  /** 竞态守卫：仅最后一次发起的加载允许回写状态（规划 09 §6.2 B5）。 */
+  private readonly guard = new LoadGuard();
+
   constructor(private readonly ctx: StoreContext) {
-    makeAutoObservable<this, 'ctx'>(this, { ctx: false }, { autoBind: true });
+    makeAutoObservable<this, 'ctx' | 'guard'>(this, { ctx: false, guard: false, items: observable.shallow, bases: observable.shallow, pickupRules: observable.shallow }, { autoBind: true });
   }
 
   /** 拉取背包当前页（首屏即 `page=1`）。 */
   async load(): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
       const result = await this.ctx.game.item.inventory({ page: this.page, pageSize: this.pageSize });
       const data = result.data;
       if (data === undefined) throw new Error('背包响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.items = data.items;
         this.total = data.total;
@@ -55,14 +61,17 @@ export class ItemStore {
         this.pageSize = data.pageSize;
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '背包加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

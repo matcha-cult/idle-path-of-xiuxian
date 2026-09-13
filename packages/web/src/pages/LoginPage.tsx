@@ -1,77 +1,102 @@
-import { useState } from 'react';
+/**
+ * LoginPage —— 登录 / 注册（REST `POST /api/auth/{login,register}`，07 §1.1/§1.2）。
+ *
+ * 容器层：表单状态由 antd `Form` 管理，提交后交给 `SessionStore`（store 负责 REST 调用与 token 落盘）。
+ * 登录成功后由 `RootStore.login()` 继续把 `?token=` 交给 WS 握手并并发拉面板。
+ */
 import { observer } from 'mobx-react-lite';
+import { Alert, Card, Flex, Form, Segmented, Typography } from 'antd';
+import { useState } from 'react';
+import { PasswordField, SubmitButton, TextField } from '@idle-path/ui-kit';
 import { useRootStore } from '../app/root-context.js';
 
-/** 登录 / 注册（REST `POST /api/auth/{login,register}`，07 §1.1/§1.2）。 */
+type Mode = 'login' | 'register';
+
+interface LoginFormValues {
+  username?: string;
+  password?: string;
+}
+
 export const LoginPage = observer(function LoginPage() {
   const root = useRootStore();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<Mode>('login');
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = username.trim().length >= 3 && password.length >= 6 && !submitting;
-
-  const submit = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault();
-    if (!canSubmit) return;
+  const submit = async (values: LoginFormValues): Promise<void> => {
+    const username = (values.username ?? '').trim();
+    const password = values.password ?? '';
+    if (username.length === 0 || password.length === 0) return;
     setSubmitting(true);
     try {
-      if (mode === 'login') await root.login(username.trim(), password);
-      else await root.register(username.trim(), password);
+      if (mode === 'login') await root.login(username, password);
+      else await root.register(username, password);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <form className="card auth-card" onSubmit={(e) => void submit(e)}>
-        <h1 className="auth-card__title">放置·修仙之路</h1>
-        <p className="auth-card__subtitle">
-          {mode === 'login' ? '登录已有道号' : '注册新道号'} · 登录后经 <code>?token=</code> 建立 WS 连接
-        </p>
+    <Flex align="center" justify="center" vertical gap="middle" data-testid="login-page">
+      <Card style={{ width: 420 }}>
+        <Typography.Title level={4} data-testid="login-title">
+          放置·修仙之路
+        </Typography.Title>
+        <Typography.Paragraph type="secondary">
+          登录后经 <Typography.Text code>?token=</Typography.Text> 建立 WS 连接
+        </Typography.Paragraph>
 
-        <label className="field">
-          <span>道号（3–50 字符）</span>
-          <input
-            value={username}
-            autoComplete="username"
-            onChange={(e) => setUsername(e.target.value)}
+        <Segmented<Mode>
+          block
+          value={mode}
+          onChange={setMode}
+          options={[
+            { label: '登录', value: 'login' },
+            { label: '注册', value: 'register' },
+          ]}
+          data-testid="login-mode"
+        />
+
+        <Form<LoginFormValues>
+          layout="vertical"
+          onFinish={(values) => void submit(values)}
+          disabled={submitting}
+          data-testid="login-form"
+          style={{ marginTop: 16 }}
+        >
+          <TextField
+            name="username"
+            label="道号（3–50 字符）"
+            required
+            maxLength={50}
             placeholder="例如：无名道友"
           />
-        </label>
-
-        <label className="field">
-          <span>口令（≥6 字符）</span>
-          <input
-            type="password"
-            value={password}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            onChange={(e) => setPassword(e.target.value)}
+          <PasswordField
+            name="password"
+            label="口令（≥6 字符）"
+            required
+            minLength={6}
             placeholder="••••••"
           />
-        </label>
 
-        {root.session.errorMessage !== null ? (
-          <div className="form-error">{root.session.errorMessage}</div>
-        ) : null}
+          {root.session.errorMessage !== null ? (
+            <Alert
+              type="error"
+              showIcon
+              title={root.session.errorMessage}
+              data-testid="login-error"
+              style={{ marginBottom: 12 }}
+            />
+          ) : null}
 
-        <button className="btn btn--primary" type="submit" disabled={!canSubmit}>
-          {submitting ? '请稍候…' : mode === 'login' ? '登录' : '注册并登录'}
-        </button>
-
-        <button
-          className="btn btn--link"
-          type="button"
-          onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-        >
-          {mode === 'login' ? '没有道号？去注册' : '已有道号？去登录'}
-        </button>
-      </form>
-      <p className="auth-page__hint">
-        后端：REST <code>/api</code>（认证 + 角色） · WS <code>/ws</code>（其余全部游戏交互）
-      </p>
-    </div>
+          <SubmitButton loading={submitting} block>
+            {mode === 'login' ? '登录' : '注册并登录'}
+          </SubmitButton>
+        </Form>
+      </Card>
+      <Typography.Text type="secondary">
+        后端：REST <Typography.Text code>/api</Typography.Text>（认证 + 角色） · WS{' '}
+        <Typography.Text code>/ws</Typography.Text>（其余全部游戏交互）
+      </Typography.Text>
+    </Flex>
   );
 });

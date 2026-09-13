@@ -38,16 +38,16 @@ function stripCssVarFallbacks(code: string): string {
   return code.replace(/var\(\s*--[\w-]+\s*,[^)]*\)/g, 'var(--x)');
 }
 
-/** 遗留文件棘轮：只能缩小，不能增大；文件消失后必须从表中删除。 */
-const LEGACY_LARGE_FILES: Record<string, number> = {
-  // M3 将拆成 pages/game/panels/* + panel-registry（规划 09 §3 T-E）
-  'pages/GamePanelPage.tsx': 756,
-  // M2/M3 把页面迁到 antd 组件后，这里应大幅缩小到「只剩布局胶水」
-  'styles.css': 457,
-};
+/**
+ * 遗留文件棘轮：只能缩小，不能增大；文件消失后必须从表中删除。
+ *
+ * ✅ M3 已清空：`pages/GamePanelPage.tsx`（756 行）拆成 `pages/game/panels/*` + `panel-registry.tsx`；
+ * `styles.css` 从 457 行压到「只剩布局胶水」。表保持为空 = 全仓都在 200 行以内。
+ */
+const LEGACY_LARGE_FILES: Record<string, number> = {};
 
-/** 遗留内联色：M3 重写该文件时必须一并移除本项。 */
-const LEGACY_INLINE_HEX_FILES = new Set(['pages/GamePanelPage.tsx']);
+/** 遗留内联色棘轮（M3 已清空：手写组件全部迁移到 antd，颜色只走 token）。 */
+const LEGACY_INLINE_HEX_FILES = new Set<string>();
 
 /** 规模规则豁免（规划 09 §6.3 规则 1：store / 常量表例外）。路径相对 src。 */
 const LENGTH_EXEMPT = [/^stores\//, /^app\/root-store\.ts$/, /^theme\//];
@@ -77,8 +77,14 @@ describe('红线 2/3/4 · 样式与反馈 API 纪律', () => {
   });
 
   it('不得使用 antd 静态反馈 API（须走 App.useApp()）', () => {
-    const STATIC_API = /\b(?:Modal\.(?:confirm|info|success|error|warning)|message\.(?:success|error|info|warning|loading)|notification\.(?:success|error|info|warning|open))\s*\(/;
-    expect(ALL.filter((f) => STATIC_API.test(read(f)))).toEqual([]);
+    // 精确判定：**从 antd 静态导入** message/notification，或调用 Modal.confirm 等静态方法。
+    // 经 `App.useApp()` 解构得到的实例不违规（容器组件里 `const { message } = App.useApp();` 是正解）。
+    const STATIC_IMPORT = /import\s*\{[^}]*\b(?:message|notification)\b[^}]*\}\s*from\s*['"]antd['"]/;
+    const MODAL_STATIC = /\bModal\.(?:confirm|info|success|error|warning)\s*\(/;
+    expect(ALL.filter((f) => {
+      const code = read(f);
+      return MODAL_STATIC.test(code) || STATIC_IMPORT.test(code);
+    })).toEqual([]);
   });
 });
 

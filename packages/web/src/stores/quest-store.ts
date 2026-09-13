@@ -4,7 +4,7 @@
  * `detail` / `chapterDetail` 返回详情数据供弹窗即时消费（不留字段避免 UI 状态互相覆盖）；
  * `sync` / `chapterSync` 都把结果写入 `lastSync`（两者 data 形状一致）。
  */
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import type {
   ChapterDetail,
   ChapterView,
@@ -12,6 +12,7 @@ import type {
   QuestSyncData,
   QuestView,
 } from '@idle-path/ionet-transport';
+import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
 export class QuestStore {
@@ -30,12 +31,16 @@ export class QuestStore {
   loading = false;
   error: string | null = null;
 
+  /** 竞态守卫：仅最后一次发起的加载允许回写状态（规划 09 §6.2 B5）。 */
+  private readonly guard = new LoadGuard();
+
   constructor(private readonly ctx: StoreContext) {
-    makeAutoObservable<this, 'ctx'>(this, { ctx: false }, { autoBind: true });
+    makeAutoObservable<this, 'ctx' | 'guard'>(this, { ctx: false, guard: false, quests: observable.shallow, chapters: observable.shallow }, { autoBind: true });
   }
 
   /** 同时拉取任务列表 + 章节列表。 */
   async load(): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
@@ -46,6 +51,7 @@ export class QuestStore {
       const questData = questResult.data;
       const chapterData = chapterResult.data;
       if (questData === undefined) throw new Error('任务列表响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.quests = questData.quests;
         this.total = questData.total;
@@ -56,14 +62,17 @@ export class QuestStore {
         }
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '任务加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

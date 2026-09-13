@@ -4,8 +4,9 @@
  * 章节节点与任务节点分别存放（`nodes` / `questNodes`），避免两个入口互相覆盖；
  * 标记已读成功后本地同步 `seen`，无需再拉一次全量。
  */
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import type { StoryChapterData, StoryNode } from '@idle-path/ionet-transport';
+import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
 export class StoryStore {
@@ -18,8 +19,11 @@ export class StoryStore {
   loading = false;
   error: string | null = null;
 
+  /** 竞态守卫：仅最后一次发起的加载允许回写状态（规划 09 §6.2 B5）。 */
+  private readonly guard = new LoadGuard();
+
   constructor(private readonly ctx: StoreContext) {
-    makeAutoObservable<this, 'ctx'>(this, { ctx: false }, { autoBind: true });
+    makeAutoObservable<this, 'ctx' | 'guard'>(this, { ctx: false, guard: false, nodes: observable.shallow, questNodes: observable.shallow }, { autoBind: true });
   }
 
   /**
@@ -37,48 +41,58 @@ export class StoryStore {
 
   /** 拉取章节剧情节点（`chapter` 支持序号或 code）。 */
   async loadChapter(chapter: string): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
       const result = await this.ctx.game.story.chapter(chapter);
       const data = result.data;
       if (data === undefined) throw new Error('章节剧情响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.chapter = data.chapter;
         this.nodes = data.nodes;
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '章节剧情加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 
   /** 拉取任务剧情节点（失败码：QUEST_NOT_FOUND）。 */
   async loadQuest(code: string): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
       const result = await this.ctx.game.story.quest(code);
       const data = result.data;
       if (data === undefined) throw new Error('任务剧情响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.questNodes = data.nodes;
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '任务剧情加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

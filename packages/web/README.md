@@ -32,6 +32,31 @@ UI（React，observer 组件，只管渲染与事件）
 > 首帧背景由 `color-scheme` 驱动浏览器默认画布，页面底色由 `.app-root`（antd `App` 容器）承载
 > `--app-bg`，因此 CSS 里**不需要**再维护一份明暗配色（避免双主题真相）。
 
+## 页面与面板结构（M3）
+
+```
+src/
+├── app/            App（三态门）/ root-store / root-context
+├── components/     ConnectionStatus（antd Badge）/ ToastBridge（App.useApp 的 message）/ AppThemeToggle
+├── pages/
+│   ├── LoginPage.tsx            登录 / 注册（antd Form + ui-kit 字段）
+│   ├── CharacterCreatePage.tsx  建角
+│   └── game/
+│       ├── GameShellPage.tsx    壳：PageShell + PanelTabs（只装配，77 行）
+│       ├── panel-registry.tsx   ★ 可插拔注册表：新增游戏域只改这里
+│       └── panels/              11 个域面板（每个 ≤150 行 + 同目录测试）
+├── stores/         11 个域 Store + Theme/Session/Connection/Toast + load-guard（竞态守卫）
+├── services/       GameClient / NotificationBus / storage（唯一存储抽象）
+└── theme/          ThemeStore / ThemeRoot / token-css-vars / document-theme
+```
+
+**面板铁律**（新增面板照抄 `panels/BagPanel.tsx`）：
+1. 只做「store 状态 → ui-kit props」映射，不写业务规则/公式/数值文案；
+2. **不在挂载时拉取**——首屏由 `RootStore.loadPanel()` 并发加载；
+3. 三态（loading/error/empty）一律交给 `AsyncBoundary`；
+4. 视觉原语只用 ui-kit + antd：不写裸 `div` 布局、不写内联色值、不传 `size`（紧凑全局生效）；
+5. 破坏性操作一律 `ConfirmAction` 两步确认。
+
 ## 通道职责（后端已定死，06 §1 S2）
 
 | 通道 | 范围 |
@@ -47,6 +72,10 @@ UI（React，observer 组件，只管渲染与事件）
 - 错误分层：传输层 `errorCode`（400/404/500）与业务层 `data.success === false` **都要判**（06 §2）；
   `ToastStore.fromError` 是唯一出口。
 - 禁 import Node-only 的 `@nbb-ionet/*`；`client-protocol`（经 transport 间接）是白名单例外。
+- 反馈 API 一律 `App.useApp()`（禁 antd 静态 `message.*` / `Modal.confirm`，否则主题/locale 失效）。
+- 只读大数组用 `observable.shallow`；加载类 action 用 `stores/load-guard.ts` 拦截**过期响应回写**
+  （先发后到不得覆盖新数据）。
+- 源码门禁：`test/hygiene.test.ts`（内联 hex / `!important` / `<style>` / 静态反馈 API / 单文件规模，棘轮式）。
 
 ## 开发
 
@@ -70,7 +99,8 @@ pnpm --filter idle-path-web run dev      # http://127.0.0.1:5173
 
 ```bash
 pnpm --filter idle-path-web run typecheck   # tsc --noEmit
-pnpm --filter idle-path-web run test        # vitest（Store 边界 + 假适配器）
+pnpm --filter idle-path-web run test        # vitest：Store/组件/面板/门禁（jsdom + 假适配器）
+pnpm --filter idle-path-web run test -- test/stores/load-guard-race.test.ts   # 单跑竞态守卫
 pnpm --filter idle-path-web run build       # vite build（含 tsc）
 IONET_E2E=1 pnpm --filter idle-path-web run test   # 追加真实后端 e2e（需后端在 3000）
 ```

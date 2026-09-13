@@ -65,6 +65,18 @@ export class ToastStore {
     this.toasts = this.toasts.filter((t) => t.id !== id);
   }
 
+  /**
+   * 取走并清空队列（供 UI 桥接到 antd `message`/`notification`）。
+   *
+   * 设计：Store 只负责「错误 → 文案」的判定与排队，**展示归 UI 层**（规划 09 §6.2 B9）。
+   * `ToastBridge` 消费后再交给 antd 渲染，因此消费后队列为空，不会双重展示。
+   */
+  consume(): Toast[] {
+    const drained = this.toasts;
+    if (drained.length > 0) this.toasts = [];
+    return drained;
+  }
+
   clear(): void {
     this.toasts = [];
   }

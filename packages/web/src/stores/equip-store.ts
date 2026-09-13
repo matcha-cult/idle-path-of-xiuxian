@@ -4,8 +4,9 @@
  * 装备与卸下会同时改动「装备栏」与「背包」两份服务端状态，因此成功后再并发刷新
  * 两者（`equipment` + `root().item.load()`），避免 UI 双写不一致。
  */
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import type { EquippedSlotView } from '@idle-path/ionet-transport';
+import { LoadGuard } from './load-guard.js';
 import type { StoreContext } from './store-context.js';
 
 export class EquipStore {
@@ -16,31 +17,39 @@ export class EquipStore {
   loading = false;
   error: string | null = null;
 
+  /** 竞态守卫：仅最后一次发起的加载允许回写状态（规划 09 §6.2 B5）。 */
+  private readonly guard = new LoadGuard();
+
   constructor(private readonly ctx: StoreContext) {
-    makeAutoObservable<this, 'ctx'>(this, { ctx: false }, { autoBind: true });
+    makeAutoObservable<this, 'ctx' | 'guard'>(this, { ctx: false, guard: false }, { autoBind: true });
   }
 
   /** 拉取装备栏全量视图（无业务码）。 */
   async load(): Promise<void> {
+    const token = this.guard.next();
     this.loading = true;
     this.error = null;
     try {
       const result = await this.ctx.game.equip.equipment();
       const data = result.data;
       if (data === undefined) throw new Error('装备栏响应缺少 data');
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.slots = data.slots;
         this.equippedCount = data.equippedCount;
       });
     } catch (error) {
+      if (!this.guard.isCurrent(token)) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
       this.ctx.toast.fromError(error, '装备栏加载失败');
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (this.guard.isCurrent(token)) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

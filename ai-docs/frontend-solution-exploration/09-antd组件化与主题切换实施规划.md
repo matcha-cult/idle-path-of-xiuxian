@@ -153,7 +153,7 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 |---|---|---|---|
 | **M1** | T-A 基建 + T-C 主题/紧凑 + T-B 包骨架 | ✅ 2026-09-13 完成 | 主题切换可用；既有测试零回归 |
 | **M2** | T-D 通用组件层（约 22 个组件 + 22 个测试） | ✅ 2026-09-13 完成 | ui-kit 覆盖率 ≥90% |
-| **M3** | T-E 页面与 11 面板拆分 | 2 个 commit | 无 >200 行文件；页面测试全绿 |
+| **M3** | T-E 页面与 11 面板拆分 | ✅ 2026-09-13 完成 | 无 >200 行文件；页面测试全绿 |
 | **M4** | T-F 全量验收 + 文档 | 1 个 commit | 全部命令绿 + 浏览器人工确认 |
 
 > **M1 已交付实测（2026-09-13）**：ui-kit 单测 31 例、web 单测 67 例 + 真后端 e2e 1 例全绿；
@@ -168,6 +168,14 @@ pages/           容器层：连 Store / 组装通用组件（允许 import stor
 > 禁组件内 `<style>`、禁 antd 静态反馈 API、每组件目录须有测试、一文件一组件、禁 default 导出、单文件 ≤200 行）；
 > web 侧 `typecheck`/`build`/`test`（75 例，含真后端 e2e）零回归。
 > 已知偏差（接口不变，仅 v6 API 差异）与唯一 props 豁免见 `packages/ui-kit/README.md`。
+>
+> **M3 已交付实测（2026-09-13）**：删除 756 行 `GamePanelPage.tsx`（含 11 个内联 Tab）与 45 行
+> `ConnectionBar.tsx`、26 行 `ToastHost.tsx`；新增 `pages/game/panels/*`（11 个面板，最大 147 行）+
+> 配置驱动 `panel-registry.tsx` + 77 行 `GameShellPage.tsx`；`ConnectionStatus`（antd Badge）+ 
+> `ToastBridge`（`App.useApp()` 的 message，禁静态 API）+ antd 版登录/建角页；
+> `styles.css` **457 → 37 行**（只剩布局胶水），全仓 src 除 store/registry 外 **无 >200 行文件**；
+> 域 Store 加 `observable.shallow`（只读大数组不做深 observable）与 `LoadGuard`（过期响应回写拦截，
+> 已实测「去掉守卫则 2 个竞态用例失败」）。`packages/web` 测试见下方验收表。
 
 ---
 
