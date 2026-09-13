@@ -91,6 +91,21 @@ describe('CurrencyService.catalog 边界', () => {
     assert.equal(payload<{ currencies: Array<{ owned: number }> }>(res).currencies[0].owned, 0);
   });
 
+  test('amount 超出安全整数范围（2^53）-> RangeError（fail-fast，不静默丢精度）', async () => {
+    const fake = new FakeDatabase()
+      .on(/FROM game_currencies/, { rows: [{ id: 1, code: 'transmute', name: '蜕变石', description: 'x', implemented: true }] })
+      .on(/FROM game_wallets/, { rows: [{ currency_code: 'transmute', amount: '9007199254740992' }] });
+    await assert.rejects(() => makeService({ fake }).svc.catalog(7), RangeError);
+  });
+
+  test('amount = MAX_SAFE_INTEGER 边界 -> 精确 number', async () => {
+    const fake = new FakeDatabase()
+      .on(/FROM game_currencies/, { rows: [{ id: 1, code: 'transmute', name: '蜕变石', description: 'x', implemented: true }] })
+      .on(/FROM game_wallets/, { rows: [{ currency_code: 'transmute', amount: String(Number.MAX_SAFE_INTEGER) }] });
+    const res = await makeService({ fake }).svc.catalog(7);
+    assert.equal(payload<{ currencies: Array<{ owned: number }> }>(res).currencies[0].owned, Number.MAX_SAFE_INTEGER);
+  });
+
   test('查询抛错 -> Promise reject', async () => {
     const fake = new FakeDatabase().on(/FROM game_currencies/, () => {
       throw new Error('currency boom');
@@ -160,7 +175,7 @@ describe('CurrencyService.grant 边界', () => {
     assert.equal(rate.callCount, 1);
   });
 
-  test('成功 -> upsert 钱包，返回 Number(amount)', async () => {
+  test('成功 -> upsert 钱包，返回安全整数 amount', async () => {
     const fake = new FakeDatabase()
       .on(/FROM game_currencies/, { rows: [{ id: 1, name: '蜕变石' }] })
       .on(/INSERT INTO game_wallets/, { rows: [{ amount: '43' }] });
@@ -169,6 +184,13 @@ describe('CurrencyService.grant 边界', () => {
     assert.equal(payload<{ amount: number }>(res).amount, 43);
     assert.deepEqual(fake.lastCall(/INSERT INTO game_wallets/)?.params, [5, 'transmute', 3]);
     assert.match(res.message, /蜕变石/);
+  });
+
+  test('grant 返回 amount 超出安全整数范围 -> RangeError', async () => {
+    const fake = new FakeDatabase()
+      .on(/FROM game_currencies/, { rows: [{ id: 1, name: '蜕变石' }] })
+      .on(/INSERT INTO game_wallets/, { rows: [{ amount: '9007199254740992' }] });
+    await assert.rejects(() => makeService({ fake }).svc.grant(7, 'transmute', 1), RangeError);
   });
 });
 
@@ -204,6 +226,13 @@ describe('CurrencyService.catalogEssences 边界', () => {
     assert.equal(essences[0].targetFamily, 'atk');
     assert.equal(essences[0].description, '');
     assert.equal(essences[1].owned, 0);
+  });
+
+  test('count 超出安全整数范围（2^53）-> RangeError（不静默丢精度）', async () => {
+    const fake = new FakeDatabase()
+      .on(/FROM game_essences/, { rows: [{ id: 1, code: 'e_atk', name: '攻击精华', polarity: 'prefix', target_family: 'atk', description: null }] })
+      .on(/FROM game_essence_inventory/, { rows: [{ essence_id: 1, count: '9007199254740992' }] });
+    await assert.rejects(() => makeService({ fake }).svc.catalogEssences(7), RangeError);
   });
 });
 
@@ -255,7 +284,7 @@ describe('CurrencyService.grantEssence 边界', () => {
     assert.equal(codeOf(await makeService({ fake }).svc.grantEssence(7, 'nope', 1)), 'ESSENCE_NOT_FOUND');
   });
 
-  test('成功 -> upsert 精华存量，count=Number(count)', async () => {
+  test('成功 -> upsert 精华存量，返回安全整数 count', async () => {
     const fake = new FakeDatabase()
       .on(/FROM game_essences/, { rows: [{ id: 1, name: '攻击精华' }] })
       .on(/INSERT INTO game_essence_inventory/, { rows: [{ count: '8' }] });
@@ -263,5 +292,12 @@ describe('CurrencyService.grantEssence 边界', () => {
     assert.equal(res.success, true);
     assert.equal(payload<{ count: number }>(res).count, 8);
     assert.deepEqual(fake.lastCall(/INSERT INTO game_essence_inventory/)?.params, [5, 1, 2]);
+  });
+
+  test('grantEssence 返回 count 超出安全整数范围 -> RangeError', async () => {
+    const fake = new FakeDatabase()
+      .on(/FROM game_essences/, { rows: [{ id: 1, name: '攻击精华' }] })
+      .on(/INSERT INTO game_essence_inventory/, { rows: [{ count: '9007199254740992' }] });
+    await assert.rejects(() => makeService({ fake }).svc.grantEssence(7, 'e_atk', 1), RangeError);
   });
 });

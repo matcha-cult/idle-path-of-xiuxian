@@ -7,6 +7,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import { StatService } from '../../../game/stat/stat.service.js';
@@ -72,7 +73,7 @@ export class RealmService {
     return {
       success: true,
       message: `突破成功：${realmName(character.realm)} → ${realmName(nowRealm)}`,
-      data: { realm: nowRealm, realmName: realmName(nowRealm), lingyun: Number(upd.rows[0].lingyun) },
+      data: { realm: nowRealm, realmName: realmName(nowRealm), lingyun: bigintToSafeNumber(upd.rows[0].lingyun, 'characters.lingyun') },
     };
   }
 }

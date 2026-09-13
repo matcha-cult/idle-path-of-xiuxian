@@ -10,6 +10,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../common/config/app-config.js';
+import { bigintToSafeNumber } from '../../common/utils/safe-bigint.js';
 import { DatabaseService } from '../database/database.service.js';
 
 const DEFAULT_REGISTRATION_SPIRIT_STONES = Number(
@@ -22,14 +23,15 @@ export interface Character {
   nickname: string;
   gender: string;
   title: string | null;
+  /** 灵石（BIGINT 列；定精度策略：安全整数范围，超出抛 RangeError，见 common/utils/safe-bigint.ts） */
   spiritStones: number;
-  /** （弃用）银两，不再使用 */
+  /** （弃用）银两（BIGINT 列） */
   silver: number;
   /** 当前境界序号 1~14 */
   realm: number;
-  /** 灵韵（角色绑定成长资源） */
+  /** 灵韵（BIGINT 列，角色绑定成长资源） */
   lingyun: number;
-  /** 未开光玉简计数（P2 占位，P4 物品化） */
+  /** 未开光玉简计数（BIGINT 列，P2 占位，P4 物品化） */
   jadeSlips: number;
 }
 
@@ -78,7 +80,7 @@ export class CharacterService {
       'SELECT COUNT(*)::text AS count FROM characters WHERE user_id = $1',
       [userId],
     );
-    const current = Number(countResult.rows[0]?.count ?? 0);
+    const current = bigintToSafeNumber(countResult.rows[0]?.count ?? 0, 'characters.count');
     if (current >= maxCharacters) {
       return { success: false, message: `角色数量已达上限（${maxCharacters}）` };
     }
@@ -148,11 +150,12 @@ export class CharacterService {
       nickname: String(row.nickname),
       gender: String(row.gender),
       title: row.title ? String(row.title) : null,
-      spiritStones: Number(row.spirit_stones),
-      silver: Number(row.silver),
+      // BIGINT 列统一走安全转换（定精度策略：超 ±(2^53-1) 抛 RangeError，见 common/utils/safe-bigint.ts）
+      spiritStones: bigintToSafeNumber(row.spirit_stones, 'characters.spirit_stones'),
+      silver: bigintToSafeNumber(row.silver, 'characters.silver'),
       realm: Number(row.realm),
-      lingyun: Number(row.lingyun),
-      jadeSlips: Number(row.jade_slips),
+      lingyun: bigintToSafeNumber(row.lingyun, 'characters.lingyun'),
+      jadeSlips: bigintToSafeNumber(row.jade_slips, 'characters.jade_slips'),
     };
   }
 }

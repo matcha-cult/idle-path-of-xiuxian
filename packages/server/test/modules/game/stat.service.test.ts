@@ -31,13 +31,14 @@ describe('StatService.increment 边界', () => {
     assert.equal(db.callCount, 0);
   });
 
-  // 边界说明：实现只过滤「非有限数 或 ===0」，负数并未跳过。
-  // 任务清单里「负 amount 应跳过」在当前实现下不成立（契约允许负数修正），此处按真实行为断言。
-  test('负 amount 当前实现会落库（不跳过）', async () => {
+  // R10：计数只允许正向累加——负 amount 与 0 一律跳过，防止借负数把计数刷低
+  test('负 amount -> 跳过，不落库（R10）', async () => {
     const db = new FakeDatabase();
-    await makeService(db).increment(1, 'k', -5);
-    assert.equal(db.callCount, 1);
-    assert.deepEqual(db.lastCall()?.params, [1, 'k', -5]);
+    const svc = makeService(db);
+    await svc.increment(1, 'k', -5);
+    await svc.increment(1, 'k', -0.5);
+    await svc.increment(1, 'k', Number.MIN_SAFE_INTEGER);
+    assert.equal(db.callCount, 0);
   });
 
   test('小数 / MAX_SAFE_INTEGER -> 原样落库', async () => {
@@ -136,16 +137,32 @@ describe('StatService.readAll 边界', () => {
     assert.equal(map.get('craft_total'), 0);
   });
 
-  test('value 非数值 -> NaN；空 key 保留', async () => {
+  test('空 key 保留；value 为非十进制字符串 -> RangeError（fail-fast）', async () => {
+    const badDb = new FakeDatabase().on(/FROM game_stat_counters/, {
+      rows: [{ key: 'bad', value: 'abc' }],
+    });
+    await assert.rejects(() => makeService(badDb).readAll(1), RangeError);
+
     const db = new FakeDatabase().on(/FROM game_stat_counters/, {
-      rows: [
-        { key: 'bad', value: 'abc' },
-        { key: '', value: '1' },
-      ],
+      rows: [{ key: '', value: '1' }],
     });
     const map = await makeService(db).readAll(1);
-    assert.ok(Number.isNaN(map.get('bad')));
     assert.equal(map.get(''), 1);
+  });
+
+  test('value = MAX_SAFE_INTEGER 边界 -> 精确 number', async () => {
+    const db = new FakeDatabase().on(/FROM game_stat_counters/, {
+      rows: [{ key: 'max', value: String(Number.MAX_SAFE_INTEGER) }],
+    });
+    const map = await makeService(db).readAll(1);
+    assert.equal(map.get('max'), Number.MAX_SAFE_INTEGER);
+  });
+
+  test('value 超出安全整数范围（2^53）-> RangeError（不静默丢精度）', async () => {
+    const db = new FakeDatabase().on(/FROM game_stat_counters/, {
+      rows: [{ key: 'huge', value: '9007199254740992' }],
+    });
+    await assert.rejects(() => makeService(db).readAll(1), RangeError);
   });
 
   test('DB 抛错 -> 向上抛出', async () => {

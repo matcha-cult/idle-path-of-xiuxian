@@ -7,13 +7,16 @@
  */
 import { Injectable } from '@nestjs/common';
 import { GameDatabaseService } from '../game-database.service.js';
+import { bigintToSafeNumber } from '../../../common/utils/safe-bigint.js';
 
 @Injectable()
 export class StatService {
   constructor(private readonly gameDb: GameDatabaseService) {}
 
   async increment(characterId: number, key: string, amount = 1): Promise<void> {
-    if (!Number.isFinite(amount) || amount === 0) return;
+    // R10：计数只允许正向累加——非有限数、0、负数一律跳过（防止借负数把计数刷低；
+    // 需要扣减的语义请走显式扣减语句，不要复用本接口）
+    if (!Number.isFinite(amount) || amount <= 0) return;
     await this.gameDb.query(
       'INSERT INTO game_stat_counters (character_id, key, value, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP) ON CONFLICT (character_id, key) DO UPDATE SET value = game_stat_counters.value + EXCLUDED.value, updated_at = CURRENT_TIMESTAMP',
       [characterId, key, amount],
@@ -33,6 +36,6 @@ export class StatService {
       'SELECT key, value FROM game_stat_counters WHERE character_id = $1',
       [characterId],
     );
-    return new Map(rows.rows.map((r) => [r.key, Number(r.value)]));
+    return new Map(rows.rows.map((r) => [r.key, bigintToSafeNumber(r.value, 'game_stat_counters.value')]));
   }
 }

@@ -9,6 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
@@ -547,7 +548,7 @@ export class UnitService {
         unit: { code: loaded.unit.code, name: loaded.unit.name, realm: loaded.unit.realm },
         kills: count,
         lingyunGained,
-        lingyunTotal: Number(upd.rows[0] ? upd.rows[0].lingyun : 0),
+        lingyunTotal: bigintToSafeNumber(upd.rows[0]?.lingyun ?? null, 'characters.lingyun'),
         items,
         kept,
         salvaged: { count: salvaged, lingyun: salvageLingyunTotal },

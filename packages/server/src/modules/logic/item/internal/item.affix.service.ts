@@ -10,6 +10,7 @@
  */
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import {
   EFFECT_LABELS,
@@ -192,7 +193,7 @@ export class ItemAffixService {
        RETURNING id`,
       [characterId, base.id, rarity, base.tier, JSON.stringify(entries)],
     );
-    const itemId = Number(inserted.rows[0].id);
+    const itemId = bigintToSafeNumber(inserted.rows[0].id, 'game_items.id');
 
     const view = await this.renderItem(itemId, base.id, base.code, base.name, base.category, base.slot, rarity, base.tier, 0, 'bag', entries);
     return {
@@ -363,7 +364,7 @@ export class ItemAffixService {
     return texts;
   }
 
-  /** 组装 ItemView */
+  /** 组装 ItemView（单条：内部复用批量实现，保持既有调用方签名不变） */
   async renderItem(
     id: number,
     baseId: number,
@@ -378,9 +379,38 @@ export class ItemAffixService {
     entries: AffixEntry[],
     createdAt?: string | Date,
   ): Promise<import('./item.types.js').ItemView> {
-    const affixIds = entries.map((e) => e.affixId);
-    const rows = await this.findAffixesByIds(affixIds);
+    const [view] = await this.renderItems([
+      { id, baseId, baseCode, name, category, slot, rarity, tier, quality, status, entries, createdAt },
+    ]);
+    return view;
+  }
+
+  /**
+   * 批量组装 ItemView（M5：消除背包列表的 N+1）。
+   *
+   * 逐条 renderItem 会对每条物品各发一次 `game_affixes` 查询（N 条 → N 次 SQL）；
+   * 本方法先把全部条目的 affixId 去重汇总，只查一次词缀定义，再按 Map 分发渲染。
+   * 边界：空输入不查库直接返回 []；全部条目无词缀时 findAffixesByIds([]) 亦不查库。
+   */
+  async renderItems(
+    inputs: RenderItemInput[],
+  ): Promise<Array<import('./item.types.js').ItemView>> {
+    if (inputs.length === 0) return [];
+    const affixIds = new Set<number>();
+    for (const input of inputs) {
+      for (const entry of input.entries) affixIds.add(entry.affixId);
+    }
+    const rows = await this.findAffixesByIds([...affixIds]);
     const affixById = new Map(rows.map((r) => [r.id, r]));
+    return inputs.map((input) => this.buildView(input, affixById));
+  }
+
+  /** 单条渲染（纯内存，不再触达 DB） */
+  private buildView(
+    input: RenderItemInput,
+    affixById: Map<number, AffixRow>,
+  ): import('./item.types.js').ItemView {
+    const { id, baseId, baseCode, name, category, slot, rarity, tier, quality, status, entries, createdAt } = input;
     return {
       id,
       baseId,
@@ -401,6 +431,22 @@ export class ItemAffixService {
       ...(createdAt != null ? { createdAt } : {}),
     };
   }
+}
+
+/** 批量渲染入参（与 renderItem 位置参数一一对应） */
+export interface RenderItemInput {
+  id: number;
+  baseId: number;
+  baseCode: string;
+  name: string;
+  category: string;
+  slot: string | null;
+  rarity: number;
+  tier: number;
+  quality: number;
+  status: string;
+  entries: AffixEntry[];
+  createdAt?: string | Date;
 }
 
 function fail(code: string, message: string): FailResult {

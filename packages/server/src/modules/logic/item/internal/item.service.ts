@@ -8,6 +8,7 @@
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { ItemAffixService } from './item.affix.service.js';
@@ -22,6 +23,18 @@ import {
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+/** 页码上限：保证 offset = (page-1)*pageSize 仍在安全整数范围内（R11 极值兜底） */
+const MAX_PAGE = Math.floor(Number.MAX_SAFE_INTEGER / MAX_PAGE_SIZE);
+
+/**
+ * 分页参数归一（R11）：服务层自兜底，不依赖 Action 层。
+ * 非 number / NaN / ±Infinity → fallback；否则 floor 后在 [min, max] 内 clamp。
+ */
+function normalizePageParam(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : Number.NaN;
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
 
 interface ItemWithBase extends ItemRow {
   code: string;
@@ -105,8 +118,8 @@ export class ItemService {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error as FailResult;
 
-    const page = Math.max(1, Math.floor(filters.page ?? 1));
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(filters.pageSize ?? DEFAULT_PAGE_SIZE)));
+    const page = normalizePageParam(filters.page, 1, 1, MAX_PAGE);
+    const pageSize = normalizePageParam(filters.pageSize, DEFAULT_PAGE_SIZE, 1, MAX_PAGE_SIZE);
     const where: string[] = ['i.character_id = $1'];
     const params: unknown[] = [character.id];
     if (filters.category) {
@@ -132,7 +145,7 @@ export class ItemService {
        JOIN game_item_bases b ON b.id = i.base_id WHERE ${whereSql}`,
       params,
     );
-    const total = Number(countResult.rows[0]?.count ?? 0);
+    const total = bigintToSafeNumber(countResult.rows[0]?.count ?? 0, 'game_items.count');
 
     const offset = (page - 1) * pageSize;
     const rowsResult = await this.gameDb.query<ItemWithBase>(
@@ -228,7 +241,7 @@ export class ItemService {
         if (slots[slotKey] != null) return { ok: false, result: fail('SLOT_OCCUPIED', '槽位已占用') };
       }
 
-      slots[slotKey] = Number(row.id);
+      slots[slotKey] = bigintToSafeNumber(row.id, 'game_items.id');
       await tx.query(
         'UPDATE game_equipment SET slots = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
         [JSON.stringify(slots), equipId],
@@ -284,7 +297,7 @@ export class ItemService {
         // 与 equip/equipment 视图对齐：slots 损坏按空栏处理 → 受控失败
         slots = this.emptySlots();
       }
-      const slotKey = Object.keys(slots).find((k) => slots[k] === Number(row.id));
+      const slotKey = Object.keys(slots).find((k) => slots[k] === bigintToSafeNumber(row.id, 'game_items.id'));
       if (!slotKey) return fail('ITEM_NOT_EQUIPPED', '物品未被装备');
 
       slots[slotKey] = null;
@@ -322,7 +335,7 @@ export class ItemService {
       if (row.status === 'equipped') return fail('ITEM_NOT_IN_BAG', '已装备的物品无法丢弃，请先卸下');
 
       await tx.query('DELETE FROM game_items WHERE id = $1', [row.id]);
-      return { success: true, message: `已丢弃：${row.base_name}`, data: { itemId: Number(row.id) } };
+      return { success: true, message: `已丢弃：${row.base_name}`, data: { itemId: bigintToSafeNumber(row.id, 'game_items.id') } };
     });
   }
 
@@ -349,13 +362,13 @@ export class ItemService {
     let equippedCount = 0;
     if (itemIds.length > 0) {
       const rows = await this.getItemsByIds(itemIds);
-      const map = new Map(rows.map((r) => [Number(r.id), r]));
+      const map = new Map(rows.map((r) => [bigintToSafeNumber(r.id, 'game_items.id'), r]));
       for (const k of EQUIP_SLOT_KEYS) {
         const id = slots[k];
         if (id == null) continue;
         const row = map.get(id);
         if (!row) continue;
-        view[k] = { id: Number(row.id), name: row.base_name, rarity: row.rarity, tier: row.tier };
+        view[k] = { id: bigintToSafeNumber(row.id, 'game_items.id'), name: row.base_name, rarity: row.rarity, tier: row.tier };
         equippedCount++;
       }
     }
@@ -366,8 +379,8 @@ export class ItemService {
   async bases(
     filters: { category?: string; tier?: number; page?: number; pageSize?: number; withPool?: number },
   ): Promise<{ success: boolean; message: string; data?: unknown }> {
-    const page = Math.max(1, Math.floor(filters.page ?? 1));
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(filters.pageSize ?? DEFAULT_PAGE_SIZE)));
+    const page = normalizePageParam(filters.page, 1, 1, MAX_PAGE);
+    const pageSize = normalizePageParam(filters.pageSize, DEFAULT_PAGE_SIZE, 1, MAX_PAGE_SIZE);
     const where: string[] = [];
     const params: unknown[] = [];
     if (filters.category) {
@@ -384,7 +397,7 @@ export class ItemService {
       `SELECT COUNT(*)::text AS count FROM game_item_bases ${whereSql}`,
       params,
     );
-    const total = Number(countResult.rows[0]?.count ?? 0);
+    const total = bigintToSafeNumber(countResult.rows[0]?.count ?? 0, 'game_item_bases.count');
 
     const offset = (page - 1) * pageSize;
     const rowsResult = await this.gameDb.query<import('./item.types.js').BaseRow>(
@@ -539,27 +552,23 @@ export class ItemService {
   }
 
   private async toViews(rows: ItemWithBase[]): Promise<ItemView[]> {
-    const views: ItemView[] = [];
-    for (const row of rows) {
-      const entries = this.parseEntries(row.affixes);
-      views.push(
-        await this.affixService.renderItem(
-          Number(row.id),
-          Number(row.base_id),
-          row.code,
-          row.base_name,
-          row.category,
-          row.slot,
-          Number(row.rarity),
-          Number(row.tier),
-          Number(row.quality),
-          row.status,
-          entries,
-          row.created_at,
-        ),
-      );
-    }
-    return views;
+    // M5：批量渲染——全部行的 affixId 汇总后只查一次 game_affixes（消除 N+1）
+    return this.affixService.renderItems(
+      rows.map((row) => ({
+        id: bigintToSafeNumber(row.id, 'game_items.id'),
+        baseId: Number(row.base_id),
+        baseCode: row.code,
+        name: row.base_name,
+        category: row.category,
+        slot: row.slot,
+        rarity: Number(row.rarity),
+        tier: Number(row.tier),
+        quality: Number(row.quality),
+        status: row.status,
+        entries: this.parseEntries(row.affixes),
+        createdAt: row.created_at,
+      })),
+    );
   }
 
   private tryParse<T>(raw: string | null, fallback: T): T {

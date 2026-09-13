@@ -208,19 +208,28 @@ describe('RealmService.breakthrough 扣费与升级', () => {
     assert.equal(codeOf(res), 'LINGYUN_NOT_ENOUGH');
   });
 
-  test('灵韵为 BIGINT 字符串：UPDATE RETURNING 字符串 -> number', async () => {
+  test('灵韵为 BIGINT 字符串（安全范围内）：UPDATE RETURNING 字符串 -> 精确 number', async () => {
     const fake = new FakeDatabase().on(/UPDATE characters/, {
-      rows: [{ realm: 2, lingyun: '9007199254740993' }],
+      rows: [{ realm: 2, lingyun: '9007199254740991' }],
     });
     const { svc } = makeService({
       fake,
-      character: { id: 5, realm: 1, lingyun: '999999999999999999' as unknown as number },
+      character: { id: 5, realm: 1, lingyun: 123 },
     });
     const res = await svc.breakthrough(7);
     assert.equal(res.success, true);
-    assert.equal(typeof payload<{ lingyun: number }>(res).lingyun, 'number');
-    // 超大 BIGINT 字符串经 Number() 有精度损失，这里只锁定类型转换而非精确值
-    assert.equal(payload<{ lingyun: number }>(res).lingyun, Number('9007199254740993'));
+    assert.equal(payload<{ lingyun: number }>(res).lingyun, Number.MAX_SAFE_INTEGER);
+  });
+
+  test('灵韵超出安全整数范围（2^53）-> RangeError（fail-fast，不静默丢精度）', async () => {
+    const fake = new FakeDatabase().on(/UPDATE characters/, {
+      rows: [{ realm: 2, lingyun: '9007199254740992' }],
+    });
+    const { svc } = makeService({
+      fake,
+      character: { id: 5, realm: 1, lingyun: 123 },
+    });
+    await assert.rejects(() => svc.breakthrough(7), RangeError);
   });
 
   test('UPDATE 抛错 -> Promise reject', async () => {

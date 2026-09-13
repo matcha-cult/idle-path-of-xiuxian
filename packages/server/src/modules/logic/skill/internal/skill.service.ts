@@ -7,6 +7,7 @@
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
@@ -156,7 +157,7 @@ export class SkillService {
     return {
       success: true,
       message: '修习成功，功法已收入功法册',
-      data: { skillId, jadeSlips: Number(upd.rows[0].jade_slips) },
+      data: { skillId, jadeSlips: bigintToSafeNumber(upd.rows[0].jade_slips, 'characters.jade_slips') },
     };
   }
 
@@ -327,7 +328,7 @@ export class SkillService {
       return {
         success: true,
         message: `参悟成功：${skillRows.rows[0].name} 升至 ${next.rows[0].level} 级`,
-        data: { skillId, level: Number(next.rows[0].level), lingyun: Number(upd.rows[0].lingyun) },
+        data: { skillId, level: Number(next.rows[0].level), lingyun: bigintToSafeNumber(upd.rows[0].lingyun, 'characters.lingyun') },
       };
     } catch (err) {
       // 升级失败 → 补偿灵韵
@@ -356,7 +357,7 @@ export class SkillService {
        WHERE id = $2 RETURNING lingyun`,
       [amount, character.id],
     );
-    return { success: true, message: `注入灵韵 ${amount}`, data: { lingyun: Number(upd.rows[0].lingyun) } };
+    return { success: true, message: `注入灵韵 ${amount}`, data: { lingyun: bigintToSafeNumber(upd.rows[0].lingyun, 'characters.lingyun') } };
   }
 
   // ===== 开发发放：未开光玉简（dev 门禁 + 限流） =====
@@ -376,6 +377,6 @@ export class SkillService {
        WHERE id = $2 RETURNING jade_slips`,
       [count, character.id],
     );
-    return { success: true, message: `发放未开光玉简 ${count}`, data: { jadeSlips: Number(upd.rows[0].jade_slips) } };
+    return { success: true, message: `发放未开光玉简 ${count}`, data: { jadeSlips: bigintToSafeNumber(upd.rows[0].jade_slips, 'characters.jade_slips') } };
   }
 }

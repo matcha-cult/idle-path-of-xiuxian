@@ -6,6 +6,7 @@
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
 import { RateLimiterService } from '../../../../common/services/rate-limiter.service.js';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { type CurrencyRow, type FailResult, type WalletRow, fail } from './currency.types.js';
@@ -50,7 +51,8 @@ export class CurrencyService {
         [character.id],
       ),
     ]);
-    const owned = new Map(wallets.rows.map((w) => [w.currency_code, Number(w.amount)]));
+    // amount 是 BIGINT 列：走定精度安全转换（超 ±(2^53-1) 抛 RangeError）
+    const owned = new Map(wallets.rows.map((w) => [w.currency_code, bigintToSafeNumber(w.amount, 'game_wallets.amount')]));
     return {
       success: true,
       message: '获取通货图鉴成功',
@@ -102,7 +104,7 @@ export class CurrencyService {
     return {
       success: true,
       message: `获得 ${def.name} ×${count}`,
-      data: { code, amount: Number(upd.rows[0].amount) },
+      data: { code, amount: bigintToSafeNumber(upd.rows[0].amount, 'game_wallets.amount') },
     };
   }
 
@@ -118,7 +120,8 @@ export class CurrencyService {
         [character.id],
       ),
     ]);
-    const owned = new Map(inv.rows.map((r) => [Number(r.essence_id), Number(r.count)]));
+    // count 是 BIGINT 列：走定精度安全转换
+    const owned = new Map(inv.rows.map((r) => [Number(r.essence_id), bigintToSafeNumber(r.count, 'game_essence_inventory.count')]));
     return {
       success: true,
       message: '获取精华图鉴成功',
@@ -167,7 +170,7 @@ export class CurrencyService {
     return {
       success: true,
       message: `获得 ${def.name} ×${count}`,
-      data: { code, count: Number(upd.rows[0].count) },
+      data: { code, count: bigintToSafeNumber(upd.rows[0].count, 'game_essence_inventory.count') },
     };
   }
 }

@@ -37,6 +37,28 @@ describe('CharacterService.check / info 边界', () => {
     assert.equal(character?.jadeSlips, 2);
     assert.equal(typeof character?.id, 'number');
   });
+
+  test('BIGINT 经济字段 = MAX_SAFE_INTEGER 边界 -> 精确 number', async () => {
+    const fake = new FakeDatabase().on(/FROM characters/, {
+      rows: [{ ...ROW, lingyun: String(Number.MAX_SAFE_INTEGER) }],
+    });
+    const character = await makeService(fake).findByUserId(7);
+    assert.equal(character?.lingyun, Number.MAX_SAFE_INTEGER);
+  });
+
+  test('BIGINT 经济字段超出安全整数范围（2^53）-> RangeError（fail-fast，不静默丢精度）', async () => {
+    const fake = new FakeDatabase().on(/FROM characters/, {
+      rows: [{ ...ROW, spirit_stones: '9007199254740992' }],
+    });
+    await assert.rejects(() => makeService(fake).findByUserId(7), RangeError);
+  });
+
+  test('经济字段值非十进制字符串 -> RangeError', async () => {
+    const fake = new FakeDatabase().on(/FROM characters/, {
+      rows: [{ ...ROW, silver: 'abc' }],
+    });
+    await assert.rejects(() => makeService(fake).findByUserId(7), RangeError);
+  });
 });
 
 describe('CharacterService.create 边界', () => {

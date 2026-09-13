@@ -70,6 +70,9 @@ function makeService(opts: {
         opts.generateItemResult ?? { success: true, message: 'gen', data: { baseId, rarity, characterId } },
     ),
     renderItem: stub((...args: unknown[]) => ({ id: Number(args[0]), args })),
+    // M5 批量化后 ItemService.toViews 走 renderItems（单次批量）；stub 保持可断言
+    renderItems: stub((inputs: Array<Record<string, unknown>>) =>
+      inputs.map((input) => ({ id: input.id, input }))),
   };
   const svc = new ItemService(
     opts.fake as never,
@@ -161,14 +164,27 @@ describe('ItemService.inventory 边界', () => {
     });
   }
 
-  test('page=NaN 当前未归一（Math.max(1, NaN)=NaN，实测观察）', async () => {
+  test('page=NaN -> page=1（R11 服务层自归一，不依赖 Action 层兜底）', async () => {
     const fake = new FakeDatabase()
       .on(/COUNT\(\*\)/, { rows: [{ count: '0' }] })
       .on(/ORDER BY i\.id DESC/, { rows: [] });
-    const res = await makeService({ fake }).svc.inventory(7, { page: Number.NaN });
-    // 实现只做 Math.max(1, floor(x))，NaN 会穿透；这里锁定当前行为而非期望“已归一”
-    assert.ok(Number.isNaN(payload<{ page: number }>(res).page));
-    assert.ok(Number.isNaN(fake.lastCall(/ORDER BY i\.id DESC/)?.params[2] as number));
+    const res = await makeService({ fake }).svc.inventory(7, { page: Number.NaN, pageSize: 10 });
+    assert.equal(payload<{ page: number }>(res).page, 1);
+    assert.deepEqual(fake.lastCall(/ORDER BY i\.id DESC/)?.params, [5, 10, 0]);
+  });
+
+  test('page=Infinity -> page=1；page 极大 -> 夹到安全上限（offset 仍为安全整数）', async () => {
+    const fake = new FakeDatabase()
+      .on(/COUNT\(\*\)/, { rows: [{ count: '0' }] })
+      .on(/ORDER BY i\.id DESC/, { rows: [] });
+    const inf = await makeService({ fake }).svc.inventory(7, { page: Number.POSITIVE_INFINITY, pageSize: 10 });
+    assert.equal(payload<{ page: number }>(inf).page, 1);
+
+    const huge = await makeService({ fake }).svc.inventory(7, { page: 1e20, pageSize: 100 });
+    const page = payload<{ page: number }>(huge).page;
+    assert.ok(Number.isSafeInteger(page));
+    assert.ok(Number.isSafeInteger((page - 1) * 100));
+    assert.deepEqual(fake.lastCall(/ORDER BY i\.id DESC/)?.params, [5, 100, (page - 1) * 100]);
   });
 
   const sizeCases: Array<[number, number]> = [
@@ -191,15 +207,18 @@ describe('ItemService.inventory 边界', () => {
     });
   }
 
-  test('pageSize=NaN 当前未归一（边界观察）', async () => {
+  test('pageSize=NaN / Infinity -> 默认 20（R11 归一，与 Action 层缺省一致）', async () => {
     const fake = new FakeDatabase()
       .on(/COUNT\(\*\)/, { rows: [{ count: '0' }] })
       .on(/ORDER BY i\.id DESC/, { rows: [] });
-    const res = await makeService({ fake }).svc.inventory(7, { pageSize: Number.NaN });
-    assert.ok(Number.isNaN(payload<{ pageSize: number }>(res).pageSize));
+    const nan = await makeService({ fake }).svc.inventory(7, { pageSize: Number.NaN });
+    assert.equal(payload<{ pageSize: number }>(nan).pageSize, 20);
+    const inf = await makeService({ fake }).svc.inventory(7, { pageSize: Number.POSITIVE_INFINITY });
+    assert.equal(payload<{ pageSize: number }>(inf).pageSize, 20);
+    assert.equal(fake.lastCall(/ORDER BY i\.id DESC/)?.params[1], 20);
   });
 
-  test('多行 -> 每行都调用 renderItem，且 affixes 非法 JSON 按空词条渲染', async () => {
+  test('多行 -> 单次 renderItems 批量渲染（M5 消除 N+1），且 affixes 非法 JSON 按空词条渲染', async () => {
     const fake = new FakeDatabase()
       .on(/COUNT\(\*\)/, { rows: [{ count: '2' }] })
       .on(/ORDER BY i\.id DESC/, {
@@ -208,9 +227,11 @@ describe('ItemService.inventory 边界', () => {
     const { svc, affix } = makeService({ fake });
     const res = await svc.inventory(7, {});
     assert.equal(payload<{ items: unknown[] }>(res).items.length, 2);
-    assert.equal(affix.renderItem.callCount, 2);
-    // renderItem 第 11 个参数（索引 10）为 entries
-    assert.deepEqual(affix.renderItem.calls[0][10], []);
+    // N+1 断言：两条物品只触发一次 renderItems（而非逐条 renderItem）
+    assert.equal(affix.renderItems.callCount, 1);
+    assert.equal((affix.renderItems.last?.[0] as unknown[]).length, 2);
+    // 非法 JSON 的 affixes 渲染为空词条
+    assert.deepEqual((affix.renderItems.last?.[0] as Array<{ entries: unknown[] }>)[0].entries, []);
   });
 
   test('COUNT 查询抛错 -> Promise reject（服务无内部超时/降级）', async () => {
@@ -246,10 +267,11 @@ describe('ItemService.detail 边界', () => {
     const { svc, affix } = makeService({ fake });
     const res = await svc.detail(7, 11);
     assert.equal(res.success, true);
-    assert.equal(affix.renderItem.callCount, 1);
-    assert.equal(affix.renderItem.last?.[0], 11);
-    assert.equal(affix.renderItem.last?.[6], 1);
-    assert.equal(affix.renderItem.last?.[7], 3);
+    assert.equal(affix.renderItems.callCount, 1);
+    const input = (affix.renderItems.last?.[0] as Array<Record<string, unknown>>)[0];
+    assert.equal(input.id, 11);
+    assert.equal(input.rarity, 1);
+    assert.equal(input.tier, 3);
     assert.ok(payload<{ item: unknown }>(res).item);
   });
 });
@@ -559,6 +581,16 @@ describe('ItemService.bases 边界', () => {
     const list = fake.lastCall(/ORDER BY tier, id/);
     assert.deepEqual(list?.params, ['weapon', 0, 100, 0]);
     assert.match(list?.sql ?? '', /tier = \$2/);
+  });
+
+  test('bases 分页 NaN/Infinity 归一 -> page=1 / pageSize=20（R11）', async () => {
+    const fake = new FakeDatabase()
+      .on(/COUNT\(\*\)/, { rows: [{ count: '0' }] })
+      .on(/ORDER BY tier, id/, { rows: [] });
+    await makeService({ fake }).svc.bases({ page: Number.NaN, pageSize: Number.NaN });
+    assert.deepEqual(fake.lastCall(/ORDER BY tier, id/)?.params, [20, 0]);
+    await makeService({ fake }).svc.bases({ page: Number.POSITIVE_INFINITY, pageSize: Number.POSITIVE_INFINITY });
+    assert.deepEqual(fake.lastCall(/ORDER BY tier, id/)?.params, [20, 0]);
   });
 
   test('base_stats 非法 JSON -> null；合法 -> 对象', async () => {

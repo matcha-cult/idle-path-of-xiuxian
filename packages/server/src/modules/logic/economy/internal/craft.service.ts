@@ -7,6 +7,7 @@
  */
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { bigintToSafeNumber } from '../../../../common/utils/safe-bigint.js';
 import { CharacterService } from '../../../character/character.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { ItemLogicService } from '../../item/item.logic.service.js';
@@ -338,7 +339,7 @@ export class CraftService {
            VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, FALSE, 'bag') RETURNING id`,
           [character.id, item.base_id, rarity, item.tier, item.quality, item.affixes, item.base_stats],
         );
-        return { verdict: 'ok' as const, result: { item: { ...item, id: copied.rows[0].id }, newRarity, finalEntries: entries, destroyed: false, extra: { mirroredCopyId: Number(copied.rows[0].id) } } };
+        return { verdict: 'ok' as const, result: { item: { ...item, id: copied.rows[0].id }, newRarity, finalEntries: entries, destroyed: false, extra: { mirroredCopyId: bigintToSafeNumber(copied.rows[0].id, 'game_items.id') } } };
       }
 
       if (craftOp === 'blessed') {
@@ -379,10 +380,10 @@ export class CraftService {
       extra: Record<string, unknown>;
     };
     if (destroyed) {
-      return { success: true, message: `瓦尔变异失败：${item.name} 已被摧毁`, data: { destroyed: true, itemId: Number(item.id) } };
+      return { success: true, message: `瓦尔变异失败：${item.name} 已被摧毁`, data: { destroyed: true, itemId: bigintToSafeNumber(item.id, 'game_items.id') } };
     }
     const view = await this.itemLogic.renderItem(
-      Number(item.id),
+      bigintToSafeNumber(item.id, 'game_items.id'),
       Number(item.base_id),
       item.code,
       item.name,
