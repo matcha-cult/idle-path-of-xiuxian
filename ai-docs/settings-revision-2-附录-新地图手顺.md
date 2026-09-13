@@ -132,5 +132,7 @@ pnpm --filter idle-path-server run verify
    职业与既有功法/道基流派的关系未定（R2 §7.7），定之前不要接进功法域。
 4. **地图没有「当前节点」持久化**：`map.enter` 只写 `visited`，`currentCode` 是**会话内**位置。
    若要让 HUD 显示「当前所在节点」，需要一次表结构决定。
-5. **D4（章节完成 → 解锁下一张地图）尚未接线**：当前只有 1 张图，判定是空操作；
-   等地图形 2/3 定义完再接（`game_maps.requires_map_code` + `chapter_to` 已具备判定依据）。
+5. **D4（章节完成 → 解锁下一张地图）已接线**：`game_maps.requires_map_code` 指向前置图，
+   **推完前置图的 `chapter_to` 那一章**即解锁；未解锁的地图**完全不下发**（连轮廓都没有）。
+   所以地图形 2 只要在 `maps.json` 里把 `requiresMapCode` 指向青云宗、
+   并把 `chapterFrom/To` 填对即可，**后端与 UI 都不用改**。
