@@ -166,7 +166,7 @@ describe('落格 · 边界与退化输入', () => {
     assert.ok(n.row < 3 && Math.abs(n.col - 10) <= 2, `北门应在上方：${JSON.stringify(n)}`);
   });
 
-  test('拓扑相邻允许贴近（< sep）：种子里的 qy_hufaxieyuan ↔ qy_summit 就是 1 格', () => {
+  test('拓扑相邻允许贴近（< sep）：种子里的 qy_gate_n ↔ qy_approach 就是 1 格', () => {
     const cell = new Map(nodes.map((n) => [n.code, { row: n.gridRow as number, col: n.gridCol as number }]));
     const at = (code: string): { row: number; col: number } => cell.get(code) as { row: number; col: number };
     const linked = new Set<string>();
@@ -178,8 +178,8 @@ describe('落格 · 边界与退化输入', () => {
       Math.max(Math.abs(at(a).row - at(b).row), Math.abs(at(a).col - at(b).col));
 
     // 有边 -> 允许 < sep；这正是「四门紧贴八峰」不被判成冲突的原因
-    assert.equal(cheb('qy_hufaxieyuan', 'qy_summit'), 1);
-    assert.ok(linked.has('qy_hufaxieyuan|qy_summit'), '贴近的这对必须有边，否则就是非法拥挤');
+    assert.equal(cheb('qy_gate_n', 'qy_approach'), 1);
+    assert.ok(linked.has('qy_gate_n|qy_approach'), '贴近的这对必须有边，否则就是非法拥挤');
 
     // 反证：任何 < sep 的节点对都必须有边（否则自检的「不相邻最小间距」会破）
     for (let i = 0; i < nodes.length; i += 1) {
@@ -255,14 +255,14 @@ describe('自检 · 硬失败识别（人为破坏必须被抓到）', () => {
 
 // ===== 种子层 =====
 
-describe('青云宗种子 · 画布坐标（21×21 全部落点）', () => {
-  test('地图声明 21×21，底图 key 本轮为 null', () => {
-    assert.equal(qingyunMap.gridRows, 21);
-    assert.equal(qingyunMap.gridCols, 21);
+describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
+  test('地图声明 20×20（21 条交叉线），底图 key 本轮为 null', () => {
+    assert.equal(qingyunMap.gridRows, 20);
+    assert.equal(qingyunMap.gridCols, 20);
     assert.equal(qingyunMap.backgroundKey, null, 'background_key 属 P4，本轮必须留空');
   });
 
-  test('27 个节点全部有整数坐标且在 0..21 内，无撞点', () => {
+  test('27 个节点全部有整数坐标且在 0..20 内，无撞点', () => {
     assert.equal(nodes.length, 27);
     const seen = new Set<string>();
     for (const n of nodes) {
@@ -317,7 +317,7 @@ describe('青云宗种子 · 画布坐标（21×21 全部落点）', () => {
     const gap = minGap(layout as never, qingyunEdges);
     assert.ok(gap.min >= 2, `不相邻最小间距 ${gap.min} 小于 sep`);
     const histogram = edgeSpanHistogram(layout as never, qingyunEdges);
-    assert.equal(histogram.max, 20, '最长边跨度变了 —— 若是有意改拓扑请同步任务书 §11.4 的记录');
+    assert.equal(histogram.max, 19, '最长边跨度变了 —— 若是有意改拓扑请同步任务书 §11.4 的记录');
     assert.ok(crossingPairs(layout as never, qingyunEdges).length >= 0);
   });
 });

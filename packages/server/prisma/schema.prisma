@@ -421,8 +421,8 @@ model game_maps {
   chapter_to        Int      @db.SmallInt
   requires_map_code String?  @db.VarChar(50)
   description       String?  @db.Text
-  grid_rows         Int      @default(21) @db.SmallInt // 坐标空间行数：交叉线索引 0..grid_rows（§14.1）
-  grid_cols         Int      @default(21) @db.SmallInt // 坐标空间列数：交叉线索引 0..grid_cols
+  grid_rows         Int      @default(20) @db.SmallInt // 坐标空间行数：交叉线索引 0..grid_rows（§14.1；21 条线 ⇒ 20）
+  grid_cols         Int      @default(20) @db.SmallInt // 坐标空间列数：交叉线索引 0..grid_cols
   background_key    String?  @db.VarChar(100) // 预留：底图资源 key（本轮恒为 null）
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @updatedAt @db.Timestamp(6)

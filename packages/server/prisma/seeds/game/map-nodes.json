@@ -16,7 +16,7 @@
     "orderIndex": 1,
     "description": "青石山门朝东，晨光最先照到这里。",
     "gridRow": 10,
-    "gridCol": 21
+    "gridCol": 20
   },
   {
     "code": "qy_gate_s",
@@ -34,7 +34,7 @@
     "zoneCode": null,
     "orderIndex": 2,
     "description": "南麓坡缓，山下香客多由此上山。",
-    "gridRow": 21,
+    "gridRow": 20,
     "gridCol": 10
   },
   {
@@ -53,7 +53,7 @@
     "zoneCode": null,
     "orderIndex": 3,
     "description": "西门外是万丈云海，风急雾重。",
-    "gridRow": 9,
+    "gridRow": 12,
     "gridCol": 0
   },
   {
@@ -73,7 +73,7 @@
     "orderIndex": 4,
     "description": "北门背靠雪岭，常年寒气逼人。",
     "gridRow": 0,
-    "gridCol": 12
+    "gridCol": 8
   },
   {
     "code": "qy_approach",
@@ -92,7 +92,7 @@
     "orderIndex": 5,
     "description": "新入门的弟子在此登记名册，领腰牌。",
     "gridRow": 1,
-    "gridCol": 8
+    "gridCol": 7
   },
   {
     "code": "qy_peak_tianshu",
@@ -130,7 +130,7 @@
     "orderIndex": 7,
     "description": "峰顶有巨岩如磨，日夜转动不息。",
     "gridRow": 4,
-    "gridCol": 17
+    "gridCol": 16
   },
   {
     "code": "qy_peak_tianji",
@@ -149,7 +149,7 @@
     "orderIndex": 8,
     "description": "云雾缭绕，峰腰遍植灵茶。",
     "gridRow": 10,
-    "gridCol": 19
+    "gridCol": 18
   },
   {
     "code": "qy_peak_tianquan",
@@ -167,8 +167,8 @@
     "zoneCode": null,
     "orderIndex": 9,
     "description": "权峰多机关，据说是器修手笔。",
-    "gridRow": 17,
-    "gridCol": 17
+    "gridRow": 16,
+    "gridCol": 16
   },
   {
     "code": "qy_peak_yuheng",
@@ -186,7 +186,7 @@
     "zoneCode": null,
     "orderIndex": 10,
     "description": "衡峰如一杆玉尺，横亘在南天。",
-    "gridRow": 19,
+    "gridRow": 18,
     "gridCol": 10
   },
   {
@@ -205,7 +205,7 @@
     "zoneCode": null,
     "orderIndex": 11,
     "description": "夕阳把整面崖壁照成金红。",
-    "gridRow": 17,
+    "gridRow": 16,
     "gridCol": 4
   },
   {
@@ -224,7 +224,7 @@
     "zoneCode": null,
     "orderIndex": 12,
     "description": "北斗之柄，峰下即是内门地界。",
-    "gridRow": 11,
+    "gridRow": 10,
     "gridCol": 1
   },
   {
@@ -262,7 +262,7 @@
     "zoneCode": null,
     "orderIndex": 14,
     "description": "宗门庶务都在这座堂里交割。",
-    "gridRow": 14,
+    "gridRow": 13,
     "gridCol": 4
   },
   {
@@ -319,7 +319,7 @@
     "zoneCode": null,
     "orderIndex": 17,
     "description": "九层木阁，藏尽宗门功法与旧档。",
-    "gridRow": 14,
+    "gridRow": 13,
     "gridCol": 6
   },
   {
@@ -376,8 +376,8 @@
     "zoneCode": null,
     "orderIndex": 20,
     "description": "炉火整日不熄，丹香飘出半里。",
-    "gridRow": 14,
-    "gridCol": 10
+    "gridRow": 13,
+    "gridCol": 9
   },
   {
     "code": "qy_baiqige",
@@ -434,7 +434,7 @@
     "orderIndex": 23,
     "description": "灵田按节气轮种，药香混着泥土气。",
     "gridRow": 7,
-    "gridCol": 10
+    "gridCol": 9
   },
   {
     "code": "qy_tianxingtai",
@@ -490,7 +490,7 @@
     "zoneCode": null,
     "orderIndex": 26,
     "description": "护法长老静修之处，院中寂然无声。",
-    "gridRow": 9,
+    "gridRow": 8,
     "gridCol": 11
   },
   {

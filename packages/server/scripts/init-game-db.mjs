@@ -294,15 +294,15 @@ CREATE TABLE IF NOT EXISTS game_maps (
   chapter_to        SMALLINT NOT NULL,
   requires_map_code VARCHAR(50),
   description       TEXT,
-  grid_rows         SMALLINT NOT NULL DEFAULT 21, -- 坐标空间行数：交叉线索引 0..grid_rows（§14.1）
-  grid_cols         SMALLINT NOT NULL DEFAULT 21, -- 坐标空间列数：交叉线索引 0..grid_cols
+  grid_rows         SMALLINT NOT NULL DEFAULT 20, -- 坐标空间行数：交叉线索引 0..grid_rows（§14.1；21 条线 ⇒ 20）
+  grid_cols         SMALLINT NOT NULL DEFAULT 20, -- 坐标空间列数：交叉线索引 0..grid_cols
   background_key    VARCHAR(100),                 -- 预留：底图资源 key（本轮恒为 NULL）
   created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 -- P1 画布增量列（幂等：老库补列；新库由上面的 CREATE 带上）
-ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_rows SMALLINT NOT NULL DEFAULT 21;
-ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_cols SMALLINT NOT NULL DEFAULT 21;
+ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_rows SMALLINT NOT NULL DEFAULT 20;
+ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS grid_cols SMALLINT NOT NULL DEFAULT 20;
 ALTER TABLE game_maps ADD COLUMN IF NOT EXISTS background_key VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_game_maps_order ON game_maps(order_index);
 
@@ -703,7 +703,7 @@ try {
   for (const m of maps) {
     await client.query(
       'INSERT INTO game_maps (id, code, name, world, order_index, chapter_from, chapter_to, requires_map_code, description, grid_rows, grid_cols, background_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, grid_rows=EXCLUDED.grid_rows, grid_cols=EXCLUDED.grid_cols, background_key=EXCLUDED.background_key RETURNING id',
-      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.description ?? null, m.gridRows ?? 21, m.gridCols ?? 21, m.backgroundKey ?? null],
+      [m.id, m.code, m.name, m.world ?? 'great', m.orderIndex, m.chapterFrom, m.chapterTo, m.requiresMapCode ?? null, m.description ?? null, m.gridRows ?? 20, m.gridCols ?? 20, m.backgroundKey ?? null],
     );
   }
   await client.query("SELECT setval('game_maps_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_maps));");

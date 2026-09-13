@@ -33,8 +33,12 @@ import { checkLayoutFailures, layoutHints } from './lib/map-layout-check.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEED_DIR = path.join(HERE, '..', 'prisma', 'seeds', 'game');
 
-/** 网格规模：奇数（同心环需要唯一中心），全局 `CELL_PX = 48` 时自然尺寸 1056×1056。 */
-const GRID = 21;
+/**
+ * 网格规模 = **交叉线条数 − 1**（P2.0 §1）。
+ * 用户拍板「21 条线」⇒ 索引 `0..20`，中心 `(10,10)` 唯一，青云主峰才能居中；
+ * 全局 `CELL_PX = 48` 时自然尺寸 1008×1008。
+ */
+const GRID = 20;
 /** 落格参数（任务书 §5.1 第 5 条）。 */
 const SEP = 2;
 const ARC = 2.4;
