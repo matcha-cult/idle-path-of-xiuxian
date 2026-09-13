@@ -47,6 +47,9 @@ export * from './layout/SideNav/index.js';
 export * from './layout/HudBar/index.js';
 export * from './layout/NavBrand/index.js';
 export * from './layout/SlotBoard/index.js';
+export * from './layout/GraphCanvas/index.js';
+export * from './layout/GraphCanvasLinks/index.js';
+export * from './layout/GraphCanvasGrid/index.js';
 
 // ===== pluggable =====
 export * from './pluggable/panel-registry/index.js';
