@@ -5,7 +5,7 @@
  * jsdom 没有 ResizeObserver / getBoundingClientRect 真实尺寸，这里统一打桩成 660×660 ——
  * 这样 `zoom_fit = 660 / (22 × 48) = 0.625`，位置断言可以精确到小数。
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { GraphCanvas } from './index.js';
 
@@ -174,6 +174,61 @@ describe('GraphCanvas · 点击只选中（§12.1）', () => {
     fireEvent.keyDown(pin, { key: ' ' });
     fireEvent.keyDown(pin, { key: 'Escape' });
     expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('GraphCanvas · 拖动抑制（修用户实测 B2 / B3）', () => {
+  it('容器 userSelect=none + -webkit-user-drag=none：鼠标拖动不得产生文本选区', () => {
+    render(<GraphCanvas rows={4} cols={4} items={ITEMS} />);
+    const host = screen.getByTestId('graph-canvas');
+    expect(host.style.userSelect).toBe('none');
+    // `WebkitUserSelect` 会被 jsdom 的 cssstyle 归一化掉（读不回来），但 `WebkitUserDrag` 可断言 ——
+    // 两者走的是同一条「React 前缀属性 → CSS 前缀属性」路径。
+    expect(host.style.getPropertyValue('-webkit-user-drag')).toBe('none');
+    expect(host.getAttribute('style')).toContain('-webkit-user-drag');
+  });
+
+  it('SVG 层也 userSelect=none（开发者网格的轴标是 <text> 节点）', () => {
+    const { container } = render(<GraphCanvas rows={4} cols={4} items={ITEMS} showGrid />);
+    const svg = container.querySelector('svg') as SVGElement;
+    expect(svg.style.userSelect).toBe('none');
+  });
+
+  it('onPointerDown 第一行就 preventDefault —— 原生选区/拖拽不会起步', () => {
+    render(<GraphCanvas rows={4} cols={4} items={ITEMS} />);
+    const host = screen.getByTestId('graph-canvas');
+    const event = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(event, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 0, clientY: 0 });
+    host.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('枢纽 draggable=false 且 onDragStart 被阻止（按在文字上拖不触发 HTML5 拖拽）', () => {
+    render(<GraphCanvas rows={4} cols={4} items={[{ key: 'a', row: 1, col: 1, content: <span>A</span> }]} />);
+    const pin = screen.getByTestId('graph-canvas-item-a');
+    expect(pin).toHaveAttribute('draggable', 'false');
+    expect(pin.draggable).toBe(false);
+    const dragStart = new Event('dragstart', { bubbles: true, cancelable: true });
+    pin.dispatchEvent(dragStart);
+    expect(dragStart.defaultPrevented).toBe(true);
+  });
+
+  it('拖动中光标 grabbing（容器 + 枢纽），松手回 grab', () => {
+    render(<GraphCanvas rows={5} cols={5} items={[{ key: 'a', row: 1, col: 1, content: <span>A</span> }]} />);
+    const host = screen.getByTestId('graph-canvas');
+    expect(host.style.cursor).toBe('grab');
+    // 状态更新（setDragging）必须包在 act 里，否则读不到重渲染后的 style
+    act(() => {
+      pointer(host, 'pointerdown', { pointerId: 9, clientX: 0, clientY: 0 });
+      pointer(host, 'pointermove', { pointerId: 9, clientX: 40, clientY: 0 });
+    });
+    expect(host.style.cursor).toBe('grabbing');
+    expect(screen.getByTestId('graph-canvas-item-a').style.cursor).toBe('grabbing');
+    act(() => {
+      pointer(host, 'pointerup', { pointerId: 9, clientX: 40, clientY: 0 });
+    });
+    expect(host.style.cursor).toBe('grab');
+    expect(screen.getByTestId('graph-canvas-item-a').style.cursor).toBe('pointer');
   });
 });
 

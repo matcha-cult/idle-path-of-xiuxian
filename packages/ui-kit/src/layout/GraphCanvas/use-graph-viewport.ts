@@ -7,7 +7,9 @@
  * 交互口径（`14-地图画布方案探讨.md` §12.2 / §14.6）：
  * - 默认 `zoom_fit` 整图适配并居中；容器尺寸变化时重新适配；
  * - `Ctrl/⌘ + 滚轮` 以光标为锚点缩放，**普通滚轮直接放行**（不 `preventDefault`，页面照常滚动）；
- * - 拖动平移用 pointer 事件（鼠标 / 触摸同一套）；位移 **> 8px** 记为拖动，不再当作点击。
+ * - 拖动平移用 pointer 事件（鼠标 / 触摸同一套）；位移 **> 8px** 记为拖动，不再当作点击；
+ * - `onPointerDown` **第一行 `preventDefault()`**：阻止原生文本选择 / 拖拽起步（B2/B3 根因）；
+ *   拖动中 `dragging=true`，容器与枢纽据此把光标切成 `grabbing`。
  */
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type {
@@ -42,6 +44,8 @@ export interface GraphCanvasViewport {
   ref: MutableRefObject<HTMLDivElement | null>;
   zoom: number;
   pan: Point;
+  /** 是否已越过 8px 阈值进入拖动（用于把光标切成 `grabbing`）。 */
+  dragging: boolean;
   onWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -64,6 +68,7 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
   const [view, setView] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
   const drag = useRef<DragState | null>(null);
   const lastPick = useRef<{ key: string; at: number }>({ key: '', at: 0 });
   const pick = useRef(options);
@@ -115,6 +120,12 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
   );
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    // **第一行必须 preventDefault**（B2/B3 的根因，见 index.tsx 顶部注释）：
+    // 不阻止 pointerdown 的默认行为，鼠标拖动就会变成浏览器**原生文本选择** ——
+    // 选区会自动滚动最近的可滚动祖先（界面「飘到左边」），松手还会弹出
+    // 「搜索选中文本」（Edge 的选词搜索 UI；它只是因为选区存在才出现，不是 Edge 特例）。
+    // 容器没有 tabIndex、不需要聚焦，因此这里不影响键盘可达性。
+    event.preventDefault();
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = (event.target as HTMLElement).closest('[data-graph-item]');
     drag.current = {
@@ -124,6 +135,7 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
       moved: false,
       target: target instanceof HTMLElement ? target.getAttribute('data-graph-item') : null,
     };
+    setDragging(false);
     // 指针捕获是「拖出画布也不丢事件」的兜底；环境不支持时不阻断交互（jsdom 会抛）
     try {
       event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -137,7 +149,10 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
     if (state === null || state.id !== event.pointerId) return;
     const dx = event.clientX - state.start.x;
     const dy = event.clientY - state.start.y;
-    if (!state.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) state.moved = true;
+    if (!state.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
+      state.moved = true;
+      setDragging(true);
+    }
     if (!state.moved) return;
     setPan({
       x: clampPan(state.origin.x + dx, worldW, zoom),
@@ -148,6 +163,7 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const state = drag.current;
     drag.current = null;
+    setDragging(false);
     try {
       event.currentTarget.releasePointerCapture?.(event.pointerId);
     } catch {
@@ -170,12 +186,14 @@ export function useGraphViewport(options: ViewportOptions): GraphCanvasViewport 
     ref,
     zoom,
     pan,
+    dragging,
     onWheel,
     onPointerDown,
     onPointerMove,
     onPointerUp,
     cancelDrag: () => {
       drag.current = null;
+      setDragging(false);
     },
   };
 }
