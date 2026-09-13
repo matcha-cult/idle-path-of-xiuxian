@@ -1,0 +1,31 @@
+{
+  "name": "idle-path-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "放置·修仙之路 Web 前端（React + Vite + MobX），经 @idle-path/ionet-transport 接入后端 WS，协议层消费 @nbb-ionet/client-protocol。",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "IONET_E2E=1 vitest run"
+  },
+  "dependencies": {
+    "@idle-path/ionet-transport": "workspace:*",
+    "@nbb-ionet/client-protocol": "workspace:*",
+    "mobx": "^6.12.0",
+    "mobx-react-lite": "^4.0.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
