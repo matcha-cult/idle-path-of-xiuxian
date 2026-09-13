@@ -18,6 +18,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {
+  angularDistance,
+  angleOf,
+  centerOf,
+  checkEdgeStructure,
+  deriveEdges,
+  nearestIn,
+} from '../../scripts/lib/map-edges.mjs';
 
 const SEED_DIR = new URL('../../prisma/seeds/game/', import.meta.url);
 
@@ -471,6 +479,88 @@ describe('地图邻接表 · 32 条（P2.0 §4）', () => {
     for (const node of nodes) {
       assert.ok((adjacency.get(node.code) ?? []).length > 0, `${node.code} 是孤岛（没有任何邻接）`);
     }
+  });
+});
+
+// ===== 边表几何派生（P2.0 v3 §4）=====
+
+const seedCell = new Map(nodes.map((n) => [n.code, { row: n.gridRow as number, col: n.gridCol as number }]));
+const seedCenter = centerOf(seedCell, nodes);
+const seedAngle = new Map(nodes.map((n) => [n.code, angleOf(seedCell, n.code, seedCenter)]));
+const peakNodes = nodes.filter((n) => n.ring === 'peaks');
+const hallNodes = nodes.filter((n) => n.ring === 'inner');
+
+describe('边表几何派生 deriveEdges（P2.0 v3 §4.1）', () => {
+  test('输出 32 条，且与种子 map-edges.json 完全一致（画出来的线 ≡ 可走的路 ≡ 边表）', () => {
+    const derived = deriveEdges(seedCell, nodes);
+    assert.strictEqual(derived.length, 32);
+    const keys = (list: Array<{ fromNodeCode: string; toNodeCode: string }>) =>
+      new Set(list.map((e) => [e.fromNodeCode, e.toNodeCode].sort().join('|')));
+    assert.deepStrictEqual(
+      [...keys(derived)].sort(),
+      [...keys(edges)].sort(),
+      '种子边表与 deriveEdges 的输出不一致 —— 边表必须存派生结果，不得手写',
+    );
+  });
+
+  test('确定性：同一组坐标重算两次结果完全相同', () => {
+    assert.deepStrictEqual(deriveEdges(seedCell, nodes), deriveEdges(seedCell, nodes));
+  });
+
+  test('用户例子逐条复现：西门(180°) 最近 2 峰 = 第三峰/第二峰，二者最近院都是执法院', () => {
+    const west = angleOf(seedCell, 'qy_gate_w', seedCenter);
+    assert.ok(west !== null && Math.abs(west - 180) < 1e-6, `西门应在 180°：${west}`);
+    const nearestPeaks = nearestIn(peakNodes, seedAngle, 'qy_gate_w', 2).map((n) => n.code).sort();
+    assert.deepStrictEqual(nearestPeaks, ['qy_peak_2', 'qy_peak_3'], '西门最近 2 峰应为第二、第三峰');
+    // 与规格给的理想角 157.5° / 202.5° 相差在落格吸附范围内（< 8°）
+    assert.ok(angularDistance(seedAngle.get('qy_peak_3') as number, 157.5) < 8);
+    assert.ok(angularDistance(seedAngle.get('qy_peak_2') as number, 202.5) < 8);
+    for (const peak of ['qy_peak_2', 'qy_peak_3']) {
+      const hall = nearestIn(hallNodes, seedAngle, peak, 1)[0]?.code;
+      assert.strictEqual(hall, 'qy_zhifayuan', `${peak} 最近院应为执法院`);
+    }
+    // 边表里这两条边确实存在，且第二/第三峰各自只接执法院
+    const has = (a: string, b: string) =>
+      edges.some((e) => [e.fromNodeCode, e.toNodeCode].sort().join('|') === [a, b].sort().join('|'));
+    assert.ok(has('qy_gate_w', 'qy_peak_2') && has('qy_gate_w', 'qy_peak_3'));
+    assert.ok(has('qy_peak_2', 'qy_zhifayuan') && has('qy_peak_3', 'qy_zhifayuan'));
+  });
+
+  test('种子边表通过结构硬自检（同环角度相邻 / 相邻环角度最近，且派生边一条不少）', () => {
+    assert.deepStrictEqual(checkEdgeStructure(edges, nodes, seedCell), []);
+  });
+
+  test('人为破坏一：跨环但非角度最近（西门 ↔ 第一峰）-> 必须硬失败', () => {
+    const broken = [...edges, { fromNodeCode: 'qy_gate_w', toNodeCode: 'qy_peak_1' }];
+    const failures = checkEdgeStructure(broken, nodes, seedCell);
+    assert.ok(
+      failures.some((f) => f.includes('结构非法') && f.includes('qy_gate_w')),
+      `应报「结构非法」：${failures.join(' | ')}`,
+    );
+  });
+
+  test('人为破坏二：同环但不相邻（第一峰 ↔ 第三峰）-> 必须硬失败', () => {
+    const broken = [...edges, { fromNodeCode: 'qy_peak_1', toNodeCode: 'qy_peak_3' }];
+    const failures = checkEdgeStructure(broken, nodes, seedCell);
+    assert.ok(
+      failures.some((f) => f.includes('结构非法') && f.includes('qy_peak_1')),
+      `应报「结构非法」：${failures.join(' | ')}`,
+    );
+  });
+
+  test('人为破坏三：删掉一条派生边 -> 必须报「缺少派生边」', () => {
+    const broken = edges.filter((e) => !(e.fromNodeCode === 'qy_peak_2' && e.toNodeCode === 'qy_zhifayuan'));
+    const failures = checkEdgeStructure(broken, nodes, seedCell);
+    assert.ok(failures.some((f) => f.includes('缺少派生边')), failures.join(' | '));
+  });
+
+  test('人为破坏四：挪坐标让「最近院」换人 -> 原边立刻变成结构非法（防数据定义错位）', () => {
+    // 把执法院从正西 (10,5) 挪到东南 (15,15)：第二峰(约203°)的最近院就不再是它，
+    // 手写边表若不跟着改，结构自检必须抓到
+    const moved = new Map(seedCell);
+    moved.set('qy_zhifayuan', { row: 15, col: 15 });
+    const failures = checkEdgeStructure(edges, nodes, moved);
+    assert.ok(failures.length > 0, '坐标漂移后旧边表必须被判非法');
   });
 });
 

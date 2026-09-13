@@ -37,6 +37,7 @@ import {
   polarToCell,
   snapError,
 } from './lib/map-layout.mjs';
+import { checkEdgeStructure, deriveEdges } from './lib/map-edges.mjs';
 import { checkLayoutFailures, layoutHints } from './lib/map-layout-check.mjs';
 
 /** 种子目录相对**脚本自身**解析，故从任意 cwd 运行都写到同一处。 */
@@ -119,54 +120,12 @@ const NODES = [
 ];
 
 /**
- * 邻接表（P2.0 §4，共 **32 条**，平均度 3.8）。
- *
+ * 邻接表**不再手写**：由 `deriveEdges(cell, nodes)` 按极坐标结构派生（P2.0 v3 §4.1）。
+ * 规则：同环角度相邻（八峰环 / 四院环，闭合）+ 门→最近 2 峰 + 峰→最近 1 院 + 院→主峰。
  * 走法心智：`进山门 → 过八峰 → 入院 → 至主峰`。
- * **「峰→院」那 8 条是内环的唯一入口**（八峰环与四院环半径不同、互不接触），
- * 漏掉它们内环就走不进去 —— 由 map-seed 的「从北门出发能走遍全部 17 个节点」用例守着。
- *
- * ⚠️ 本表是**可改的种子数据**（甲方提议、用户未逐字确认 §4）：改这里只动拓扑，不动代码。
+ * **「峰→院」那 8 条是内环的唯一入口**（八峰环与四院环半径不同、互不接触）。
+ * 派生结果由 `checkEdgeStructure` 做结构硬自检（§4.2）。
  */
-const EDGES = [
-  // 八峰环（8）：第一—第八—第七—第六—第五—第四—第三—第二—第一
-  ['qy_peak_1', 'qy_peak_xunlian'],
-  ['qy_peak_xunlian', 'qy_peak_7'],
-  ['qy_peak_7', 'qy_peak_6'],
-  ['qy_peak_6', 'qy_peak_5'],
-  ['qy_peak_5', 'qy_peak_4'],
-  ['qy_peak_4', 'qy_peak_3'],
-  ['qy_peak_3', 'qy_peak_2'],
-  ['qy_peak_2', 'qy_peak_1'],
-  // 山门接两邻峰（8）：正北让给北门，第一峰与第八峰夹住它
-  ['qy_gate_n', 'qy_peak_1'],
-  ['qy_gate_n', 'qy_peak_xunlian'],
-  ['qy_gate_e', 'qy_peak_7'],
-  ['qy_gate_e', 'qy_peak_6'],
-  ['qy_gate_s', 'qy_peak_5'],
-  ['qy_gate_s', 'qy_peak_4'],
-  ['qy_gate_w', 'qy_peak_2'],
-  ['qy_gate_w', 'qy_peak_3'],
-  // 峰 → 几何最近的院（8）：内环的唯一入口
-  ['qy_peak_1', 'qy_chuanfayuan'],
-  ['qy_peak_xunlian', 'qy_chuanfayuan'],
-  ['qy_peak_2', 'qy_zhifayuan'],
-  ['qy_peak_3', 'qy_zhifayuan'],
-  ['qy_peak_4', 'qy_baigongyuan'],
-  ['qy_peak_5', 'qy_baigongyuan'],
-  ['qy_peak_6', 'qy_yulingyuan'],
-  ['qy_peak_7', 'qy_yulingyuan'],
-  // 四院环（4）：传法—育灵—百工—执法—传法（N→E→S→W）
-  ['qy_chuanfayuan', 'qy_yulingyuan'],
-  ['qy_yulingyuan', 'qy_baigongyuan'],
-  ['qy_baigongyuan', 'qy_zhifayuan'],
-  ['qy_zhifayuan', 'qy_chuanfayuan'],
-  // 四院 → 青云主峰（4，放射）
-  ['qy_chuanfayuan', 'qy_summit'],
-  ['qy_yulingyuan', 'qy_summit'],
-  ['qy_baigongyuan', 'qy_summit'],
-  ['qy_zhifayuan', 'qy_summit'],
-];
-
 const WORLD = 'world_qingyun';
 
 const maps = [
@@ -207,10 +166,6 @@ const nodes = NODES.map((n, i) => ({
   gridCol: n.gridCol,
 }));
 
-const edges = EDGES.map(([from, to], i) => ({
-  id: i + 1, mapCode: 'map_qingyun', fromNodeCode: from, toNodeCode: to, bidirectional: true,
-}));
-
 // ===== 质量度量：坐标是规格给定的，理想位仍按极坐标算（P2.0 §0 的旋转 22.5° 已写进 idealA）=====
 const cell = new Map(NODES.map((n) => [n.code, { row: n.gridRow, col: n.gridCol }]));
 const ideal = new Map();
@@ -228,6 +183,15 @@ const layout = {
   sep: SEP,
   arc: 0,
 };
+
+// 边表由几何派生（v3 §4.1）——不是手写数据，因此「画出来的线 ≡ 可走的路 ≡ 边表」。
+const edges = deriveEdges(cell, nodes).map((e, i) => ({
+  id: i + 1,
+  mapCode: 'map_qingyun',
+  fromNodeCode: e.fromNodeCode,
+  toNodeCode: e.toNodeCode,
+  bidirectional: true,
+}));
 
 await mkdir(SEED_DIR, { recursive: true });
 const write = async (file, data) => {
@@ -257,6 +221,9 @@ for (const n of nodes) {
 }
 const overCap = nodes.filter((n) => n.level > 5).map((n) => n.code);
 if (overCap.length > 0) bad.push('怪物境界超过本图上限（第五境）: ' + overCap.join(','));
+
+// v3 §4.2 结构硬自检：每条边必须「同环角度相邻」或「相邻环角度最近」，且派生边一条不少。
+bad.push(...checkEdgeStructure(edges, nodes, cell));
 
 const snap = snapError(layout);
 const gap = minGap(layout, edges);
