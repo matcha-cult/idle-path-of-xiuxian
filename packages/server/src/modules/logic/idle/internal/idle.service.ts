@@ -130,6 +130,17 @@ export class IdleService {
       }
     }
 
+    // ===== §22 Q6：在线战斗期间强制关闭离线挂机 =====
+    // 判据是 `game_zone_state` 有行（正在某秘境里打），而不是「页面在不在线」。
+    // 打满 3 层会自动退出（online tick 调 leaveBattle），挂机随行清除而恢复。
+    //
+    // ⚠️ **位置在「暂无可结算收益」之前**（2026-09-14 真后端 e2e 抓到的顺序缺陷）：
+    // 若放在后面，玩家在战斗中且离线时长不足时收到的是「暂无可结算收益」——
+    // 那句话既不真（真正原因是战斗中）也不解决问题。状态闸门必须先于数量判断。
+    if (await this.zoneLogic.inOnlineBattle(character.id)) {
+      return fail('ONLINE_BATTLE_ACTIVE', '在线战斗中，离线挂机已暂停（离开秘境后恢复）');
+    }
+
     const last = await this.lastSettleAt(character.id);
     const elapsedHours = hoursOverride != null ? hoursOverride : (Date.now() - last.getTime()) / 3_600_000;
     const plan = this.plan(elapsedHours);
@@ -159,13 +170,6 @@ export class IdleService {
           dailyItemCap: APP_CONFIG.idleDailyItemCap,
         },
       };
-    }
-
-    // ===== §22 Q6：在线战斗期间强制关闭离线挂机 =====
-    // 判据是 `game_zone_state` 有行（正在某秘境里打），而不是「页面在不在线」。
-    // 打满 3 层会自动退出（online tick 调 leaveBattle），挂机随行清除而恢复。
-    if (await this.zoneLogic.inOnlineBattle(character.id)) {
-      return fail('ONLINE_BATTLE_ACTIVE', '在线战斗中，离线挂机已暂停（离开秘境后恢复）');
     }
 
     // unitCode 缺省 → 挂机点遭遇单位（Boss 层取 bossCode）

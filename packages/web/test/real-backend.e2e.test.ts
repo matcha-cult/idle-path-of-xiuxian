@@ -126,25 +126,31 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
       // 已发现列表本轮必含新结构的四个环层
     }
 
-    // T1 数据分层：17 个枢纽里只有历练峰带怪物数据，其余在协议里必须是 null（不是 0）
+    // §22：怪物数据整体离开地图层 —— 17 个枢纽的 level/threshold/zoneCode 全为 null
+    // （旧断言是「只有 qy_peak_xunlian 带 level=5/threshold=75」，随秘境与地图解耦作废）
     const withCombat = root.map.nodes.filter((n) => n.level !== null || n.threshold !== null);
-    expect(withCombat.map((n) => n.code)).toEqual(['qy_peak_xunlian']);
-    expect(withCombat[0]?.level).toBe(5);
-    expect(withCombat[0]?.threshold).toBe(75);
+    expect(withCombat.map((n) => n.code)).toEqual([]);
     for (const node of root.map.nodes) {
-      if (node.code === 'qy_peak_xunlian') continue;
       expect(node.level, `${node.name} 的怪物境界应为 null`).toBeNull();
       expect(node.threshold, `${node.name} 的门槛应为 null`).toBeNull();
+      expect(node.zoneCode, `${node.name} 不应再挂 zoneCode`).toBeNull();
     }
+
+    // §22：第八峰·后山降级为「秘境入口」地点（route + featureKey=realm + 新名字）
+    const realmEntrance = root.map.nodes.find((n) => n.code === 'qy_peak_xunlian');
+    expect(realmEntrance?.name).toBe('第八峰·后山');
+    expect(realmEntrance?.kind).toBe('route');
+    expect(realmEntrance?.featureKey).toBe('realm');
 
     // 新角色：currentNodeCode=null，可前往的恰好 4 个山门（入口规则）
     expect(map?.currentNodeCode ?? root.map.currentCode).toBeNull();
     const adjacentCodes = root.map.nodes.filter((n) => n.adjacent).map((n) => n.code).sort();
     expect(adjacentCodes).toEqual(['qy_gate_e', 'qy_gate_n', 'qy_gate_s', 'qy_gate_w']);
 
-    // 对象层：11 个职能入口全量下发，宿主限四院 / 主峰
-    expect(map?.objects).toHaveLength(11);
+    // 对象层：12 个职能入口全量下发（§22 起含第八峰·后山的「秘境石台」），宿主限白名单
+    expect(map?.objects).toHaveLength(12);
     expect(map?.objects.some((o) => o.nodeCode === 'qy_baigongyuan' && o.name === '百器阁')).toBe(true);
+    expect(map?.objects.some((o) => o.code === 'obj_mijing_shitai' && o.featureKey === 'realm')).toBe(true);
 
     // enter 东门 -> currentCode 更新；相邻集合 = 四门 ∪ 东门两邻峰（第六 / 第七峰）
     await root.map.enter('qy_gate_e');
@@ -308,5 +314,38 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     console.log('[P3.0 实测] 推送帧总数:', pushed.length, '/ 事件直方图:', JSON.stringify(eventHistogram));
     expect(pushed.some((f) => f.events.includes('realm_unlocked'))).toBe(true);
     expect(eventHistogram.realm_unlocked).toBe(1); // 幂等：突破只推一次
+
+    // 8) §22 收尾验证：突破之后的四件事（复用同一角色，几乎零额外耗时）
+    //    8a) Q4：突破成功才出现在秘境页面 —— catalog 的 `zones` 必须含 zone_r4，
+    //        而 `breakthrough` 名录里它的 cleared 也翻成 true
+    await root.zone.load();
+    expect(root.zone.zones.map((z) => z.code)).toContain('zone_r4');
+    expect(root.zone.zones.find((z) => z.code === 'zone_r4')?.progress.clears ?? 0).toBeGreaterThanOrEqual(1);
+    expect(root.zone.breakthrough.find((z) => z.code === 'zone_r4')?.cleared).toBe(true);
+
+    //    8b) 已突破的历练秘境可设为挂机点（§22 Q5：只有可反复挑战的才能挂机）
+    await root.zone.setIdleTarget('zone_r4');
+    expect(root.zone.idleTarget).toBe('zone_r4');
+
+    //    8c) **不在战斗中** → 挂机不被互斥闸门拦住（此刻无离线时长，走「暂无可结算收益」）
+    await root.idle.settle();
+    expect(root.idle.error ?? '').not.toContain('在线战斗中');
+
+    //    8d) 重复挑战（Q1「可重复挑战」）：enter 成功，并把**新一轮**的层数重置回第 1 层；
+    //        clears 是只增的周目计数，不回退
+    await root.zone.enter('zone_r4');
+    await root.zone.loadOnline();
+    expect(root.zone.online?.reason).toBe('ok');
+    expect(root.zone.online?.floor).toBe(1);
+    expect(root.zone.online?.clears ?? -1).toBeGreaterThanOrEqual(1);
+
+    //    8e) 反向互斥（Q6）：战斗中挂机结算必须被拒
+    await root.idle.settle();
+    expect(root.idle.error ?? '').toContain('在线战斗中');
+
+    //    8f) 手动离开 → 回到无战斗状态（挂机随之恢复）
+    await root.zone.leave();
+    await root.zone.loadOnline();
+    expect(root.zone.online?.reason).toBe('no_battle');
   }, 300_000);
 });

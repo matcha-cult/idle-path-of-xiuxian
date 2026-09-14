@@ -240,7 +240,7 @@ describe('IdleService.settle 时长/参数边界', () => {
 // ===== settle: 早退与离线时长 =====
 
 describe('IdleService.settle 早退与离线时长边界', () => {
-  test('无 override 且 kills=0 -> 早退：不调用 settleKills、不写计数、不刷新锚点、不触达互斥闸门', async () => {
+  test('无 override 且 kills=0 -> 早退：不调用 settleKills、不写计数、不刷新锚点', async () => {
     const db = idleDb({ lastSettleAt: new Date(), produced: 0 });
     const { svc, unitStub, zoneStub } = makeService({ db });
     const res = await svc.settle(7, 'slime');
@@ -250,8 +250,8 @@ describe('IdleService.settle 早退与离线时长边界', () => {
     assert.equal(unitStub.settleKills.callCount, 0);
     assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
-    // §22 Q6 顺序：早退信封在互斥闸门之前，离线 0 秒不应去查在线状态
-    assert.equal(zoneStub.inOnlineBattle.callCount, 0);
+    // §22 Q6：互斥闸门**先于**早退（闸门查一次；不在战斗 → 放行到早退分支）
+    assert.equal(zoneStub.inOnlineBattle.callCount, 1);
   });
 
   test('无 override、锚点 24h -> 截断后正常结算', async () => {
@@ -406,13 +406,25 @@ describe('IdleService.settle 在线互斥闸门边界（§22 Q6）', () => {
     assert.equal(zoneStub.inOnlineBattle.callCount, 1);
   });
 
-  test('顺序：无 override 且 kills=0 的「暂无可结算收益」先于闸门（在线也不报错、不触达闸门）', async () => {
+  test('顺序：闸门**先于**「暂无可结算收益」—— 在线 + 离线 0 秒也报 ONLINE_BATTLE_ACTIVE', async () => {
+    // 真后端 e2e 抓到的顺序缺陷：旧顺序会回「暂无可结算收益」，那句话既不真（真正原因是
+    // 战斗中）也不解决问题。状态闸门必须先于数量判断。
     const db = idleDb({ lastSettleAt: new Date(), produced: 0 });
-    const { svc, zoneStub } = makeService({ db, inBattle: true });
+    const { svc, unitStub, zoneStub } = makeService({ db, inBattle: true });
     const res = await svc.settle(7, 'slime');
-    assert.equal(res.success, true);
-    assert.match(res.message, /暂无可结算收益/);
-    assert.equal(zoneStub.inOnlineBattle.callCount, 0, '早退分支之后才是闸门');
+    assert.equal(res.success, false);
+    assert.equal(failingCode(res), 'ONLINE_BATTLE_ACTIVE');
+    assert.equal(zoneStub.inOnlineBattle.callCount, 1);
+    // 闸门拦下后完全不结算、不触达挂机点
+    assert.equal(unitStub.settleKills.callCount, 0);
+    assert.equal(zoneStub.idleEncounter.callCount, 0);
+  });
+
+  test('顺序：参数校验仍先于闸门（非法 hours 不因为在线而改变失败码）', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc, zoneStub } = makeService({ db, inBattle: true });
+    assert.equal(failingCode(await svc.settle(7, 'slime', -1)), 'INVALID_PARAM');
+    assert.equal(zoneStub.inOnlineBattle.callCount, 0, '参数非法时不应触达闸门');
   });
 
   test('顺序：hoursOverride=0 不会早退 -> 在线时闸门照常生效', async () => {
