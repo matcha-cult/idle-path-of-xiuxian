@@ -108,7 +108,6 @@ export class ChapterService {
         name: c.name,
         theme: c.theme,
         minRealm: c.min_realm,
-        zoneCode: c.zone_code,
         requiresChapter: c.requires_chapter,
         orderIndex: c.order_index,
         unlocked: info.unlocked,
@@ -133,13 +132,12 @@ export class ChapterService {
     const chapter = chapters.find((c) => c.code === key || (Number.isInteger(numeric) && c.chapter === numeric));
     if (!chapter) return fail('CHAPTER_NOT_FOUND', '章节不存在：' + key);
 
-    const [chapterProgress, questDefs, zoneRows, questListResult] = await Promise.all([
+    const [chapterProgress, questDefs, questListResult] = await Promise.all([
       this.loadChapterProgress(character.id),
       this.gameDb.query<{ code: string; name: string; order_index: number }>(
         'SELECT code, name, order_index FROM game_quest_defs WHERE chapter = $1 ORDER BY order_index, id',
         [chapter.chapter],
       ),
-      this.gameDb.query<{ code: string; name: string }>('SELECT code, name FROM game_zones WHERE code = $1', [chapter.zone_code]),
       this.questService.list(userId),
     ]);
     const completedChapterCodes = new Set<string>();
@@ -165,7 +163,6 @@ export class ChapterService {
           name: chapter.name,
           theme: chapter.theme,
           minRealm: chapter.min_realm,
-          zone: zoneRows.rows[0] ? { code: zoneRows.rows[0].code, name: zoneRows.rows[0].name } : null,
           unlocked: info.unlocked,
           unlockedReason: info.reason,
           completed: done,

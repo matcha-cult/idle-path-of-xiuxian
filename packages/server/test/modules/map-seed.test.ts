@@ -7,10 +7,15 @@
  * 因此把 R2 §5/§7 的硬规则固化成断言，后续地图（山下凡尘 / 混沌裂隙）直接受同一套约束。
  *
  * 覆盖的规则分三类：
- * 1. **引用完整性**：节点↔地图↔秘境↔边 的悬空引用（与建库脚本里的自检同口径）；
- * 2. **R2 已拍板的硬规则**：D8（每图 0~1 秘境、秘境 ≤3 层）、D2 的前提（秘境要指向真实 zone）、
- *    D3 的保底（每图至少一个挂机点）、§5.2（每图至少一个传送点，否则传送体系形同虚设）；
- * 3. **结构与数值自洽**：枚举合法、战力/境界区间、环层与章节一致、解锁链无环且全可达。
+ * 1. **引用完整性**：节点↔地图↔边 的悬空引用（与建库脚本里的自检同口径）；
+ * 2. **已拍板的硬规则**：§22（秘境与地图**彻底解耦** —— 不得再有 `secret_realm` 节点 /
+ *    `zone_code` / `level` / `threshold`）、§5.2（每图至少一个传送点，否则传送体系形同虚设）；
+ * 3. **结构与数值自洽**：枚举合法、环层与章节一致、解锁链无环且全可达。
+ *
+ * ⚠️ **§22（2026-09-14 晚）是一次方向反转**：P2.0/P3.0 时期本文件断言过「每图 0~1 秘境」
+ * 「秘境节点必须指向真实 zone」「只有历练峰带 level/threshold」。这些断言**现在全部反过来** ——
+ * 秘境搬进了 `game_zones`（按境界分档的 13 条记录），地图上只剩一个「第八峰·后山」地点
+ * 和一处「秘境石台」对象。秘境自身的不变量改由 `zone-seed.test.ts` 守。
  *
  * 口径说明：**只固化「已拍板的硬规则」**，不把 §5.7 里的「建议值」（如节点规模 8~15）写成断言 ——
  * 否则调内容时会一路打红，测试会失去信号价值。
@@ -54,8 +59,9 @@ interface NodeSeed {
   kind: string;
   featureKey?: string | null;
   /**
-   * 怪物境界 / 门槛：**只有 `kind === 'secret_realm'` 的节点有值**，其余为 `null`
-   * （2026-09-14 用户判定「宗门内总不能天天杀同门」）。
+   * 怪物境界 / 门槛：**§22 后恒为 `null`** —— 这两个字段描述的是"秘境里刷什么"，
+   * 而秘境已整体搬出地图层（`game_zones` 才有 unit_code / boss_code）。
+   * 宗门里的山门 / 八峰 / 四院 / 主峰都是**职能型枢纽**，没有怪物。
    */
   level: number | null;
   threshold: number | null;
@@ -83,10 +89,21 @@ interface ZoneSeed {
   id: number;
   code: string;
   name: string;
+  /** §22：该秘境对应第几境（1~13）。**是数值档位，不是入场闸门** */
+  realm: number;
+  /** §22：`training` 历练（免费/可挂机） | `special` 特殊（需道具/不可挂机） */
+  tierKind: string;
   maxFloor: number;
+  basePower: number;
+  powerStep: number;
+  lingyunBonusPerFloor: number;
   bossEveryFloors?: number;
+  tierBonusEveryFloors?: number;
+  dropBonusEveryFloors?: number;
+  unlockItemCode?: string | null;
+  idleAllowed: boolean;
   unitCode?: string;
-  bossCode?: string;
+  bossCode?: string | null;
 }
 
 interface UnitSeed {
@@ -111,7 +128,6 @@ const units = loadJson<UnitSeed[]>('unit-templates.json');
 
 const nodeByCode = new Map(nodes.map((n) => [n.code, n]));
 const mapByCode = new Map(maps.map((m) => [m.code, m]));
-const zoneByCode = new Map(zones.map((z) => [z.code, z]));
 const unitByCode = new Map(units.map((u) => [u.code, u]));
 
 const RINGS = new Set(['outer', 'approach', 'peaks', 'inner', 'summit']);
@@ -145,15 +161,11 @@ describe('地图种子 · 引用完整性', () => {
     }
   });
 
-  test('秘境节点必须指向真实存在的 zone，且非秘境节点不得带 zoneCode', () => {
-    for (const node of nodes) {
-      if (node.kind === 'secret_realm') {
-        assert.ok(node.zoneCode != null, `秘境节点 ${node.code} 未关联 zone`);
-        assert.ok(zoneByCode.has(node.zoneCode), `秘境节点 ${node.code} 指向不存在的 zone ${node.zoneCode}`);
-      } else {
-        assert.ok(node.zoneCode == null, `非秘境节点 ${node.code} 不应关联 zone（${node.zoneCode}）`);
-      }
-    }
+  test('§22：秘境已与地图解耦 —— 不得有 secret_realm 节点，也不得有节点携带 zoneCode', () => {
+    const realms = nodes.filter((node) => node.kind === 'secret_realm').map((node) => node.code);
+    assert.deepStrictEqual(realms, [], `秘境不得再挂在地图节点上（它们住在 game_zones）：${realms.join(', ')}`);
+    const withZone = nodes.filter((node) => node.zoneCode != null).map((node) => node.code);
+    assert.deepStrictEqual(withZone, [], `节点不得再携带 zoneCode：${withZone.join(', ')}`);
   });
 
   test('边的两端必须存在，且属于同一条边声明的地图', () => {
@@ -177,49 +189,59 @@ describe('地图种子 · 引用完整性', () => {
   });
 });
 
-describe('地图种子 · R2 已拍板硬规则', () => {
-  test('D8：每张地图 0~1 个秘境', () => {
+describe('地图种子 · 已拍板硬规则', () => {
+  /**
+   * §22 反转了 D8：原先「每图 0~1 秘境」，现在**每图 0 个** ——
+   * 秘境不再由地图承载，而是 `game_zones` 里按境界分档的记录，由「秘境石台」对象突破。
+   */
+  test('§22：地图层不得承载任何秘境（原 D8「每图 0~1 个」已作废）', () => {
     for (const map of maps) {
       const count = nodes.filter((n) => n.mapCode === map.code && n.kind === 'secret_realm').length;
-      assert.ok(count <= 1, `地图 ${map.code} 有 ${count} 个秘境（D8 上限 1）`);
-    }
-  });
-
-  test('D8：大世界内秘境最多 3 层', () => {
-    for (const map of maps) {
-      if ((map.world ?? 'great') !== 'great') continue; // 异界（混沌海）本轮留空，不约束
-      for (const node of nodes.filter((n) => n.mapCode === map.code && n.kind === 'secret_realm')) {
-        const zone = zoneByCode.get(node.zoneCode ?? '');
-        assert.ok(zone !== undefined, `秘境节点 ${node.code} 的 zone 缺失`);
-        assert.ok(
-          (zone?.maxFloor ?? 0) <= 3,
-          `秘境 ${zone?.code} 有 ${zone?.maxFloor} 层，超出 D8 的 3 层上限`,
-        );
-      }
-    }
-  });
-
-  test('D2 前提：秘境必须有 Boss 层设定，否则「击败首个 Boss 才解锁挂机」无法成立', () => {
-    for (const map of maps) {
-      for (const node of nodes.filter((n) => n.mapCode === map.code && n.kind === 'secret_realm')) {
-        const zone = zoneByCode.get(node.zoneCode ?? '');
-        assert.ok((zone?.bossEveryFloors ?? 0) > 0, `秘境 ${zone?.code} 的 bossEveryFloors 必须 > 0`);
-        assert.ok(
-          (zone?.bossEveryFloors ?? 0) <= (zone?.maxFloor ?? 0),
-          `秘境 ${zone?.code} 的 Boss 间隔大于总层数，永远打不到 Boss`,
-        );
-      }
+      assert.strictEqual(count, 0, `地图 ${map.code} 有 ${count} 个秘境节点（§22 后应为 0）`);
     }
   });
 
   /**
-   * 用户修正：**挂机只能在「历练秘境峰」** —— 地图上不散布挂机点。
-   * 因此 `kind` 只有 route / secret_realm / summit，且「能挂机的地方」就是秘境本身
-   * （击败首个 Boss 后解锁离线挂机，D2）。这条断言防止后续地图定义时又把 idle_spot 加回来。
+   * §22 保留了 D8 的另一半并推广：「大世界内 ≤3 层」→ **全秘境恒为 3 层**。
+   * 秘境与地图解耦后，这条约束的对象从"地图上的秘境节点"变成"每一行 game_zones"。
    */
-  test('挂机只能在历练秘境峰：不得存在 idle_spot 节点', () => {
+  test('§22：每个秘境恒为 3 层，且第 3 层就是 Boss 层', () => {
+    for (const zone of zones) {
+      assert.strictEqual(zone.maxFloor, 3, `秘境 ${zone.code} 有 ${zone.maxFloor} 层（§22 要求 3 层）`);
+      assert.strictEqual(
+        zone.bossEveryFloors,
+        3,
+        `秘境 ${zone.code} 的 bossEveryFloors=${zone.bossEveryFloors}，第 3 层必须正好是 Boss 层`,
+      );
+    }
+  });
+
+  /**
+   * §22 取代 D2 的前提：解锁不再是「击败首个 Boss」这一条挂在**地图节点**上的钩子，
+   * 而是「在线打满 3 层 ⇒ cleared ⇒ 秘境页面可见」。因此每个秘境都必须有 Boss 与刷怪单位。
+   */
+  test('§22：每个秘境都声明了刷怪单位与 Boss，且单位是敌对（否则突破无从结算）', () => {
+    for (const zone of zones) {
+      const unit = unitByCode.get(zone.unitCode ?? '');
+      assert.ok(zone.unitCode != null, `秘境 ${zone.code} 未声明 unitCode（在线战斗无从结算）`);
+      assert.ok(zone.bossCode != null, `秘境 ${zone.code} 未声明 bossCode（第 3 层无 Boss）`);
+      assert.strictEqual(unit?.camp, 'hostile', `秘境 ${zone.code} 刷的不是敌对单位`);
+      const boss = unitByCode.get(zone.bossCode ?? '');
+      assert.strictEqual(boss?.camp, 'hostile', `秘境 ${zone.code} 的 Boss 不是敌对单位`);
+      // 怪物境界必须与该秘境的 realm 一致（数值档位与内容对得上）
+      assert.strictEqual(unit?.realm, zone.realm, `秘境 ${zone.code} 的刷怪境界与 realm 不一致`);
+      assert.strictEqual(boss?.realm, zone.realm, `秘境 ${zone.code} 的 Boss 境界与 realm 不一致`);
+    }
+  });
+
+  /**
+   * §22 Q1/Q5：秘境与地图完全解耦后，「能挂机的地方」不再是地图上的某个峰，
+   * 而是**已突破（cleared）且 `idle_allowed` 的秘境**。
+   * 因此 `goal_spot` 这类节点彻底失去意义；这条断言防止有人再把挂机点画回图上。
+   */
+  test('挂机点不再画在地图上：不得存在 idle_spot 节点', () => {
     const bad = nodes.filter((n) => n.kind === 'idle_spot').map((n) => n.code);
-    assert.deepStrictEqual(bad, [], `不允许散布挂机点（挂机只能在历练秘境峰）：${bad.join(', ')}`);
+    assert.deepStrictEqual(bad, [], `不允许散布挂机点（挂机由 zone.idle_allowed 判定）：${bad.join(', ')}`);
   });
 
   test('地图节点不得自带产出单位（秘境产出由 game_zones.unit_code 决定）', () => {
@@ -228,53 +250,31 @@ describe('地图种子 · R2 已拍板硬规则', () => {
     }
   });
 
-  test('历练秘境峰（唯一秘境）必须指向真实 zone，且该 zone 声明了刷什么单位与 Boss', () => {
-    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
-      const zone = zoneByCode.get(node.zoneCode ?? '');
-      assert.ok(zone !== undefined, `秘境节点 ${node.code} 的 zone 缺失`);
-      const raw = zonesRaw.find((z) => z.code === node.zoneCode);
-      assert.ok(raw !== undefined && raw.unitCode != null, `秘境 ${node.zoneCode} 未声明 unitCode（挂机无从结算）`);
-      assert.ok(raw !== undefined && raw.bossCode != null, `秘境 ${node.zoneCode} 未声明 bossCode（D2 无从解锁）`);
-      const unit = unitByCode.get(raw?.unitCode ?? '');
-      assert.strictEqual(unit?.camp, 'hostile', `秘境 ${node.zoneCode} 刷的不是敌对单位`);
-      assert.ok((unit?.realm ?? 99) <= 5, `秘境 ${node.zoneCode} 的单位境界超过本图上限（第五境）`);
-    }
-  });
-
   /**
-   * 用户设定（D10 修正版）：**青云宗·历练峰**把玩家历练到第五境 —— 不是全图每个点都是怪。
-   * 只有秘境节点带怪物境界 / 门槛，且境界 ≤ 5、门槛 ≤ 100（5 境裸装战力 = 100）。
+   * §22：第八峰·后山是**宗门秘境的解锁入口**（一个地点），不是副本本体。
+   * 它必须是 `kind='route'` + `feature_key='realm'`，且**不带** level / threshold / zoneCode。
    */
-  test('青云宗·历练峰历练到第五境：秘境怪物境界 ≤ 5，且门槛不超 5 境裸装战力（100）', () => {
-    const combat = nodes.filter((n) => n.level !== null);
-    assert.deepStrictEqual(
-      combat.filter((n) => !(n.level! >= 1 && n.level! <= 5)).map((n) => n.code),
-      [],
-      '秘境怪物境界必须落在 1~5 境',
-    );
-    const overGate = combat.filter((n) => !(n.threshold! > 0 && n.threshold! <= 100)).map((n) => n.code);
-    assert.deepStrictEqual(overGate, [], `门槛必须落在 1~100（5 境裸装战力）`);
+  test('§22：第八峰·后山是秘境解锁入口（route + featureKey=realm），不是秘境本体', () => {
+    const node = nodeByCode.get('qy_peak_xunlian');
+    assert.ok(node !== undefined, '第八峰·后山节点不存在');
+    assert.strictEqual(node?.name, '第八峰·后山');
+    assert.strictEqual(node?.kind, 'route', '第八峰·后山必须降级为普通地点（秘境已解耦）');
+    assert.strictEqual(node?.featureKey, 'realm', '第八峰·后山必须声明承载系统 realm');
+    assert.strictEqual(node?.level, null);
+    assert.strictEqual(node?.threshold, null);
+    assert.ok(node?.zoneCode == null);
   });
 
-  test('数据分层：level / threshold 只属于秘境节点，职能型枢纽必须为 null', () => {
-    const withData = nodes.filter((n) => n.level !== null || n.threshold !== null);
-    for (const node of withData) {
-      assert.strictEqual(node.kind, 'secret_realm', `非秘境节点 ${node.code} 不得带怪物数据`);
-    }
-    // level 与 threshold 必须成对出现（有境界没门槛 = 半截战斗数据）
+  test('§22：怪物数据整体离开地图层 —— 17 个节点的 level / threshold 全部为 null', () => {
+    const withData = nodes.filter((n) => n.level !== null || n.threshold !== null).map((n) => n.code);
+    assert.deepStrictEqual(withData, [], `地图节点不得带怪物数据：${withData.join(', ')}`);
     for (const node of nodes) {
       assert.strictEqual(
         node.level === null,
         node.threshold === null,
-        `节点 ${node.code} 的 level / threshold 必须同时为空或同时有值`,
+        `节点 ${node.code} 的 level / threshold 必须同时为空`,
       );
     }
-    // 反向：秘境必须带数据
-    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
-      assert.ok(node.level !== null && node.threshold !== null, `秘境节点 ${node.code} 缺怪物数据`);
-    }
-    // 记录当前分层规模（防回归：宗门 16 个枢纽必须全部为 null）
-    assert.strictEqual(withData.length, 1, '本轮只有历练峰一个节点带怪物数据');
   });
 
   test('§5.2：每张地图至少一个传送点，否则传送体系形同虚设', () => {
@@ -296,17 +296,10 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('境界与战力区间合法（境界 1~14；threshold > 0）—— 仅秘境节点受约束', () => {
-    for (const node of nodes.filter((n) => n.kind === 'secret_realm')) {
-      assert.ok(
-        Number.isInteger(node.level) && (node.level ?? 0) >= 1 && (node.level ?? 0) <= 14,
-        `秘境节点 ${node.code} 的 level 越界：${node.level}`,
-      );
-      assert.ok((node.threshold ?? 0) > 0, `秘境节点 ${node.code} 的 threshold 必须为正：${node.threshold}`);
-    }
-    for (const node of nodes.filter((n) => n.kind !== 'secret_realm')) {
-      assert.strictEqual(node.level, null, `职能型枢纽 ${node.code} 的 level 必须为 null`);
-      assert.strictEqual(node.threshold, null, `职能型枢纽 ${node.code} 的 threshold 必须为 null`);
+  test('§22：地图层不再有任何境界 / 战力数据（它们随秘境一起搬走了）', () => {
+    for (const node of nodes) {
+      assert.strictEqual(node.level, null, `节点 ${node.code} 的 level 必须为 null`);
+      assert.strictEqual(node.threshold, null, `节点 ${node.code} 的 threshold 必须为 null`);
     }
   });
 
@@ -384,7 +377,7 @@ describe('地图种子 · 结构与数值自洽', () => {
     }
   });
 
-  test('青云宗实践样板的结构特征（回归护栏：17 枢纽 / 4 传送点 / 1 历练秘境峰）', () => {
+  test('青云宗实践样板的结构特征（回归护栏：17 枢纽 / 4 传送点 / 0 秘境峰）', () => {
     const qingyun = nodes.filter((n) => n.mapCode === 'map_qingyun');
     assert.strictEqual(qingyun.length, 17, '青云宗节点数变化了 —— 若是有意调整，请同步任务书 §0 的结构表');
     assert.strictEqual(
@@ -392,36 +385,19 @@ describe('地图种子 · 结构与数值自洽', () => {
       4,
       '只有四门挂传送点（相邻可直达，传送点是最外的兜底）',
     );
-    // 挂机只能在历练秘境峰 → 全图只有 1 个秘境、0 个挂机点
+    // §22：挂机点不画在图上，秘境也不挂在图上 —— 全图 0 个秘境节点、0 个挂机点
     assert.strictEqual(qingyun.filter((n) => n.kind === 'idle_spot').length, 0);
-    assert.strictEqual(qingyun.filter((n) => n.kind === 'secret_realm').length, 1);
-    // 结构：四门 4 + 八峰 8（七职业峰 + 一历练秘境峰）+ 四院 4 + 主峰 1
+    assert.strictEqual(qingyun.filter((n) => n.kind === 'secret_realm').length, 0);
+    // 结构：四门 4 + 八峰 8（七职业峰 + 一后山秘境入口峰）+ 四院 4 + 主峰 1
     assert.strictEqual(qingyun.filter((n) => n.ring === 'outer').length, 4);
     const peaks = qingyun.filter((n) => n.ring === 'peaks');
     assert.strictEqual(peaks.length, 8);
     assert.strictEqual(peaks.filter((n) => n.featureKey === 'profession').length, 7);
+    assert.strictEqual(peaks.filter((n) => n.featureKey === 'realm').length, 1);
     assert.strictEqual(qingyun.filter((n) => n.ring === 'inner').length, 4);
     assert.strictEqual(qingyun.filter((n) => n.ring === 'summit').length, 1);
     // 外门接引区已删除（用户拍板：天下第一宗门，只有下宗，不设外门）
     assert.ok(!qingyun.some((n) => n.ring === 'approach'), '不应再存在 approach 环层节点');
-  });
-
-  /**
-   * 过渡态追踪（**等地图形 2/3 定义完就删掉这条**）。
-   *
-   * 地图层是新增的，而 `zones.json` 里的 5 个遗留秘境先于地图层存在、**没有对应地图节点**。
-   * 后端的离线闸门必须对它们保持旧行为（否则会打断现有游戏），因此这个「未归属」集合
-   * 是一份**需要被显式看见的迁移债**：把它写成断言，等某天它们被重新归属时，
-   * 这条会失败并提醒「债还完了，可以去删闸门里的过渡分支」。
-   */
-  test('迁移债：未归属任何地图节点的遗留秘境 = 已知 5 个（清理后请删除本用例）', () => {
-    const mapped = new Set(nodes.map((n) => n.zoneCode).filter((c): c is string => c != null));
-    const orphans = zones.filter((z) => !mapped.has(z.code)).map((z) => z.code).sort();
-    assert.deepStrictEqual(
-      orphans,
-      ['zone_dajie', 'zone_guhai', 'zone_hundun', 'zone_miwu', 'zone_qingyun'],
-      '未归属地图的秘境集合变了 —— 若是已把遗留秘境接入地图，请同步删除后端闸门里的过渡分支与本用例',
-    );
   });
 });
 
@@ -611,25 +587,33 @@ interface MapObjectSeed {
 
 const objects = loadJson<MapObjectSeed[]>('map-objects.json');
 
-describe('地图对象种子 · 一院多职能（P2.0 §3）', () => {
-  test('11 个对象（四院 ×2 + 主峰 ×3），code 不重复，kind 只有 office', () => {
-    assert.strictEqual(objects.length, 11, '对象数变化了 —— 若是有意调整请同步任务书 §3');
+describe('地图对象种子 · 一院多职能（P2.0 §3）+ 秘境石台（§22）', () => {
+  test('12 个对象（四院 ×2 + 主峰 ×3 + 后山 ×1），code 不重复，kind 只有 office', () => {
+    assert.strictEqual(objects.length, 12, '对象数变化了 —— 若是有意调整请同步任务书 §3 / §22 §5.4');
     assert.strictEqual(new Set(objects.map((o) => o.code)).size, objects.length, '对象 code 有重复');
     for (const o of objects) {
       assert.strictEqual(o.kind, 'office', `本轮对象只有 office 一种类型：${o.code}=${o.kind}`);
     }
   });
 
-  test('每个对象都挂在已定义节点上，且宿主只能是四院或主峰', () => {
-    const hosts = new Set(['qy_chuanfayuan', 'qy_yulingyuan', 'qy_baigongyuan', 'qy_zhifayuan', 'qy_summit']);
+  test('每个对象都挂在已定义节点上，且宿主只能是四院 / 主峰 / 第八峰·后山', () => {
+    const hosts = new Set([
+      'qy_chuanfayuan',
+      'qy_yulingyuan',
+      'qy_baigongyuan',
+      'qy_zhifayuan',
+      'qy_summit',
+      // §22：宗门秘境的解锁入口 —— 石台是"能交互的对象"的第二个宿主环层
+      'qy_peak_xunlian',
+    ]);
     for (const o of objects) {
       assert.ok(nodeByCode.has(o.nodeCode), `对象 ${o.code} 的宿主 ${o.nodeCode} 不存在`);
-      assert.ok(hosts.has(o.nodeCode), `对象 ${o.code} 挂在了非四院/主峰的宿主上：${o.nodeCode}`);
+      assert.ok(hosts.has(o.nodeCode), `对象 ${o.code} 挂在了非白名单宿主上：${o.nodeCode}`);
       assert.ok(mapByCode.has(o.mapCode), `对象 ${o.code} 指向未定义地图 ${o.mapCode}`);
     }
   });
 
-  test('每个对象的 featureKey 非空（§7：本轮 11 个对象都要能指向一个系统）', () => {
+  test('每个对象的 featureKey 非空（§7 / §22：每个对象都要能指向一个系统）', () => {
     for (const o of objects) {
       assert.ok(
         typeof o.featureKey === 'string' && o.featureKey.length > 0,
@@ -638,7 +622,17 @@ describe('地图对象种子 · 一院多职能（P2.0 §3）', () => {
     }
   });
 
-  test('四院各 2 个职能、主峰 3 个；同一宿主内 orderIndex 不重复', () => {
+  test('§22：第八峰·后山挂且仅挂一个「秘境石台」，featureKey=realm 与宿主节点一致', () => {
+    const onPeak = objects.filter((o) => o.nodeCode === 'qy_peak_xunlian');
+    assert.strictEqual(onPeak.length, 1, '第八峰·后山应恰好有 1 个可交互对象（秘境石台）');
+    assert.strictEqual(onPeak[0].code, 'obj_mijing_shitai');
+    assert.strictEqual(onPeak[0].name, '秘境石台');
+    assert.strictEqual(onPeak[0].featureKey, 'realm');
+    // 对象是节点 featureKey 的明细，两处必须一致（前端右栏据此决定可交互性）
+    assert.strictEqual(nodeByCode.get('qy_peak_xunlian')?.featureKey, onPeak[0].featureKey);
+  });
+
+  test('四院各 2 个职能、主峰 3 个、后山 1 个；同一宿主内 orderIndex 不重复', () => {
     const byHost = new Map<string, MapObjectSeed[]>();
     for (const o of objects) {
       byHost.set(o.nodeCode, [...(byHost.get(o.nodeCode) ?? []), o]);
@@ -647,6 +641,7 @@ describe('地图对象种子 · 一院多职能（P2.0 §3）', () => {
       assert.strictEqual(byHost.get(host)?.length, 2, `${host} 应有 2 个职能入口`);
     }
     assert.strictEqual(byHost.get('qy_summit')?.length, 3, '主峰应有 3 个职能入口');
+    assert.strictEqual(byHost.get('qy_peak_xunlian')?.length, 1, '第八峰·后山应有 1 个职能入口');
     for (const [host, list] of byHost) {
       const orders = list.map((o) => o.orderIndex);
       assert.strictEqual(new Set(orders).size, orders.length, `${host} 的 orderIndex 有重复`);

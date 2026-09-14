@@ -487,5 +487,285 @@
     "baseStats": null,
     "hiddenPool": [],
     "dropTable": null
+  },
+  {
+    "id": 24,
+    "code": "u_boss_r1",
+    "name": "山魈王",
+    "realm": 1,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 150,
+      "atk": 13,
+      "def": 7,
+      "spiritPower": 8
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss1"
+  },
+  {
+    "id": 25,
+    "code": "u_boss_r2",
+    "name": "狼王",
+    "realm": 2,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 218,
+      "atk": 18,
+      "def": 10,
+      "spiritPower": 10
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss1"
+  },
+  {
+    "id": 26,
+    "code": "u_boss_r4",
+    "name": "血眼魔尊",
+    "realm": 4,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 457,
+      "atk": 34,
+      "def": 19,
+      "spiritPower": 20
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss2"
+  },
+  {
+    "id": 27,
+    "code": "u_boss_r5",
+    "name": "铜魔将",
+    "realm": 5,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 663,
+      "atk": 46,
+      "def": 26,
+      "spiritPower": 27
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss2"
+  },
+  {
+    "id": 28,
+    "code": "u_boss_r7",
+    "name": "鲛魔海主",
+    "realm": 7,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 1394,
+      "atk": 88,
+      "def": 50,
+      "spiritPower": 52
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss3"
+  },
+  {
+    "id": 29,
+    "code": "u_boss_r8",
+    "name": "蛟龙王",
+    "realm": 8,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 2021,
+      "atk": 122,
+      "def": 69,
+      "spiritPower": 71
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss3"
+  },
+  {
+    "id": 30,
+    "code": "u_boss_r10",
+    "name": "鬼帝",
+    "realm": 10,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 4250,
+      "atk": 232,
+      "def": 131,
+      "spiritPower": 136
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss4"
+  },
+  {
+    "id": 31,
+    "code": "u_boss_r11",
+    "name": "邪修魁首",
+    "realm": 11,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 6163,
+      "atk": 321,
+      "def": 180,
+      "spiritPower": 188
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss4"
+  },
+  {
+    "id": 32,
+    "code": "u_boss_r12",
+    "name": "妖尊",
+    "realm": 12,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 8936,
+      "atk": 442,
+      "def": 249,
+      "spiritPower": 259
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss4"
+  },
+  {
+    "id": 33,
+    "code": "u_boss_r13",
+    "name": "魔祖",
+    "realm": 13,
+    "camp": "hostile",
+    "givesLingyun": true,
+    "baseStats": {
+      "hp": 12957,
+      "atk": 611,
+      "def": 343,
+      "spiritPower": 358
+    },
+    "hiddenPool": [
+      "hid_hp",
+      "hid_atk",
+      "hid_def",
+      "hid_spirit",
+      "hid_speed",
+      "hid_crit",
+      "hid_extra",
+      "hid_resist",
+      "hid_regen",
+      "hid_all",
+      "hid_lingyun"
+    ],
+    "dropTable": "dt_boss4"
   }
 ]

@@ -228,13 +228,23 @@ CREATE TABLE IF NOT EXISTS game_drop_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_game_drop_entries_table ON game_drop_entries(drop_table_id);
 
+-- 秘境表（§22 秘境解锁体系重做）
+--   realm / tier_kind / unlock_item_code / idle_allowed 是 §22 的新模型：
+--     - realm          : 该秘境对应第几境（1~13）。**是数值档位与展示，不是入场闸门**
+--                        ——「全都可突破，进去送人头都行」（§22 §1 Q3）。
+--     - tier_kind      : 'training' 历练（1~5 境，免费，可挂机）
+--                        'special'  特殊（6~13 境，需道具，不可挂机）
+--     - unlock_item_code: special 的突破道具（本轮只留字段 + 展示，不消耗）
+--     - idle_allowed   : 能否离线挂机（training=true / special=false）
+--   旧列 chapter / min_realm / require_prev_best_floor 已**语义作废**（链式解锁被删除），
+--   本轮先把它们放宽为可空以便新种子写入；物理删列留到收尾清理（§22 §11 T10）。
 CREATE TABLE IF NOT EXISTS game_zones (
   id                      SERIAL PRIMARY KEY,
   code                    VARCHAR(50) NOT NULL UNIQUE,
   name                    VARCHAR(50) NOT NULL,
-  chapter                 SMALLINT NOT NULL,
+  chapter                 SMALLINT,
   order_index             INTEGER NOT NULL,
-  min_realm               SMALLINT NOT NULL,
+  min_realm               SMALLINT,
   unit_code               VARCHAR(50) NOT NULL,
   boss_code               VARCHAR(50),
   base_power              INTEGER NOT NULL,
@@ -245,6 +255,10 @@ CREATE TABLE IF NOT EXISTS game_zones (
   require_prev_best_floor INTEGER NOT NULL DEFAULT 0,
   tier_bonus_every_floors INTEGER NOT NULL DEFAULT 0,
   drop_bonus_every_floors INTEGER NOT NULL DEFAULT 0,
+  realm                   SMALLINT,
+  tier_kind               VARCHAR(16) NOT NULL DEFAULT 'training',
+  unlock_item_code        VARCHAR(64),
+  idle_allowed            BOOLEAN NOT NULL DEFAULT FALSE,
   created_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at              TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -252,6 +266,15 @@ CREATE INDEX IF NOT EXISTS idx_game_zones_order ON game_zones(order_index);
 ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS require_prev_best_floor INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS tier_bonus_every_floors INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS drop_bonus_every_floors INTEGER NOT NULL DEFAULT 0;
+-- §22 增量列（对已存在的库补列；与上面的 CREATE TABLE 保持一致）
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS realm SMALLINT;
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS tier_kind VARCHAR(16) NOT NULL DEFAULT 'training';
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS unlock_item_code VARCHAR(64);
+ALTER TABLE game_zones ADD COLUMN IF NOT EXISTS idle_allowed BOOLEAN NOT NULL DEFAULT FALSE;
+-- 语义作废的旧列放宽为可空（顺序：先 DROP NOT NULL，再补新列，保证迁移可重复执行）
+ALTER TABLE game_zones ALTER COLUMN chapter DROP NOT NULL;
+ALTER TABLE game_zones ALTER COLUMN min_realm DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_game_zones_realm ON game_zones(realm);
 
 CREATE TABLE IF NOT EXISTS game_zone_progress (
   id           SERIAL PRIMARY KEY,
@@ -260,9 +283,12 @@ CREATE TABLE IF NOT EXISTS game_zone_progress (
   floor        INTEGER NOT NULL DEFAULT 1,
   best_floor   INTEGER NOT NULL DEFAULT 0,
   cleared      BOOLEAN NOT NULL DEFAULT FALSE,
+  clears       INTEGER NOT NULL DEFAULT 0,
   updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (character_id, zone_id)
 );
+-- §22：通关次数（重复挑战每打满一轮 +1）。clears ≥ 1 ⇔ cleared = TRUE。
+ALTER TABLE game_zone_progress ADD COLUMN IF NOT EXISTS clears INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_game_zone_progress_character ON game_zone_progress(character_id);
 
 CREATE TABLE IF NOT EXISTS game_zone_state (
@@ -271,6 +297,18 @@ CREATE TABLE IF NOT EXISTS game_zone_state (
   current_zone_id INTEGER NOT NULL,
   updated_at      TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- §22 挂机点（离线结算目标）。与 game_zone_state 的语义**刻意分开**：
+--   game_zone_state  = 在线战斗所在（有行 ⇒ 在线 ⇒ 离线挂机暂停，§22 §2.2）
+--   game_idle_state  = 离线挂机目标（离线时用）
+-- 两件事可以同时存在（打 A 挂 B），塞一张表会让「互斥」无法表达。
+CREATE TABLE IF NOT EXISTS game_idle_state (
+  id           SERIAL PRIMARY KEY,
+  character_id INTEGER NOT NULL UNIQUE,
+  zone_id      INTEGER NOT NULL,
+  updated_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_game_idle_state_zone ON game_idle_state(zone_id);
 
 CREATE TABLE IF NOT EXISTS game_idle_counters (
   id             SERIAL PRIMARY KEY,
@@ -439,7 +477,7 @@ CREATE TABLE IF NOT EXISTS game_chapters (
   name             VARCHAR(100) NOT NULL,
   theme            VARCHAR(100),
   min_realm        SMALLINT NOT NULL,
-  zone_code        VARCHAR(50) NOT NULL,
+  zone_code        VARCHAR(50),
   quest_start_code VARCHAR(50) NOT NULL,
   quest_end_code   VARCHAR(50) NOT NULL,
   requires_chapter VARCHAR(50),
@@ -450,6 +488,9 @@ CREATE TABLE IF NOT EXISTS game_chapters (
   updated_at       TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_game_chapters_order ON game_chapters(order_index);
+-- §22 Q1：章节与秘境彻底解绑 —— 章节只讲剧情/任务，不再挂"本章主推秘境"。
+-- 列保留（物理删列会牵动 ChapterRow 类型与既有种子校验），只放宽为可空、不再写入。
+ALTER TABLE game_chapters ALTER COLUMN zone_code DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS game_chapter_progress (
   id              SERIAL PRIMARY KEY,
@@ -696,31 +737,94 @@ try {
   }
   console.log('[放置·修仙之路] unit templates: ' + units.length + ' / hidden pool links ' + poolLinks);
 
-  // ===== P5.1 秘境定义（重灌：进度 state/progress 为玩家数据，保留） =====
+  // ===== §22 秘境定义（重灌；game_zone_progress / game_zone_state / game_idle_state 是玩家数据）=====
+  //
+  // ⚠️ 这里有一个**必须按 code 而不是按 id 判断**的陷阱：
+  // 秘境是配置，全量重灌；但玩家数据表里存的是 `zone_id`。新种子会**复用 id 1..13**，
+  // 于是"按 id 查孤儿"会漏掉最危险的一种情况 —— **id 没变，但它指向的秘境换了一个**
+  // （旧 id=1 是 zone_qingyun，新 id=1 是 zone_r1），玩家的旧进度会被静默当成新秘境的进度。
+  // 因此删除前先按 **code ↔ id 的对应关系** 比对：凡是 code 消失、或 code 换了 id 的，
+  // 其玩家数据一律清理。这是「全删重做」的一次性代价（§22 §9.2）。
   const zones = await loadJson('zones.json');
+  const newIdByCode = new Map(zones.map((z) => [z.code, z.id]));
+  const beforeZones = await client.query('SELECT id, code FROM game_zones');
+  const staleZoneIds = beforeZones.rows
+    .filter((r) => newIdByCode.get(r.code) !== Number(r.id))
+    .map((r) => Number(r.id));
+  if (staleZoneIds.length > 0) {
+    for (const table of ['game_zone_progress', 'game_zone_state', 'game_idle_state']) {
+      const column = table === 'game_zone_state' ? 'current_zone_id' : 'zone_id';
+      await client.query(`DELETE FROM ${table} WHERE ${column} = ANY($1::int[])`, [staleZoneIds]);
+    }
+    console.log(
+      '[放置·修仙之路] §22 清理了 ' + staleZoneIds.length + ' 个旧秘境的玩家数据引用：' + staleZoneIds.join(','),
+    );
+  }
   await client.query('DELETE FROM game_zones');
   for (const z of zones) {
     await client.query(
-      'INSERT INTO game_zones (id, code, name, chapter, order_index, min_realm, unit_code, boss_code, base_power, power_step, max_floor, lingyun_bonus_per_floor, boss_every_floors, require_prev_best_floor, tier_bonus_every_floors, drop_bonus_every_floors) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-      [z.id, z.code, z.name, z.chapter, z.orderIndex, z.minRealm, z.unitCode, z.bossCode ?? null, z.basePower, z.powerStep, z.maxFloor, z.lingyunBonusPerFloor, z.bossEveryFloors ?? 10, z.requirePrevBestFloor ?? 0, z.tierBonusEveryFloors ?? 0, z.dropBonusEveryFloors ?? 0],
+      'INSERT INTO game_zones (id, code, name, realm, tier_kind, order_index, unit_code, boss_code, base_power, power_step, max_floor, lingyun_bonus_per_floor, boss_every_floors, tier_bonus_every_floors, drop_bonus_every_floors, unlock_item_code, idle_allowed) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, realm=EXCLUDED.realm, tier_kind=EXCLUDED.tier_kind, idle_allowed=EXCLUDED.idle_allowed RETURNING id',
+      [z.id, z.code, z.name, z.realm, z.tierKind, z.orderIndex, z.unitCode, z.bossCode ?? null, z.basePower, z.powerStep, z.maxFloor, z.lingyunBonusPerFloor, z.bossEveryFloors ?? 3, z.tierBonusEveryFloors ?? 0, z.dropBonusEveryFloors ?? 0, z.unlockItemCode ?? null, z.idleAllowed === true],
     );
   }
   await client.query("SELECT setval('game_zones_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_zones));");
+
+  // 自检 1：悬空引用（单位 / Boss）
   const orphanZoneUnits = await client.query(
     'SELECT COUNT(*)::int AS c FROM game_zones z LEFT JOIN game_unit_templates u ON u.code = z.unit_code WHERE u.code IS NULL',
   );
   if (Number(orphanZoneUnits.rows[0].c) > 0) {
     console.warn('[放置·修仙之路] 警告：' + orphanZoneUnits.rows[0].c + ' 个秘境引用不存在的单位');
   }
+  const orphanZoneBosses = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_zones z LEFT JOIN game_unit_templates u ON u.code = z.boss_code WHERE z.boss_code IS NOT NULL AND u.code IS NULL',
+  );
+  if (Number(orphanZoneBosses.rows[0].c) > 0) {
+    console.warn('[放置·修仙之路] 警告：' + orphanZoneBosses.rows[0].c + ' 个秘境引用不存在的 Boss');
+  }
+
+  // 自检 2：§22 的秘境不变量（配置写错时立刻暴露，而不是等玩家点进去）
+  const zoneProblems = [];
+  const seenRealms = new Map();
+  for (const z of zones) {
+    if (!Number.isInteger(z.realm) || z.realm < 1 || z.realm > 13) {
+      zoneProblems.push(z.code + ' 的 realm 必须是 1~13 的整数（实际 ' + z.realm + '）');
+    }
+    if (seenRealms.has(z.realm)) {
+      zoneProblems.push('realm ' + z.realm + ' 被 ' + seenRealms.get(z.realm) + ' 与 ' + z.code + ' 重复占用');
+    }
+    seenRealms.set(z.realm, z.code);
+    if (z.tierKind !== 'training' && z.tierKind !== 'special') {
+      zoneProblems.push(z.code + ' 的 tierKind 只能是 training / special（实际 ' + z.tierKind + '）');
+    }
+    if (z.maxFloor !== 3) zoneProblems.push(z.code + ' 必须是 3 层（§22：全秘境 3 层）');
+    if (z.bossEveryFloors !== 3) zoneProblems.push(z.code + ' 的第 3 层必须是 Boss 层（bossEveryFloors=3）');
+    if (z.tierKind === 'training') {
+      if (z.idleAllowed !== true) zoneProblems.push(z.code + ' 是历练秘境，必须允许挂机');
+      if (z.unlockItemCode != null) zoneProblems.push(z.code + ' 是历练秘境，不应有突破道具');
+      if (z.realm > 5) zoneProblems.push(z.code + ' 是历练秘境，realm 不得超过 5（D10）');
+    } else {
+      if (z.idleAllowed !== false) zoneProblems.push(z.code + ' 是特殊秘境，不得允许挂机（用户 Q5）');
+      if (!z.unlockItemCode) zoneProblems.push(z.code + ' 是特殊秘境，必须声明突破道具');
+    }
+  }
+  if (zoneProblems.length > 0) {
+    throw new Error('zones.json 不满足 §22 秘境不变量：\n  - ' + zoneProblems.join('\n  - '));
+  }
+
   const orphanProgress = await client.query(
     'SELECT COUNT(*)::int AS c FROM game_zone_progress p LEFT JOIN game_zones z ON z.id = p.zone_id WHERE z.id IS NULL',
   );
   const orphanState = await client.query(
     'SELECT COUNT(*)::int AS c FROM game_zone_state s LEFT JOIN game_zones z ON z.id = s.current_zone_id WHERE z.id IS NULL',
   );
-  const orphanZoneRefs = Number(orphanProgress.rows[0].c) + Number(orphanState.rows[0].c);
+  const orphanIdle = await client.query(
+    'SELECT COUNT(*)::int AS c FROM game_idle_state t LEFT JOIN game_zones z ON z.id = t.zone_id WHERE z.id IS NULL',
+  );
+  const orphanZoneRefs =
+    Number(orphanProgress.rows[0].c) + Number(orphanState.rows[0].c) + Number(orphanIdle.rows[0].c);
   if (orphanZoneRefs > 0) {
-    console.warn('[放置·修仙之路] 警告：' + orphanZoneRefs + ' 条秘境进度/当前秘境引用不存在的秘境（种子 id 漂移）');
+    console.warn('[放置·修仙之路] 警告：' + orphanZoneRefs + ' 条秘境进度/当前秘境/挂机点引用不存在的秘境（种子 id 漂移）');
   }
   console.log('[放置·修仙之路] zones: ' + zones.length);
 
@@ -885,8 +989,8 @@ try {
   await client.query('DELETE FROM game_chapters');
   for (const c of chapterDefs) {
     await client.query(
-      'INSERT INTO game_chapters (id, code, chapter, name, theme, min_realm, zone_code, quest_start_code, quest_end_code, requires_chapter, rewards, dialogues, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-      [c.id, c.code, c.chapter, c.name, c.theme ?? null, c.minRealm, c.zoneCode, c.questStartCode, c.questEndCode, c.requiresChapter ?? null, jstr(c.rewards ?? {}), jstr(c.dialogues ?? null), c.orderIndex ?? 0],
+      'INSERT INTO game_chapters (id, code, chapter, name, theme, min_realm, quest_start_code, quest_end_code, requires_chapter, rewards, dialogues, order_index) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+      [c.id, c.code, c.chapter, c.name, c.theme ?? null, c.minRealm, c.questStartCode, c.questEndCode, c.requiresChapter ?? null, jstr(c.rewards ?? {}), jstr(c.dialogues ?? null), c.orderIndex ?? 0],
     );
   }
   await client.query("SELECT setval('game_chapters_id_seq', (SELECT COALESCE(MAX(id),1) FROM game_chapters));");

@@ -83,7 +83,11 @@ export interface ChapterRow {
   name: string;
   theme: string | null;
   min_realm: number;
-  zone_code: string;
+  /**
+   * §22 Q1：章节与秘境**已彻底解绑** —— 本列自 2026-09-14 起不再写入（DB 里保留、值恒为 null）。
+   * 保留在类型里是为了让 `SELECT *` 的行结构与 DDL 一致（T10 收尾时物理删列再一并移除）。
+   */
+  zone_code: string | null;
   quest_start_code: string;
   quest_end_code: string;
   requires_chapter: string | null;

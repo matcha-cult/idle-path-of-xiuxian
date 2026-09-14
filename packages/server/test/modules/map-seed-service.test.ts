@@ -114,7 +114,18 @@ function makeService(db: FakeDatabase, realm = 1) {
   return new MapService(db as never, charStub as never, power as never);
 }
 
-interface PanelNode { code: string; ring: string; adjacent: boolean; gridRow: number; gridCol: number; level: number | null; threshold: number | null }
+interface PanelNode {
+  code: string;
+  name: string;
+  kind: string;
+  featureKey: string | null;
+  ring: string;
+  adjacent: boolean;
+  gridRow: number;
+  gridCol: number;
+  level: number | null;
+  threshold: number | null;
+}
 interface PanelObject { code: string; nodeCode: string; featureKey: string | null; kind: string }
 interface PanelView { code: string; gridRows: number; gridCols: number; currentNodeCode: string | null; nodes: PanelNode[]; edges: unknown[]; objects: PanelObject[] }
 
@@ -136,28 +147,48 @@ describe('地图种子 × MapService 集成（P2.0 §7）', () => {
     assert.deepStrictEqual(adjacent, ['qy_gate_e', 'qy_gate_n', 'qy_gate_s', 'qy_gate_w']);
   });
 
-  test('数据分层（T1）：真种子下发后只有历练峰带 level/threshold，其余 16 个为 null', async () => {
+  test('§22：怪物数据整体离开地图层 —— 真种子下发后 17 个节点 level/threshold 全部为 null', async () => {
     const { db } = seedDb();
     const view = await panelView(db);
     const withData = view.nodes.filter((n) => n.level !== null || n.threshold !== null);
-    assert.deepStrictEqual(withData.map((n) => n.code), ['qy_peak_xunlian']);
-    assert.equal(withData[0]?.level, 5);
-    assert.equal(withData[0]?.threshold, 75);
+    assert.deepStrictEqual(withData.map((n) => n.code), [], '§22 后节点不得带怪物数据');
     // 反例守卫：绝不能出现 `Number(null) === 0` 造成的「怪物境界 0」
     const zeros = view.nodes.filter((n) => n.level === 0 || n.threshold === 0);
     assert.deepStrictEqual(zeros.map((n) => n.code), [], 'null 不得被回落成 0');
   });
 
-  test('新角色 panel：11 个对象，宿主都在四院或主峰，featureKey 全非空、kind=office', async () => {
+  test('§22：第八峰·后山降级为普通地点 + 挂「秘境石台」对象（featureKey=realm）', async () => {
     const { db } = seedDb();
     const view = await panelView(db);
-    assert.equal(view.objects.length, 11);
-    const hosts = new Set(['qy_chuanfayuan', 'qy_yulingyuan', 'qy_baigongyuan', 'qy_zhifayuan', 'qy_summit']);
+    const back = view.nodes.find((n) => n.code === 'qy_peak_xunlian');
+    assert.equal(back?.kind, 'route');
+    assert.equal(back?.name, '第八峰·后山');
+    assert.equal(back?.featureKey, 'realm');
+    assert.equal(back?.level, null);
+    assert.equal(back?.threshold, null);
+  });
+
+  test('新角色 panel：12 个对象，宿主在四院 / 主峰 / 第八峰·后山，featureKey 全非空、kind=office', async () => {
+    const { db } = seedDb();
+    const view = await panelView(db);
+    assert.equal(view.objects.length, 12);
+    const hosts = new Set([
+      'qy_chuanfayuan',
+      'qy_yulingyuan',
+      'qy_baigongyuan',
+      'qy_zhifayuan',
+      'qy_summit',
+      'qy_peak_xunlian',
+    ]);
     for (const object of view.objects) {
       assert.ok(hosts.has(object.nodeCode), `${object.code} 的宿主非法：${object.nodeCode}`);
       assert.ok(typeof object.featureKey === 'string' && object.featureKey.length > 0, `${object.code} 缺 featureKey`);
       assert.equal(object.kind, 'office');
     }
+    // 第八峰·后山挂「秘境石台」（§22 解锁入口；对象与节点 featureKey 同为 realm）
+    const realmObjs = view.objects.filter((o) => o.nodeCode === 'qy_peak_xunlian');
+    assert.deepStrictEqual(realmObjs.map((o) => o.code), ['obj_mijing_shitai']);
+    assert.equal(realmObjs[0].featureKey, 'realm');
     // 百工院两项：丹霞院（炼丹）+ 百器阁（炼器）
     const baigong = view.objects.filter((o) => o.nodeCode === 'qy_baigongyuan').map((o) => o.code).sort();
     assert.deepStrictEqual(baigong, ['obj_baiqige', 'obj_danxiayuan']);

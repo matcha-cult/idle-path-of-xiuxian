@@ -33,6 +33,8 @@ const read = (file: string): unknown => JSON.parse(readFileSync(new URL(file, SE
 interface SeedNode {
   code: string;
   mapCode: string;
+  name?: string;
+  featureKey?: string | null;
   ring: string;
   sector: string | null;
   kind: string;
@@ -365,11 +367,13 @@ describe('青云宗种子 · 画布坐标（20×20 全部落点）', () => {
     assert.deepStrictEqual(at('qy_zhifayuan'), { row: 10, col: 5 });
   });
 
-  test('第八峰·历练是唯一秘境：kind=secret_realm + zone_code=zone_houshan（唯一挂机处）', () => {
-    const realms = nodes.filter((n) => n.kind === 'secret_realm');
-    assert.equal(realms.length, 1);
-    assert.equal(realms[0].code, 'qy_peak_xunlian');
-    assert.equal(realms[0].ring, 'peaks');
+  test('§22：第八峰·后山不再是秘境本体 —— 全图 0 个 secret_realm 节点，它本身是 route + realm', () => {
+    assert.equal(nodes.filter((n) => n.kind === 'secret_realm').length, 0, '§22 后地图上不得再有秘境节点');
+    const back = nodes.find((n) => n.code === 'qy_peak_xunlian');
+    assert.equal(back?.kind, 'route');
+    assert.equal(back?.name, '第八峰·后山');
+    assert.equal(back?.featureKey, 'realm');
+    assert.equal(back?.ring, 'peaks', '仍然是八峰之一（只是职能变了）');
   });
 
   test('全部坐标是整数、落在 0..20 内且无撞点', () => {

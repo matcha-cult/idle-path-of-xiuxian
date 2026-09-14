@@ -108,5 +108,15 @@
     "featureKey": "quest",
     "description": "宗门庶务都在这座堂里交割。",
     "orderIndex": 3
+  },
+  {
+    "code": "obj_mijing_shitai",
+    "mapCode": "map_qingyun",
+    "nodeCode": "qy_peak_xunlian",
+    "kind": "office",
+    "name": "秘境石台",
+    "featureKey": "realm",
+    "description": "一方古旧石台，石面刻满历代弟子的名讳，宗门秘境皆由此入。",
+    "orderIndex": 1
   }
 ]

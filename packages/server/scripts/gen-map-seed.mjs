@@ -14,10 +14,13 @@
  * `scripts/lib/map-layout.mjs` 纯函数 —— 把「显式格子」与「理想极坐标」组成一个 layout 对象即可。
  *
  * ## 用户修正后仍生效的硬约束
- * 1. 挂机只能在「历练秘境峰」—— 地图上不散布挂机点；kind 只有 route/secret_realm/summit，
- *    全图仅 1 个秘境（D8），它既是唯一秘境也是唯一挂机处（击败首个 Boss 解锁，D2）。
- * 2. 青云宗把玩家历练到第 5 境 —— 全图怪物境界 <= 5，门槛按 1~5 境裸装战力排布
- *    （1境=20 / 2境=40 / 3境=60 / 4境=80 / 5境=100）。
+ * 1. **§22（2026-09-14 晚）：秘境已与地图层彻底解耦** —— 全图**不再有** `secret_realm` 节点，
+ *    也不再有任何节点带 `zone_code`。第八峰·后山只是一个**地点**（`kind='route'`，
+ *    `feature_key='realm'`），宗门秘境皆由该处的「秘境石台」对象交互触发突破。
+ *    挂机条件也随之外移（改由 `game_zones.idle_allowed + cleared` 判定，见 §22 §6.3）。
+ *    ⚠️ 因此**本脚本不再产出 `level` / `threshold` / `zoneCode` 的任何非空值**。
+ * 2. 青云宗把玩家历练到第 5 境 —— 免费历练秘境只到第五境（`zone_r1`~`zone_r5`，见 §22 §3.2），
+ *    6~13 境是需道具的特殊秘境、后期实装。
  * 3. 世界结构：三千大世界，每个大世界由一个大宗门统治；第 10 境才出大世界进混沌海。
  *
  * ## 画布
@@ -62,7 +65,7 @@ const GATE_R = 10;
 
 /**
  * 八峰极角（度，0°=正东、90°=正南、270°=正北）：
- * **逆时针编号**，第一峰起于左上 `247.5°`，每峰 −45°；第八峰·历练在 `292.5°` 紧贴北门右侧。
+ * **逆时针编号**，第一峰起于左上 `247.5°`，每峰 −45°；第八峰·后山在 `292.5°` 紧贴北门右侧。
  */
 const PEAK_ANGLES = [247.5, 202.5, 157.5, 112.5, 67.5, 22.5, 337.5, 292.5];
 
@@ -77,18 +80,16 @@ const PROFESSION_PEAKS = [
   ['qy_peak_7', '第七峰'],
 ];
 
-const ZONE_BY_NODE = { qy_peak_xunlian: 'zone_houshan' };
-
 /**
  * 17 个枢纽（P2.0 §0 坐标表 + §2 四院职能）。
  *
- * 列：code / name / ring / sector / kind / featureKey / level / threshold / hasWaypoint /
+ * 列：code / name / ring / sector / kind / featureKey / hasWaypoint /
  * chapter / requires / description / gridRow / gridCol / idealR / idealA。
  * `idealR/idealA` 只用于质量度量（显式坐标相对理想极坐标的偏移），**不写进种子**。
  *
- * ⚠️ **`level` / `threshold` 只属于 `kind === 'secret_realm'` 的节点**（2026-09-14 用户判定：
- * 「宗门内总不能天天杀同门」）。宗门里的山门 / 八峰 / 四院 / 主峰都是**职能型枢纽**，
- * 没有怪物、也没有门槛 —— 种子里必须是 `null`（见下方映射与自检）。
+ * ⚠️ **§22 后本表不再有任何 `level` / `threshold` / `zoneCode`**：
+ * 秘境已从地图层移走（它们是 `game_zones` 里按境界分档的独立记录），
+ * 第八峰·后山降级为一个普通地点 + 一个「秘境石台」对象（对象在 `map-objects.json`）。
  */
 const NODES = [
   // ===== 四门（最外，四正方位）=====
@@ -112,8 +113,9 @@ const NODES = [
       '夕照时整面山壁泛着金光。',
     ][i],
   })),
-  // 第八峰·历练：唯一秘境（kind=secret_realm，zone_houshan），紧贴北门右侧
-  { code: 'qy_peak_xunlian', name: '第八峰·历练', ring: 'peaks', sector: null, kind: 'secret_realm', featureKey: null, level: 5, threshold: 75, hasWaypoint: false, chapter: 2, requires: null, gridRow: 3, gridCol: 14, idealR: PEAK_R, idealA: PEAK_ANGLES[7], description: '后山妖兽出没，宗门以此历练门人。' },
+  // 第八峰·后山：**宗门秘境的解锁入口**（§22 Q1）。它是一个普通地点 + 一处「秘境石台」对象，
+  // 本身**不是副本**（`kind='route'`，无 level/threshold/zoneCode），秘境皆由对象交互突破。
+  { code: 'qy_peak_xunlian', name: '第八峰·后山', ring: 'peaks', sector: null, kind: 'route', featureKey: 'realm', hasWaypoint: false, chapter: 2, requires: null, gridRow: 3, gridCol: 14, idealR: PEAK_R, idealA: PEAK_ANGLES[7], description: '后山幽深，一方古旧石台立于云雾间，宗门秘境皆由此入。' },
   // ===== 四院（四象环内，四正方位）=====
   { code: 'qy_chuanfayuan', name: '传法院', ring: 'inner', sector: 'N', kind: 'route', featureKey: 'skill', hasWaypoint: false, chapter: 2, requires: null, gridRow: 5, gridCol: 10, idealR: HALL_R, idealA: 270, description: '传功授法之地，藏经阁与传功崖皆在此院。' },
   { code: 'qy_yulingyuan', name: '育灵院', ring: 'inner', sector: 'E', kind: 'route', featureKey: 'farm', hasWaypoint: false, chapter: 2, requires: null, gridRow: 10, gridCol: 15, idealR: HALL_R, idealA: 0, description: '灵田药园与灵兽苑共处一院，草木生机最盛。' },
@@ -158,13 +160,14 @@ const nodes = NODES.map((n, i) => ({
   sector: n.sector ?? null,
   kind: n.kind,
   featureKey: n.featureKey ?? null,
-  // 怪物境界 / 门槛**只写进秘境节点**：其余 16 个是职能型枢纽（宗门内不刷同门）。
-  level: n.kind === 'secret_realm' ? n.level : null,
-  threshold: n.kind === 'secret_realm' ? n.threshold : null,
+  // §22：怪物数据与秘境归属**已全部离开地图层**。三列保留在表里（T10 前不删列），
+  // 但本图恒为 null —— 宗门内不刷同门，秘境也不再挂在节点上。
+  level: null,
+  threshold: null,
   hasWaypoint: n.hasWaypoint ?? false,
   chapter: n.chapter,
   requiresNodeCode: n.requires ?? null,
-  zoneCode: ZONE_BY_NODE[n.code] ?? null,
+  zoneCode: null,
   orderIndex: i + 1,
   description: n.description ?? null,
   gridRow: n.gridRow,
@@ -220,19 +223,22 @@ for (const n of nodes) {
   if (n.requiresNodeCode !== null && !codes.has(n.requiresNodeCode)) {
     bad.push('requires 未定义: ' + n.code + ' → ' + n.requiresNodeCode);
   }
-  if (n.kind === 'idle_spot') bad.push('不应存在 idle_spot 节点（挂机只能在历练秘境峰）: ' + n.code);
+  if (n.kind === 'idle_spot') bad.push('不应存在 idle_spot 节点（挂机改由 zone.idle_allowed 判定）: ' + n.code);
   if ('unitCode' in n) bad.push('节点不应带 unitCode（秘境产出由 zone 决定）: ' + n.code);
-  if ('minRealm' in n) bad.push('节点不应带 minRealm（闸门只有 threshold）: ' + n.code);
-  // 数据分层（2026-09-14 用户判定）：只有秘境节点带怪物数据，职能型枢纽必须为 null。
+  if ('minRealm' in n) bad.push('节点不应带 minRealm（§22 后连门槛都没有了）: ' + n.code);
+  // §22（2026-09-14 晚）：秘境与地图**彻底解耦** —— 节点不再是秘境的宿主。
+  // 这条断言是"解耦被撤销"的回归闸门：有人想再把秘境挂回图上，这里会先炸。
   if (n.kind === 'secret_realm') {
-    if (!Number.isInteger(n.level) || n.level < 1) bad.push('秘境节点必须带怪物境界: ' + n.code);
-    if (!Number.isInteger(n.threshold) || n.threshold <= 0) bad.push('秘境节点必须带门槛: ' + n.code);
-  } else if (n.level !== null || n.threshold !== null) {
-    bad.push('非秘境节点不得带 level/threshold（宗门内不刷同门）: ' + n.code);
+    bad.push('§22：秘境已与地图解耦，不得再有 secret_realm 节点: ' + n.code);
+  }
+  if (n.zoneCode !== null) {
+    bad.push('§22：地图节点不得再携带 zoneCode（秘境归属由 game_zones 自己表达）: ' + n.code);
+  }
+  // 数据分层（§22 起更严）：**任何**节点都不得带怪物数据（宗门内不刷同门）
+  if (n.level !== null || n.threshold !== null) {
+    bad.push('§22：地图节点不得带 level/threshold，怪物数据属于秘境: ' + n.code);
   }
 }
-const overCap = nodes.filter((n) => n.level !== null && n.level > 5).map((n) => n.code);
-if (overCap.length > 0) bad.push('怪物境界超过本图上限（第五境）: ' + overCap.join(','));
 
 // v3 §4.2 结构硬自检：每条边必须「同环角度相邻」或「相邻环角度最近」，且派生边一条不少。
 bad.push(...checkEdgeStructure(edges, nodes, cell));
@@ -246,7 +252,7 @@ for (const m of maps) {
   const mapNodes = nodes.filter((n) => n.mapCode === m.code);
   const mapEdges = edges.filter((e) => e.mapCode === m.code);
   const realms = mapNodes.filter((n) => n.kind === 'secret_realm');
-  if (realms.length > 1) bad.push('地图 ' + m.code + ' 有 ' + realms.length + ' 个秘境（D8 上限 1）');
+  if (realms.length > 0) bad.push('§22：地图 ' + m.code + ' 不得再有秘境节点（秘境已与地图解耦）');
 
   bad.push(
     ...checkLayoutFailures({
@@ -292,8 +298,8 @@ console.log(
   '自检通过：' + nodes.length + ' 节点 / ' + edges.length + ' 边 / ' + maps.length + ' 地图；' +
     '四门 ' + nodes.filter((n) => n.ring === 'outer').length +
     ' + 八峰 ' + peaks.length + '（职业峰 ' + peaks.filter((n) => n.featureKey === 'profession').length +
-    ' + 历练秘境峰 1）+ 四院 ' + halls.length + ' + 主峰 1；怪物境界上限 ' +
-    Math.max(...nodes.filter((n) => n.level !== null).map((n) => n.level)),
+    ' + 后山入口峰 1）+ 四院 ' + halls.length + ' + 主峰 1；' +
+    '§22 后地图层怪物数据 ' + nodes.filter((n) => n.level !== null || n.threshold !== null).length + ' 条（应为 0）',
 );
 console.log(
   '画布：' + GRID + '×' + GRID + ' 交叉线（' + (GRID + 1) + ' 条）/ sep=' + SEP +

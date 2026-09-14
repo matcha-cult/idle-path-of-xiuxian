@@ -161,7 +161,7 @@ describe('ChapterService.detail 边界', () => {
     }
   });
 
-  test('按 code 或数字 chapter 命中，返回 zone / 任务状态 / 奖励 / 对话', async () => {
+  test('按 code 或数字 chapter 命中，返回任务状态 / 奖励 / 对话；不再下发 zone（§22 Q1 解绑）', async () => {
     const ch = chapterRow({ code: 'c1', chapter: 1, rewards: '{"lingyun":5}', dialogues: '{"intro":"I"}' });
     const db = chapterDb({
       chapters: [ch],
@@ -175,9 +175,10 @@ describe('ChapterService.detail 边界', () => {
 
     for (const key of ['c1', '1']) {
       const data = (await makeService({ db, questList }).svc.detail(7, key)).data as {
-        chapter: { zone: { code: string } | null; rewards: unknown; dialogues: unknown; quests: Array<{ code: string; status: string }> };
+        chapter: Record<string, unknown> & { rewards: unknown; dialogues: unknown; quests: Array<{ code: string; status: string }> };
       };
-      assert.equal(data.chapter.zone?.code, 'z1');
+      // §22 Q1：章节与秘境彻底解绑 —— `zone` 字段整体消失（不是变成 null，是**不再存在**）
+      assert.ok(!('zone' in data.chapter), '章节详情不应再下发 zone（§22 Q1 已解绑）');
       assert.deepEqual(data.chapter.rewards, { lingyun: 5 });
       assert.deepEqual(data.chapter.dialogues, { intro: 'I' });
       assert.deepEqual(data.chapter.quests, [
@@ -187,11 +188,24 @@ describe('ChapterService.detail 边界', () => {
     }
   });
 
-  test('zone 缺失 -> null；非法 JSON -> rewards {} / dialogues null', async () => {
-    const ch = chapterRow({ code: 'c1', chapter: 1, rewards: 'bad', dialogues: 'bad' });
+  test('章节目录同样不再下发 zoneCode（§22 Q1）', async () => {
+    const db = chapterDb({ chapters: [chapterRow({ code: 'c1', chapter: 1 })] });
+    const data = (await makeService({ db }).svc.list(7)).data as {
+      chapters: Array<Record<string, unknown>>;
+    };
+    assert.ok(data.chapters.length > 0);
+    for (const chapter of data.chapters) {
+      assert.ok(!('zoneCode' in chapter), '章节目录不应再下发 zoneCode（§22 Q1 已解绑）');
+    }
+  });
+
+  test('zone_code 为 null（§22 后列恒为空）也不崩：不再查 game_zones、不产生 zone 字段', async () => {
+    const ch = chapterRow({ code: 'c1', chapter: 1, zone_code: null, rewards: 'bad', dialogues: 'bad' });
     const db = chapterDb({ chapters: [ch], zone: [] });
-    const data = (await makeService({ db }).svc.detail(7, 'c1')).data as { chapter: { zone: unknown; rewards: unknown; dialogues: unknown } };
-    assert.equal(data.chapter.zone, null);
+    const data = (await makeService({ db }).svc.detail(7, 'c1')).data as {
+      chapter: Record<string, unknown> & { rewards: unknown; dialogues: unknown };
+    };
+    assert.ok(!('zone' in data.chapter));
     assert.deepEqual(data.chapter.rewards, {});
     assert.equal(data.chapter.dialogues, null);
   });

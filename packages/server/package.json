@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "db:init": "node scripts/init-db.mjs",
     "db:init:game": "node scripts/init-game-db.mjs",
+    "db:migrate:realm": "node scripts/migrate-realm-unlock.mjs",
     "check:deps": "tsx scripts/check-deps.mts",
     "verify": "pnpm run typecheck && pnpm run typecheck:test && pnpm run check:deps && pnpm run test:unit",
     "smoke:ws": "tsx scripts/ws-smoke.mts",
