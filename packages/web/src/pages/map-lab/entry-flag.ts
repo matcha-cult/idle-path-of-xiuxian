@@ -16,6 +16,23 @@
 export const MAP_LAB_PARAM = 'mapLab';
 
 /**
+ * 是否显示**开发者帧率表**（`?mapLabPerf=1`）。
+ *
+ * 用途：让「手感」在真机上可读 —— 拖动 / 缩放时直接看到掉帧数与最差帧，而不是靠"感觉卡"。
+ * 默认**关**：验收页面不该被调试读数占用（与 `?mapGrid=1` 同一取舍）。
+ */
+export const MAP_LAB_PERF_PARAM = 'mapLabPerf';
+
+export function shouldShowFrameMeter(search: string): boolean {
+  if (typeof search !== 'string') return false;
+  try {
+    return new URLSearchParams(search).get(MAP_LAB_PERF_PARAM) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 是否走新入口。
  *
  * 边界：`search` 带不带 `?` 都接受；重复参数取**第一个**（与 `URLSearchParams.get` 一致）；

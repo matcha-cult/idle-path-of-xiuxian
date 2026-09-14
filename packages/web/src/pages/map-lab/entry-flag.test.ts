@@ -3,7 +3,7 @@
  * 因此把边界全部钉住：只有完整值 `1` 才算开，其余一律回退旧入口。
  */
 import { describe, expect, it } from 'vitest';
-import { MAP_LAB_PARAM, shouldUseMapLab } from './entry-flag.js';
+import { MAP_LAB_PARAM, MAP_LAB_PERF_PARAM, shouldShowFrameMeter, shouldUseMapLab } from './entry-flag.js';
 
 describe('shouldUseMapLab', () => {
   it('?mapLab=1 → 开', () => {
@@ -47,5 +47,28 @@ describe('shouldUseMapLab', () => {
 
   it('参数名是常量（避免两处写死字符串漂移）', () => {
     expect(MAP_LAB_PARAM).toBe('mapLab');
+    expect(MAP_LAB_PERF_PARAM).toBe('mapLabPerf');
+  });
+});
+
+describe('shouldShowFrameMeter（开发者帧率表，默认关）', () => {
+  it('?mapLabPerf=1 → 显示；可与 ?mapLab=1 共存', () => {
+    expect(shouldShowFrameMeter('?mapLabPerf=1')).toBe(true);
+    expect(shouldShowFrameMeter('?mapLab=1&mapLabPerf=1')).toBe(true);
+  });
+
+  it('默认关：缺省 / 非法值都不显示（验收页面不被调试读数占用）', () => {
+    for (const search of ['', '?', '?mapLabPerf=0', '?mapLabPerf=x', '?mapLab=1', '?mapPerf=1']) {
+      expect(shouldShowFrameMeter(search)).toBe(false);
+    }
+  });
+
+  it('非法 search 不抛错', () => {
+    expect(shouldShowFrameMeter(undefined as unknown as string)).toBe(false);
+  });
+
+  it('两个开关互相独立（只开入口不开帧率表）', () => {
+    expect(shouldUseMapLab('?mapLab=1')).toBe(true);
+    expect(shouldShowFrameMeter('?mapLab=1')).toBe(false);
   });
 });

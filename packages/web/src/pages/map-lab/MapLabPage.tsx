@@ -15,8 +15,10 @@
  * - **自己补页边距**：`.app--game` 的 `padding: 0` 是留给 `AppShell` 的，本页不在那个壳里必须自己补；
  * - 协议字段不上屏：`code` 只做 key/testid。
  *
- * ⚠️ 「传送点亮」是**会话态**（`unlocked`），刷新即回初始 —— 页面顶部常驻说明；
+ * ⚠️ 「传送点亮」是**会话态**（`unlocked`），刷新即回初始（顶部常驻说明）；
  * 持久化需要后端 `map.interact`（`24-总待办与优先级.md` §2 B1），本轮不做。
+ *
+ * `?mapLabPerf=1` 额外挂开发者**帧率表**（掉帧数 / 最差帧），供真机验收读数字。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
@@ -24,21 +26,18 @@ import { Col, Flex, Grid, Row, theme } from 'antd';
 import { AsyncBoundary, SectionCard } from '@idle-path/ui-kit';
 import { useRootStore } from '../../app/root-context.js';
 import { AppThemeToggle } from '../../components/AppThemeToggle.js';
-import { MapCanvasLegend } from '../game/panels/map/MapCanvasLegend.js';
 import { MapHintBar } from '../game/panels/map/MapHintBar.js';
 import { MapNodeList } from '../game/panels/map/MapNodeList.js';
 import { MapOverview } from '../game/panels/map/MapOverview.js';
 import { MapToolbar } from '../game/panels/map/MapToolbar.js';
-import { REALM_FEATURE_KEY } from '../game/panels/map/feature-registry.js';
 import { isCanvasGridReady } from '../game/panels/map/canvas-view.js';
 import { resolveMapDebug } from '../game/panels/map/debug-flags.js';
 import { MapLabCanvas } from './MapLabCanvas.js';
 import { MapLabNotice } from './MapLabNotice.js';
-import { MapLabObjectPanel } from './MapLabObjectPanel.js';
-import { MapLabRealmSection } from './MapLabRealmSection.js';
-import { MapLabTravelCard } from './MapLabTravelCard.js';
-import { WaypointInteractCard } from './WaypointInteractCard.js';
+import { LabFrameMeter } from './LabFrameMeter.js';
+import { MapLabRightColumn } from './MapLabRightColumn.js';
 import { buildLabObjects } from './lab-objects.js';
+import { shouldShowFrameMeter } from './entry-flag.js';
 import { travelDecision, unlockWaypoint, unlockedCount, type TravelKind } from './waypoint-gate.js';
 
 /** 画布高度：整图适配按面板短边算，太扁会把图压小（§14.4）。 */
@@ -72,6 +71,8 @@ export const MapLabPage = observer(function MapLabPage() {
   const gridCols = currentMap?.gridCols ?? 0;
   const mode = isCanvasGridReady(gridRows, gridCols) ? 'canvas' : 'list';
   const debug = resolveMapDebug(import.meta.env, window.location.search);
+  // 开发者帧率表：默认关（`?mapLabPerf=1`）—— 真机验收时用来读掉帧数与最差帧
+  const showMeter = shouldShowFrameMeter(window.location.search);
   const compact = screens.md === false;
 
   const fallback = nodes.find((node) => node.code === map.currentCode) ?? nodes[0] ?? null;
@@ -80,8 +81,6 @@ export const MapLabPage = observer(function MapLabPage() {
     () => buildLabObjects(nodes, currentMap?.objects ?? NO_OBJECTS, unlocked),
     [nodes, currentMap, unlocked],
   );
-  // 秘境石台只在第八峰·后山（featureKey=realm）出现；原样复用 §22 已交付的交互区
-  const realmSection = selected?.featureKey !== REALM_FEATURE_KEY ? null : <MapLabRealmSection />;
 
   /** 移动：唯一的规范路径（按钮 / PC 双击）。相邻走 `enter`，传送走 `waypoint`。 */
   const travel = (code: string, kind: TravelKind): void => {
@@ -159,37 +158,23 @@ export const MapLabPage = observer(function MapLabPage() {
                 )}
               </Col>
               <Col xs={24} md={7} data-testid="map-lab-objects-col">
-                <Flex vertical gap={12}>
-                  <MapCanvasLegend />
-                  <MapLabObjectPanel
-                    objects={labObjects}
-                    selectedNodeCode={selected?.code ?? null}
-                    onFocusNode={setSelectedCode}
-                  />
-                  {selected === null ? null : (
-                    <>
-                      <WaypointInteractCard
-                        node={selected}
-                        currentCode={map.currentCode}
-                        unlocked={unlocked}
-                        onInteract={interactWaypoint}
-                      />
-                      <MapLabTravelCard
-                        node={selected}
-                        decision={travelDecision(selected, map.currentCode, unlocked)}
-                        moving={map.moving}
-                        movingTo={map.movingTo}
-                        onTravel={travel}
-                      />
-                    </>
-                  )}
-                  {realmSection}
-                </Flex>
+                <MapLabRightColumn
+                  objects={labObjects}
+                  selected={selected}
+                  currentCode={map.currentCode}
+                  unlocked={unlocked}
+                  moving={map.moving}
+                  movingTo={map.movingTo}
+                  onFocusNode={setSelectedCode}
+                  onInteract={interactWaypoint}
+                  onTravel={travel}
+                />
               </Col>
             </Row>
           </Flex>
         </AsyncBoundary>
       </SectionCard>
+      {showMeter ? <LabFrameMeter /> : null}
       <MapHintBar touch={compact} />
       <AppThemeToggle />
     </Flex>
