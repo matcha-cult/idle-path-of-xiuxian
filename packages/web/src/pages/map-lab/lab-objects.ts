@@ -56,6 +56,15 @@ export function realmKeyOf(nodeCode: string): string {
 /**
  * 汇总本图全部可交互对象。
  *
+ * ⚠️ **去重口径（真实种子抓出来的缺陷）**：`buildLabObjects` 同时从**节点**派生传送点/秘境入口、
+ * 又从**服务端对象**取职能入口，两者可能描述**同一件事** —— 例如种子里 `obj_mijing_shitai`
+ * （秘境石台）本身 `featureKey='realm'`，而它所在的第八峰·后山节点也是 `featureKey='realm'`，
+ * 于是右栏会出现**两行秘境石台**（假数据只有 3~4 个节点时看不出来）。
+ *
+ * 因此有两条规则：
+ * 1. 服务端对象若 `featureKey = realm`，**它就是秘境入口**（归类为 `realm`，不是职能入口）；
+ * 2. 同一 `(宿主节点, featureKey)` 已被服务端对象覆盖时，**不再派生**对应行。
+ *
  * @param nodes 服务端下发的节点（本图）
  * @param objects 服务端下发的职能对象（本图全量）
  * @param unlocked **本会话已交互点亮**的传送点集合（见 `waypoint-gate.ts`）
@@ -66,8 +75,12 @@ export function buildLabObjects(
   unlocked: ReadonlySet<string>,
 ): LabObject[] {
   const byCode = new Map(nodes.map((node) => [node.code, node]));
+  const covered = new Set(objects.map((object) => `${object.nodeCode}#${object.featureKey ?? ''}`));
+  const isCovered = (nodeCode: string, featureKey: string): boolean =>
+    covered.has(`${nodeCode}#${featureKey}`);
+
   const waypoints: LabObject[] = nodes
-    .filter((node) => node.hasWaypoint)
+    .filter((node) => node.hasWaypoint && !isCovered(node.code, 'waypoint'))
     .map((node) => ({
       key: waypointKeyOf(node.code),
       kind: 'waypoint',
@@ -79,7 +92,7 @@ export function buildLabObjects(
       done: unlocked.has(node.code),
     }));
   const realms: LabObject[] = nodes
-    .filter((node) => node.featureKey === REALM_FEATURE_KEY)
+    .filter((node) => node.featureKey === REALM_FEATURE_KEY && !isCovered(node.code, REALM_FEATURE_KEY))
     .map((node) => ({
       key: realmKeyOf(node.code),
       kind: 'realm',
@@ -90,14 +103,15 @@ export function buildLabObjects(
       featureKey: node.featureKey,
       done: false,
     }));
-  const offices: LabObject[] = objects.flatMap((object) => {
+  const fromServer: LabObject[] = objects.flatMap((object) => {
     const host = byCode.get(object.nodeCode);
     // 宿主节点未下发 → 整条丢弃（不造点、不回显 code）
     if (host === undefined) return [];
     return [
       {
         key: object.code,
-        kind: 'office' as const,
+        // 秘境入口的对象行归类为 realm —— 否则它会掉进「职能入口」组，与派生行也不一致
+        kind: object.featureKey === REALM_FEATURE_KEY ? ('realm' as const) : ('office' as const),
         name: object.name,
         nodeCode: object.nodeCode,
         nodeName: host.name,
@@ -107,7 +121,7 @@ export function buildLabObjects(
       },
     ];
   });
-  return [...waypoints, ...realms, ...offices];
+  return [...waypoints, ...realms, ...fromServer];
 }
 
 /** 某个地点的可交互对象（右栏「此处可交互」用）。 */

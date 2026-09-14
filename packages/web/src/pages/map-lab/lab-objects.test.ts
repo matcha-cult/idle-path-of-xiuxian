@@ -56,6 +56,65 @@ describe('三类来源', () => {
   });
 });
 
+describe('去重与归类（真实种子抓出来的缺陷）', () => {
+  it('服务端对象的 featureKey=realm → 归类为「秘境入口」，不掉进职能入口组', () => {
+    const host = makeNode({ code: 'qy_houshan', name: '第八峰·后山', hasWaypoint: false, featureKey: 'realm' });
+    const objects = buildLabObjects(
+      [host],
+      [makeObject({ code: 'obj_mijing_shitai', nodeCode: 'qy_houshan', name: '秘境石台', featureKey: 'realm' })],
+      none,
+    );
+    expect(objects).toHaveLength(1);
+    expect(objects[0]).toMatchObject({ key: 'obj_mijing_shitai', kind: 'realm', name: '秘境石台' });
+  });
+
+  it('⭐ 同一 (节点, realm) 已被对象覆盖 → 不再派生，秘境石台不会出现两行', () => {
+    const host = makeNode({ code: 'qy_houshan', name: '第八峰·后山', hasWaypoint: false, featureKey: 'realm' });
+    const objects = buildLabObjects(
+      [host],
+      [makeObject({ code: 'obj_mijing_shitai', nodeCode: 'qy_houshan', featureKey: 'realm' })],
+      none,
+    );
+    expect(objects.filter((object) => object.kind === 'realm')).toHaveLength(1);
+    expect(objects.some((object) => object.key === realmKeyOf('qy_houshan'))).toBe(false);
+  });
+
+  it('节点有 realm 但没有对应对象（旧地图）→ 仍派生一行，机制不因种子差异而消失', () => {
+    const host = makeNode({ code: 'qy_houshan', name: '第八峰·后山', hasWaypoint: false, featureKey: 'realm' });
+    const objects = buildLabObjects([host], [], none);
+    expect(objects.map((object) => object.key)).toEqual([realmKeyOf('qy_houshan')]);
+  });
+
+  it('同一 (节点, waypoint) 已被对象覆盖 → 不再派生传送点行（对象行仍以职能入口存在）', () => {
+    const host = makeNode({ code: 'qy_summit', name: '青云主峰', hasWaypoint: true, featureKey: null });
+    const objects = buildLabObjects(
+      [host],
+      [makeObject({ code: 'obj_hufatang', nodeCode: 'qy_summit', name: '护法堂', featureKey: 'waypoint' })],
+      none,
+    );
+    // 只剩对象那一行，没有重复的 `wp:qy_summit`
+    expect(objects.map((object) => object.key)).toEqual(['obj_hufatang']);
+    expect(objects.some((object) => object.key === waypointKeyOf('qy_summit'))).toBe(false);
+    // 有意**不**把 `waypoint` 对象重归类为「传送点」：否则四门（4）之外还会多出一个「传送点」，
+    // 与「17 枢纽里 4 个门有传送点」的既有口径打架。只有 `realm` 对象才重归类。
+    expect(objects[0]?.kind).toBe('office');
+  });
+
+  it('不同节点上的同名 feature 互不影响（去重键是 节点+feature，不是 feature）', () => {
+    const a = makeNode({ code: 'n_a', name: '甲', hasWaypoint: false, featureKey: 'realm' });
+    const b = makeNode({ code: 'n_b', name: '乙', hasWaypoint: false, featureKey: 'realm' });
+    const objects = buildLabObjects(
+      [a, b],
+      [makeObject({ code: 'obj_a', nodeCode: 'n_a', featureKey: 'realm' })],
+      none,
+    );
+    expect(objects.filter((object) => object.kind === 'realm').map((object) => object.key).sort()).toEqual([
+      'obj_a',
+      realmKeyOf('n_b'),
+    ]);
+  });
+});
+
 describe('边界', () => {
   it('宿主节点未下发的职能对象 → 整条丢弃（不造点、不回显 code）', () => {
     const dangling = makeObject({ code: 'obj_ghost', nodeCode: 'qy_deleted', name: '不存在' });
