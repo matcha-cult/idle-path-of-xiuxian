@@ -182,21 +182,25 @@ describe('zone.types 再导出与纯函数', () => {
   });
 
   const zone: ZoneRow = {
-    id: 1, code: 'z', name: 'z', chapter: 1, order_index: 1, min_realm: 1,
+    id: 1, code: 'z', name: 'z', order_index: 1,
     unit_code: 'u', boss_code: 'b', base_power: 100, power_step: 50,
     max_floor: 10, lingyun_bonus_per_floor: 1, boss_every_floors: 5,
-    require_prev_best_floor: 0, tier_bonus_every_floors: 3, drop_bonus_every_floors: 4,
+    tier_bonus_every_floors: 3, drop_bonus_every_floors: 4,
+    // §22 新列：境界档位（可空）/ 类别 / 突破道具 / 可挂机
+    realm: 2, tier_kind: 'training', unlock_item_code: null, idle_allowed: true,
+    // §22 语义作废但仍保留的旧列（可空）；require_prev_best_floor 仍在
+    chapter: null, min_realm: null, require_prev_best_floor: 0,
   };
   const noBonus: ZoneRow = {
     ...zone, boss_code: null, boss_every_floors: 0,
     tier_bonus_every_floors: 0, drop_bonus_every_floors: 0,
   };
 
-  test('progressOf：无进度回退 1/0/false，有进度做数值转换', () => {
-    assert.deepEqual(progressOf(null), { floor: 1, bestFloor: 0, cleared: false });
+  test('progressOf：无进度回退 1/0/false/0，有进度做数值转换（§22 新增 clears）', () => {
+    assert.deepEqual(progressOf(null), { floor: 1, bestFloor: 0, cleared: false, clears: 0 });
     assert.deepEqual(
-      progressOf({ id: 1, character_id: 1, zone_id: 1, floor: '3', best_floor: '5', cleared: 1 } as never),
-      { floor: 3, bestFloor: 5, cleared: true },
+      progressOf({ id: 1, character_id: 1, zone_id: 1, floor: '3', best_floor: '5', cleared: 1, clears: '2' } as never),
+      { floor: 3, bestFloor: 5, cleared: true, clears: 2 },
     );
   });
 

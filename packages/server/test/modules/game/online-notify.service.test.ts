@@ -1,8 +1,11 @@
 /**
- * OnlineNotifyService 边界测试（P3.0 T5；任务书 §4）。
+ * OnlineNotifyService 边界测试（P3.0 T5；任务书 §4；§22 重做帧字段后口径不变）。
  *
  * 重点：**节流**（10 秒内 ≤ ceil(10000/pushEveryMs) 次）、合并（击杀/灵韵求和、事件并集）、
  * 「没内容不发」、路由正确（`cmd=100, subCmd=5`）、端口未命中也不抛。
+ *
+ * §22 变更：帧工厂按新契约构造 —— `zone` 带 `realm`、去 `nodeCode/nodeName/idleUnlocked`、
+ * 加 `clears`；合并语义本身没变（快照取最新 / 产出求和 / 事件并集保序去重）。
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,13 +20,12 @@ function frame(overrides: Partial<ZoneOnlineFrame> = {}): ZoneOnlineFrame {
     online: true,
     exploring: true,
     reason: 'ok',
-    zone: { code: 'zone_houshan', name: '后山历练峰' },
-    nodeCode: 'qy_peak_xunlian',
-    nodeName: '第八峰·历练',
+    zone: { code: 'zone_houshan', name: '后山历练峰', realm: 5 },
     floor: 1,
     maxFloor: 3,
     bestFloor: 0,
     cleared: false,
+    clears: 0,
     isBossFloor: false,
     playerPower: 100,
     floorRequirement: 75,
@@ -31,7 +33,6 @@ function frame(overrides: Partial<ZoneOnlineFrame> = {}): ZoneOnlineFrame {
     killsPerFloor: ONLINE_TICK.killsPerFloor,
     stuck: false,
     shortfall: 0,
-    idleUnlocked: false,
     kills: 1,
     lingyunGained: 3,
     events: [],
@@ -156,14 +157,33 @@ describe('OnlineNotifyService · 合并语义', () => {
   test('快照字段取最新（层数 / 进度 / 卡层提示以最后一拍为准）', () => {
     const port = fakePort();
     const notify = new OnlineNotifyService(port);
-    notify.record(7, 11, frame({ floor: 1 }), 0);
+    notify.record(7, 11, frame({ floor: 1, clears: 0, cleared: false }), 0);
     notify.record(7, 11, frame({ floor: 2, stuck: true, shortfall: 7 }), 1_000);
-    notify.record(7, 11, frame({ floor: 2, floorKills: 3, stuck: true, shortfall: 7 }), 3_000);
+    notify.record(
+      7,
+      11,
+      frame({
+        floor: 2,
+        floorKills: 3,
+        stuck: true,
+        shortfall: 7,
+        cleared: true,
+        clears: 1,
+        exploring: false,
+        reason: 'no_battle',
+      }),
+      3_000,
+    );
     const merged = port.sent[1]?.data as ZoneOnlineFrame;
     assert.equal(merged.floor, 2);
     assert.equal(merged.floorKills, 3);
     assert.equal(merged.stuck, true);
     assert.equal(merged.shortfall, 7);
+    // §22：踏满一轮的终帧作为最新快照覆盖合并结果（不守住旧的状态位）
+    assert.equal(merged.cleared, true);
+    assert.equal(merged.clears, 1);
+    assert.equal(merged.exploring, false);
+    assert.equal(merged.reason, 'no_battle');
   });
 
   test('合并只影响待发帧，不修改传入的帧对象', () => {

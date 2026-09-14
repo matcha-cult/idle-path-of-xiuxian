@@ -95,19 +95,56 @@ async function main(): Promise<void> {
   const breakthrough = await client.call(80, 2, {});
   check('突破 realm.breakthrough', business(breakthrough).success === true, breakthrough);
 
-  // 8) 秘境
+  // 8) 秘境（§22 重做后的完整闭环：图鉴 → 突破 → 战斗进度 → 在线互斥 → 离开 → 挂机点闸门）
   const zones = await client.call(100, 1, {});
-  const zoneData = (zones.data as { data?: { zones?: Array<{ code?: string; unlocked?: boolean }> } } | undefined)?.data;
-  const zoneList = zoneData?.zones ?? [];
-  const zoneCode = (zoneList.find((z) => z.unlocked) ?? zoneList[0])?.code;
-  check('秘境图鉴 zone.zones', business(zones).success === true && typeof zoneCode === 'string', zones);
-  if (zoneCode) {
-    const enter = await client.call(100, 3, { zoneCode });
-    check('进入秘境 zone.enter', business(enter).ok, enter);
-    const challenge = await client.call(100, 4, {});
-    check('层数挑战 zone.challenge（业务成败均可，需通道成功）', business(challenge).ok, challenge);
+  const zoneData = (
+    zones.data as
+      | {
+          data?: {
+            zones?: Array<{ code?: string }>;
+            breakthrough?: Array<{ code?: string; canBreakthrough?: boolean; tierKind?: string }>;
+          };
+        }
+      | undefined
+  )?.data;
+  // 新角色尚未突破任何秘境 → `zones` 必为空数组（§22 Q4：未解锁的不下发）；
+  // 可突破的目标只能从 `breakthrough`（全量名录）里找。
+  const freeRealm = (zoneData?.breakthrough ?? []).find((z) => z.canBreakthrough === true);
+  check(
+    '秘境图鉴 zone.zones（已突破为空 + 突破名录非空）',
+    business(zones).success === true && (zoneData?.zones?.length ?? -1) === 0 && typeof freeRealm?.code === 'string',
+    zones,
+  );
+  if (freeRealm?.code) {
+    const zoneCode = freeRealm.code;
+    const breakthrough = await client.call(100, 7, { zoneCode });
+    check('突破秘境 zone.breakthrough（免费历练秘境放行）', business(breakthrough).ok, breakthrough);
+
     const progress = await client.call(100, 2, {});
-    check('秘境进度 zone.progress', business(progress).success === true);
+    check('战斗进度 zone.progress', business(progress).success === true, progress);
+
+    // §22 Q6：在线战斗期间离线挂机必须被拒（onLine 状态以 game_zone_state 为准）
+    const blockedIdle = await client.call(130, 2, {});
+    const blockedCode = (blockedIdle.data as { data?: { code?: string } } | undefined)?.data?.code;
+    check('在线战斗中离线挂机被拒（ONLINE_BATTLE_ACTIVE）', blockedCode === 'ONLINE_BATTLE_ACTIVE', blockedIdle);
+
+    // 未突破（clears = 0）不得设为挂机点
+    const idleTarget = await client.call(100, 9, { zoneCode });
+    const idleCode = (idleTarget.data as { data?: { code?: string } } | undefined)?.data?.code;
+    check('未突破不可设为挂机点（ZONE_NOT_IDLE_ELIGIBLE）', idleCode === 'ZONE_NOT_IDLE_ELIGIBLE', idleTarget);
+
+    const leave = await client.call(100, 8, {});
+    check('离开秘境 zone.leave', business(leave).success === true, leave);
+
+    // 离开后不在战斗中 → progress 回到 NO_ONLINE_BATTLE（初始态，不是通道失败）
+    const afterLeave = await client.call(100, 2, {});
+    const afterCode = (afterLeave.data as { data?: { code?: string } } | undefined)?.data?.code;
+    check('离开后无战斗（NO_ONLINE_BATTLE）', afterCode === 'NO_ONLINE_BATTLE', afterLeave);
+
+    // 重复挑战入口：未突破时 zone.enter 应被拒
+    const enterLocked = await client.call(100, 3, { zoneCode });
+    const enterCode = (enterLocked.data as { data?: { code?: string } } | undefined)?.data?.code;
+    check('未突破不可直接进入（ZONE_NOT_UNLOCKED）', enterCode === 'ZONE_NOT_UNLOCKED', enterLocked);
   }
 
   // 9) 任务

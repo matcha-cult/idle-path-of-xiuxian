@@ -72,7 +72,6 @@ const CASES: Array<[number, number, string, Record<string, unknown>]> = [
   [90, 1, 'combat.units', {}],
   [90, 2, 'combat.dropTables', {}],
   [100, 1, 'zone.zones', {}],
-  [100, 2, 'zone.progress', {}],
   [110, 1, 'quest.list', {}],
   [110, 4, 'quest.chapterList', {}],
   [130, 1, 'idle.status', {}],
@@ -117,6 +116,18 @@ async function main(): Promise<void> {
     const ok = !res.errorCode && payload?.success === true;
     console.log(`${ok ? '✓' : '✗'} (${cmd},${subCmd}) ${name} → ${ok ? payload?.message ?? 'ok' : JSON.stringify(res).slice(0, 160)}`);
     if (!ok) failures.push(`(${cmd},${subCmd}) ${name}`);
+  }
+
+  // ===== §22：`zone.progress` 是**预期业务失败**，不进上面的「必须成功」清单 =====
+  // 新角色不在任何秘境战斗里（`game_zone_state` 无行）→ NO_ONLINE_BATTLE，属正常初始态。
+  {
+    const noBattle = await wsCall({ cmd: 100, subCmd: 2, data: {} }, token);
+    const code = (noBattle.data as { data?: { code?: string } } | undefined)?.data?.code;
+    const noBattleOk = !noBattle.errorCode && code === 'NO_ONLINE_BATTLE';
+    console.log(
+      `${noBattleOk ? '✓' : '✗'} (100,2) zone.progress（未在战斗）→ ${code ?? JSON.stringify(noBattle).slice(0, 120)}`,
+    );
+    if (!noBattleOk) failures.push('(100,2) zone.progress 未返回 NO_ONLINE_BATTLE');
   }
 
   // ===== 道具/装备写入链路（D1.1：prop→item、equip→item） =====

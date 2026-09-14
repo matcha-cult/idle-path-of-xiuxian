@@ -1,24 +1,19 @@
 /**
- * 地图服务（settings-revision-2 §5 / §6 / §7）
+ * 地图服务（settings-revision-2 §5 / §6 / §7；§22 修订）
  *
  * 职责（本轮的实现边界）：
  * - `panel`：下发该角色**已发现**的地图线路图（节点 + 边 + 进度），未发现节点不下发（§5.2）；
  * - `enter`：跑图移动，确定性战力检定（`playerPower ≥ node.threshold`，§6.2），
  *   首次到达写 `visited`，带传送点的节点同时点亮 `waypoint_unlocked`（§5.2）；幂等；
- * - `waypoint`：直达任意 `waypoint_unlocked = true` 的节点（§5.2）；
- * - `onZoneFloorPassed`：zone 域层数推进到 Boss 层时置位秘境的 `idle_unlocked`（§5.5 / D2）；
- * - `zoneIdleGate`：idle 域离线结算前的闸门判定（未解锁的秘境不得离线挂机，§2 第 2 步）。
+ * - `waypoint`：直达任意 `waypoint_unlocked = true` 的节点（§5.2）。
  *
- * **不负责**：秘境内部层数与产出（zone 域）、秘境挂机每小时产出结算（idle 域）、
+ * **不负责**：秘境（§22 起与地图**彻底解耦** —— 突破/解锁/挂机全在 zone 域，
+ * `onZoneFloorPassed` / `zoneIdleGate` / `secretRealmNodeView` 三个跨域钩子已删除）、
  * 「承载系统是否已实现」（客户端 registry）、地图的剧情解锁（章节域，未接线）。
  *
- * ⚠️ 设计修正（用户定调，见设计追踪修订 `052b146`）：**挂机只能在秘境峰** ——
- * 地图上不再散布独立挂机节点，全图唯一的离线挂机处就是 `secret_realm` 节点
- * （青云宗 = 后山峰）。因此本域只处理 `route` / `secret_realm` / `summit` 三类节点。
- *
- * ⚠️ 数据分层（2026-09-14 用户判定「宗门内总不能天天杀同门」）：`level`（怪物境界）与
- * `threshold`（门槛）**只属于 `kind='secret_realm'` 的节点**，其余 16 个职能型枢纽两列都是
- * `NULL` → DTO 下发 `null` → 右栏完全不显示战斗数据（改为显示职能对象）。
+ * ⚠️ §22 数据分层反转：`level`（怪物境界）/ `threshold`（门槛）/ `zone_code`
+ * **不再有任何非空值** —— 秘境搬进 `game_zones` 后，宗门里的 17 个枢纽都是
+ * 职能型地点（没有怪物）。
  *
  * 战力复用 `character/player-power.service.ts`（与 zone 域同一实现），不在此另算一份。
  */
@@ -26,11 +21,6 @@ import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { PlayerPowerService } from '../../../character/player-power.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
-import type {
-  ZoneFloorAdvancedEvent,
-  ZoneIdleGate,
-  ZoneIdleUnlockResult,
-} from '../map.api.js';
 import {
   type FailResult,
   type MapEdgeRow,
@@ -125,15 +115,6 @@ export class MapService {
 
   private async nodeByCode(code: string): Promise<MapNodeRow | null> {
     const rows = await this.gameDb.query<MapNodeRow>('SELECT * FROM game_map_nodes WHERE code = $1', [code]);
-    return rows.rows[0] ?? null;
-  }
-
-  /** 秘境节点：只认 kind=secret_realm 且 zone_code 命中的节点（§5.3） */
-  private async secretRealmNodeByZoneCode(zoneCode: string): Promise<MapNodeRow | null> {
-    const rows = await this.gameDb.query<MapNodeRow>(
-      "SELECT * FROM game_map_nodes WHERE zone_code = $1 AND kind = 'secret_realm' ORDER BY id",
-      [zoneCode],
-    );
     return rows.rows[0] ?? null;
   }
 
@@ -430,82 +411,6 @@ export class MapService {
       success: true,
       message: '已传送至：' + node.name,
       data: { node: this.nodeView(node, progress) },
-    };
-  }
-
-  /**
-   * zone 域层数推进挂钩：Boss 层通过 / 通关 → 置位该秘境节点的 `idle_unlocked`（§5.5 / D2）。
-   *
-   * 层数是否到达 Boss 由 zone 域判定后随事件传入，本方法只做置位。
-   * **幂等**：已置位则直接返回，不重复写库（故 `changed` 只在第一次为 true）。
-   * 没有地图节点的遗留秘境（`zone_qingyun` 等 5 个）返回 `no_map_node`，不产生任何写入。
-   */
-  async onZoneFloorPassed(
-    characterId: number,
-    event: ZoneFloorAdvancedEvent,
-  ): Promise<ZoneIdleUnlockResult> {
-    if (!event.isBossFloor && !event.cleared) {
-      return { changed: false, nodeCode: null, reason: 'not_boss' };
-    }
-    const node = await this.secretRealmNodeByZoneCode(event.zoneCode);
-    if (!node) return { changed: false, nodeCode: null, reason: 'no_map_node' };
-
-    const existing = await this.progressRow(characterId, Number(node.id));
-    if (existing?.idle_unlocked) {
-      return { changed: false, nodeCode: node.code, reason: 'already_unlocked' };
-    }
-    await this.gameDb.query(
-      `INSERT INTO game_node_progress (character_id, node_id, visited, waypoint_unlocked, idle_unlocked, cleared)
-       VALUES ($1, $2, FALSE, FALSE, TRUE, $3)
-       ON CONFLICT (character_id, node_id)
-       DO UPDATE SET idle_unlocked = TRUE,
-                     cleared = game_node_progress.cleared OR EXCLUDED.cleared,
-                     updated_at = CURRENT_TIMESTAMP`,
-      [characterId, node.id, Boolean(event.cleared)],
-    );
-    return { changed: true, nodeCode: node.code, reason: 'unlocked' };
-  }
-
-  /**
-   * 在线历练白名单判定（P3.0 T4）：该秘境是否挂在某个 `secret_realm` 地图节点上，
-   * 并带上该角色的 `idle_unlocked`（面板要显示「已解锁离线挂机」，推送要判幂等）。
-   *
-   * 与 `zoneIdleGate` 的区别：本方法只回答「这张图上的秘境峰在哪、解锁了没」，**不带离线
-   * 闸门的过渡语义**（`enforced` 那段是临时规则，退场后会删除，不能拿来做在线判定）。
-   */
-  async secretRealmNodeView(
-    characterId: number,
-    zoneCode: string,
-  ): Promise<{ nodeCode: string; nodeName: string; idleUnlocked: boolean } | null> {
-    const node = await this.secretRealmNodeByZoneCode(zoneCode);
-    if (!node) return null;
-    const progress = progressView(await this.progressRow(characterId, Number(node.id)));
-    return { nodeCode: node.code, nodeName: node.name, idleUnlocked: progress.idleUnlocked };
-  }
-
-  /**
-   * 离线挂机闸门（§2 第 2 步 / R2-3）。
-   *
-   * **过渡规则**：只有挂在某个地图节点上的秘境才受闸门约束。5 个遗留秘境
-   * （`zone_qingyun` / `zone_miwu` / `zone_guhai` / `zone_dajie` / `zone_hundun`）
-   * 在 `game_map_nodes` 里没有对应节点，返回 `enforced = false`，其离线结算行为保持不变。
-   *
-   * 退场条件：等地图形 2/3 定义完、这批遗留秘境被重新归属到地图节点之后，删掉这里的
-   * `enforced` 分支（闸门对所有秘境一律生效）。迁移债由
-   * `packages/server/test/modules/map-seed.test.ts` 的「未归属任何地图节点的遗留秘境」
-   * 用例守着 —— 该用例失败即表示可以删除过渡分支。
-   */
-  async zoneIdleGate(characterId: number, zoneCode: string): Promise<ZoneIdleGate> {
-    const node = await this.secretRealmNodeByZoneCode(zoneCode);
-    if (!node) {
-      return { enforced: false, unlocked: false, nodeCode: null, nodeName: null };
-    }
-    const progress = progressView(await this.progressRow(characterId, Number(node.id)));
-    return {
-      enforced: true,
-      unlocked: progress.idleUnlocked,
-      nodeCode: node.code,
-      nodeName: node.name,
     };
   }
 }

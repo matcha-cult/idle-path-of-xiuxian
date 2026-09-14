@@ -5,7 +5,6 @@ import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/common/kernel/result.js';
 import type { SettleResult, SettlementData } from '../../../src/modules/logic/combat/combat.api.js';
 import type { ZoneEncounter } from '../../../src/modules/logic/zone/internal/zone.service.js';
-import type { ZoneIdleGate } from '../../../src/modules/logic/map/map.api.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';
@@ -58,25 +57,26 @@ function makeService(opts: {
   character?: Character | null;
   encounter?: ZoneEncounter | null;
   settle?: SettleResult;
-  gate?: ZoneIdleGate;
+  /** §22 Q6：是否在线战斗中（game_zone_state 有行）。缺省 false。 */
+  inBattle?: boolean;
 }) {
   const character = opts.character === undefined ? makeChar() : opts.character;
   const charStub = { findByUserId: stub(async () => character) };
   const unitStub = { settleKills: stub(async () => opts.settle ?? okSettle()) };
-  const zoneStub = { encounterForCharacter: stub(async () => opts.encounter ?? null) };
-  // 默认：不受 R2 闸门约束（遗留秘境口径），需要时用 gate 覆盖
-  const gate: ZoneIdleGate =
-    opts.gate ?? { enforced: false, unlocked: false, nodeCode: null, nodeName: null };
-  const mapStub = { zoneIdleGate: stub(async () => gate) };
+  // §22：zone 域供 idle 域复用的两个挂钩。缺省：不在线、无挂机点。
+  // 挂机点「缺失」与「不可挂机」在 zone 域都收敛成 idleEncounter=null，这里一并模拟。
+  const zoneStub = {
+    inOnlineBattle: stub(async () => opts.inBattle ?? false),
+    idleEncounter: stub(async () => opts.encounter ?? null),
+  };
   const svc = new IdleService(
     opts.db as never,
     opts.db as never,
     charStub as never,
     unitStub as never,
     zoneStub as never,
-    mapStub as never,
   );
-  return { svc, charStub, unitStub, zoneStub, mapStub };
+  return { svc, charStub, unitStub, zoneStub };
 }
 
 interface IdleDbOptions {
@@ -240,9 +240,9 @@ describe('IdleService.settle 时长/参数边界', () => {
 // ===== settle: 早退与离线时长 =====
 
 describe('IdleService.settle 早退与离线时长边界', () => {
-  test('无 override 且 kills=0 -> 早退：不调用 settleKills、不写计数、不刷新锚点', async () => {
+  test('无 override 且 kills=0 -> 早退：不调用 settleKills、不写计数、不刷新锚点、不触达互斥闸门', async () => {
     const db = idleDb({ lastSettleAt: new Date(), produced: 0 });
-    const { svc, unitStub } = makeService({ db });
+    const { svc, unitStub, zoneStub } = makeService({ db });
     const res = await svc.settle(7, 'slime');
     assert.equal(res.success, true);
     assert.match(res.message, /暂无可结算收益/);
@@ -250,6 +250,8 @@ describe('IdleService.settle 早退与离线时长边界', () => {
     assert.equal(unitStub.settleKills.callCount, 0);
     assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
+    // §22 Q6 顺序：早退信封在互斥闸门之前，离线 0 秒不应去查在线状态
+    assert.equal(zoneStub.inOnlineBattle.callCount, 0);
   });
 
   test('无 override、锚点 24h -> 截断后正常结算', async () => {
@@ -298,10 +300,10 @@ describe('IdleService.settle 每日物品上限边界', () => {
   });
 });
 
-// ===== settle: 单位来源与失败 =====
+// ===== settle: 挂机点与单位来源（§22） =====
 
-describe('IdleService.settle 单位来源与失败边界', () => {
-  test('unitCode 为空/纯空白 -> 回落到当前秘境遭遇单位，并在 data.zone 回填', async () => {
+describe('IdleService.settle 挂机点与单位来源边界（§22）', () => {
+  test('unitCode 为空/纯空白 -> 回落到挂机点遭遇单位，并在 data.zone 回填', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
     const { svc, unitStub, zoneStub } = makeService({ db, encounter: ENCOUNTER });
     const res = await svc.settle(7, '   ', 1);
@@ -313,21 +315,60 @@ describe('IdleService.settle 单位来源与失败边界', () => {
       floor: 2,
       isBoss: false,
     });
-    assert.equal(zoneStub.encounterForCharacter.callCount, 1);
+    assert.equal(zoneStub.idleEncounter.callCount, 1);
+    assert.deepEqual(zoneStub.idleEncounter.last, [11]);
   });
 
-  test('unitCode 显式给出 -> 不查秘境，data.zone=null', async () => {
+  test('unitCode 显式给出 -> 跳过挂机点逻辑，data.zone=null（互斥闸门仍会查询）', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, zoneStub } = makeService({ db });
+    const { svc, zoneStub } = makeService({ db, encounter: ENCOUNTER });
     const res = await svc.settle(7, 'slime', 1);
-    assert.equal(zoneStub.encounterForCharacter.callCount, 0);
+    assert.equal(res.success, true);
+    assert.equal(zoneStub.idleEncounter.callCount, 0, '显式 unitCode 不得查挂机点');
+    assert.equal(zoneStub.inOnlineBattle.callCount, 1, '互斥闸门与 unitCode 无关，始终查询');
     assert.equal((res.data as { zone: unknown }).zone, null);
   });
 
-  test('无 unitCode 且无可用秘境 -> ZONE_NOT_FOUND', async () => {
+  test('挂机点缺失（idleEncounter=null）-> IDLE_TARGET_NOT_SET，不结算、不写库', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc, unitStub, zoneStub } = makeService({ db, encounter: null });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, false);
+    assert.equal(failingCode(res), 'IDLE_TARGET_NOT_SET');
+    assert.match(res.message, /尚未设置挂机点/);
+    assert.deepEqual(zoneStub.idleEncounter.last, [11]);
+    assert.equal(unitStub.settleKills.callCount, 0);
+    assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
+    assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
+  });
+
+  test('挂机点不可挂机（未突破 / 特训，同样收敛为 idleEncounter=null）-> 同 IDLE_TARGET_NOT_SET', async () => {
+    // zone 域把「没设挂机点」与「不再满足挂机资格（未突破 / idle_allowed=false）」都收敛成
+    // idleEncounter=null，idle 域只认这一个 null，不区分原因（§22 §6.2）。
     const db = idleDb({ produced: 0, counter: 0 });
     const { svc } = makeService({ db, encounter: null });
-    assert.equal(failingCode(await svc.settle(7, undefined, 1)), 'ZONE_NOT_FOUND');
+    assert.equal(failingCode(await svc.settle(7, undefined, 1)), 'IDLE_TARGET_NOT_SET');
+  });
+
+  test('挂机点可用且为 Boss 层 -> 用 encounter 单位结算并回填 zone（挂机打已突破秘境的最深层）', async () => {
+    const boss: ZoneEncounter = {
+      zoneCode: 'z_hundun',
+      zoneName: '混沌秘境',
+      floor: 10,
+      isBoss: true,
+      unitCode: 'u_r13_feishengmo',
+    };
+    const db = idleDb({ produced: 0, counter: 2 });
+    const { svc, unitStub } = makeService({ db, encounter: boss });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, true);
+    assert.equal(unitStub.settleKills.last?.[1], 'u_r13_feishengmo');
+    assert.deepEqual((res.data as { zone: unknown }).zone, {
+      code: 'z_hundun',
+      name: '混沌秘境',
+      floor: 10,
+      isBoss: true,
+    });
   });
 
   test('settleKills 失败 -> 原样返回失败结果', async () => {
@@ -341,80 +382,43 @@ describe('IdleService.settle 单位来源与失败边界', () => {
   });
 });
 
-// ===== R2 离线闸门（§2 第 2 步 / R2-3）=====
+// ===== §22 Q6：在线战斗互斥闸门（game_zone_state 有行 ⇒ 离线挂机暂停） =====
 
-describe('IdleService.settle R2 离线闸门边界', () => {
-  const HOUSHAN: ZoneEncounter = {
-    zoneCode: 'zone_houshan',
-    zoneName: '后山历练',
-    floor: 1,
-    isBoss: false,
-    unitCode: 'u_r6_dilong',
-  };
-  const HOUSHAN_GATE: ZoneIdleGate = {
-    enforced: true,
-    unlocked: false,
-    nodeCode: 'qy_houshan',
-    nodeName: '后山峰',
-  };
-
-  test('挂在 qy_houshan 且未解锁 -> ZONE_NOT_IDLE_UNLOCKED，且不结算、不写库', async () => {
+describe('IdleService.settle 在线互斥闸门边界（§22 Q6）', () => {
+  test('在线战斗中 -> ONLINE_BATTLE_ACTIVE：不结算、不写计数、不刷新锚点', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, unitStub, mapStub } = makeService({
-      db,
-      encounter: HOUSHAN,
-      gate: HOUSHAN_GATE,
-    });
-    const res = await svc.settle(7, undefined, 1);
+    const { svc, unitStub, zoneStub } = makeService({ db, inBattle: true });
+    const res = await svc.settle(7, 'slime', 1);
     assert.equal(res.success, false);
-    assert.equal(failingCode(res), 'ZONE_NOT_IDLE_UNLOCKED');
-    assert.match(res.message, /后山历练/);
-    assert.deepEqual(mapStub.zoneIdleGate.last, [11, 'zone_houshan']);
+    assert.equal(failingCode(res), 'ONLINE_BATTLE_ACTIVE');
+    assert.match(res.message, /在线战斗/);
+    assert.deepEqual(zoneStub.inOnlineBattle.last, [11]);
     assert.equal(unitStub.settleKills.callCount, 0);
     assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
   });
 
-  test('qy_houshan 已解锁 -> 正常结算', async () => {
+  test('不在线（game_zone_state 无行）-> 闸门放行，正常结算', async () => {
     const db = idleDb({ produced: 0, counter: 1 });
-    const { svc, unitStub } = makeService({
-      db,
-      encounter: HOUSHAN,
-      gate: { ...HOUSHAN_GATE, unlocked: true },
-    });
-    const res = await svc.settle(7, undefined, 1);
+    const { svc, zoneStub } = makeService({ db, inBattle: false });
+    const res = await svc.settle(7, 'slime', 1);
     assert.equal(res.success, true);
-    assert.equal(unitStub.settleKills.last?.[1], 'u_r6_dilong');
+    assert.equal(zoneStub.inOnlineBattle.callCount, 1);
   });
 
-  test('遗留 5 个秘境没有地图节点（enforced=false）-> 结算不受影响（回归护栏）', async () => {
-    const legacy: Array<[string, string]> = [
-      ['zone_qingyun', 'u_r1_shanxiao'],
-      ['zone_miwu', 'u_r4_xueyan'],
-      ['zone_guhai', 'u_r7_jiaomo'],
-      ['zone_dajie', 'u_r10_guiwang'],
-      ['zone_hundun', 'u_r13_feishengmo'],
-    ];
-    for (const [zoneCode, unitCode] of legacy) {
-      const db = idleDb({ produced: 0, counter: 1 });
-      const { svc, unitStub, mapStub } = makeService({
-        db,
-        encounter: { zoneCode, zoneName: zoneCode, floor: 1, isBoss: false, unitCode },
-      });
-      const res = await svc.settle(7, undefined, 1);
-      assert.equal(res.success, true, zoneCode + ' 不应被闸门拦截');
-      assert.equal(failingCode(res), undefined, zoneCode);
-      // 闸门确实被查询过，但遗留秘境不强制约束
-      assert.deepEqual(mapStub.zoneIdleGate.last, [11, zoneCode]);
-      assert.equal(unitStub.settleKills.last?.[1], unitCode);
-    }
+  test('顺序：无 override 且 kills=0 的「暂无可结算收益」先于闸门（在线也不报错、不触达闸门）', async () => {
+    const db = idleDb({ lastSettleAt: new Date(), produced: 0 });
+    const { svc, zoneStub } = makeService({ db, inBattle: true });
+    const res = await svc.settle(7, 'slime');
+    assert.equal(res.success, true);
+    assert.match(res.message, /暂无可结算收益/);
+    assert.equal(zoneStub.inOnlineBattle.callCount, 0, '早退分支之后才是闸门');
   });
 
-  test('显式 unitCode -> 不查秘境，也不触达闸门', async () => {
+  test('顺序：hoursOverride=0 不会早退 -> 在线时闸门照常生效', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, mapStub } = makeService({ db, encounter: HOUSHAN, gate: HOUSHAN_GATE });
-    const res = await svc.settle(7, 'mob', 1);
-    assert.equal(res.success, true);
-    assert.equal(mapStub.zoneIdleGate.callCount, 0);
+    const { svc, unitStub } = makeService({ db, inBattle: true });
+    assert.equal(failingCode(await svc.settle(7, 'slime', 0)), 'ONLINE_BATTLE_ACTIVE');
+    assert.equal(unitStub.settleKills.callCount, 0);
   });
 });

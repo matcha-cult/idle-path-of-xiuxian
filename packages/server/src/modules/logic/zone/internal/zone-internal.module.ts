@@ -1,20 +1,22 @@
 /**
- * 秘境模块（P5.1 + P3.0）
+ * 秘境模块（P5.1 + P3.0 + §22 重做）
  *
- * 依赖 UnitModule（层内结算 settleKills）、CharacterModule（角色解析 + 战力）、
- * MapLogicModule（层数推进到 Boss 层时置位地图节点 idle_unlocked，§5.5 / D2；
- *                  以及在线历练的「秘境峰」白名单）、OnlineModule（全局：在线会话登记）。
+ * 依赖 CombatLogicModule（层内结算 settleKills）、CharacterModule（角色解析 + 战力）、
+ * OnlineModule（不是本文件 —— 在线会话登记在 online-session.service，由全局模块提供）。
+ *
+ * §22：**不再依赖 MapLogicModule** —— 秘境与地图节点彻底解耦后，
+ * 「层数推进 → 置位地图节点 idle_unlocked」「在线历练秘境峰白名单」两条跨域钩子全部删除
+ * （战斗上下文只由 `game_zone_state` 决定）。
  */
 import { Module } from '@nestjs/common';
 import { CharacterModule } from '../../../character/character.module.js';
 import { CombatLogicModule } from '../../combat/combat-logic.module.js';
-import { MapLogicModule } from '../../map/map-logic.module.js';
 import { ZoneService } from './zone.service.js';
 import { ONLINE_EXPLORE_OPTIONS, OnlineExploreService } from './online-explore.service.js';
 import { OnlineNotifyService } from './online-notify.service.js';
 
 @Module({
-  imports: [CharacterModule, CombatLogicModule, MapLogicModule],
+  imports: [CharacterModule, CombatLogicModule],
   providers: [
     ZoneService,
     OnlineExploreService,

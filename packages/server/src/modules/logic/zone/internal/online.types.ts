@@ -1,5 +1,5 @@
 /**
- * 在线历练的共享类型（P3.0 T4/T5）：帧同时用于「面板读一次」与「推送一条」。
+ * 在线历练的共享类型（P3.0 T4/T5 保留；§22 重做事件与帧字段）。
  *
  * ⚠️ 前端的镜像类型在 `packages/ionet-transport/src/api/dto.ts` 的 `ZoneOnlineData`
  * （本仓 DTO 一贯手工镜像，唯一真相在后端；改这里必须同步那边）。
@@ -11,22 +11,21 @@ export type ZoneOnlineEvent =
   | 'floor_up'
   /** 进入 Boss 层（Boss 未击败前不涨层） */
   | 'boss_floor'
-  /** 击败 Boss */
+  /** 击败 Boss（= 打满一轮的最后一拍） */
   | 'boss_defeated'
-  /** 击败首个 Boss → `idle_unlocked` 置位（D2） */
-  | 'idle_unlocked'
+  /** §22：首个周目打满 ⇒ 秘境被突破（clears 0→1），出现在秘境页面 */
+  | 'realm_unlocked'
   /** 战力不足，原地刷当前层（有产出、无进度） */
   | 'stuck';
 
 /**
  * 不推进的原因：
- * - `ok`：正在历练；
+ * - `ok`：正在战斗；
  * - `hidden`：会话活着但页面不可见（切后台不算在线）；
  * - `no_session`：没有活着的 WS 会话；
- * - `no_realm`：还没进入任何秘境（`zone.enter` 未调用）；
- * - `not_map_realm`：当前秘境没挂在地图节点上（不是「历练秘境峰」）。
+ * - `no_battle`：没有当前战斗（`game_zone_state` 无行 —— 没进秘境 / 刚自动退出）。
  */
-export type ZoneOnlineReason = 'ok' | 'hidden' | 'no_session' | 'no_realm' | 'not_map_realm';
+export type ZoneOnlineReason = 'ok' | 'hidden' | 'no_session' | 'no_battle';
 
 /**
  * 在线历练帧（`zone.online` 的 data / `zone.online` 推送的 data）。
@@ -38,14 +37,13 @@ export interface ZoneOnlineFrame {
   online: boolean;
   exploring: boolean;
   reason: ZoneOnlineReason;
-  zone: { code: string; name: string } | null;
-  /** 秘境峰在地图上的节点（名字用于面板文案；协议 code 只做 key） */
-  nodeCode: string | null;
-  nodeName: string | null;
+  zone: { code: string; name: string; realm: number } | null;
   floor: number;
   maxFloor: number;
   bestFloor: number;
   cleared: boolean;
+  /** §22：周目计数（`clears ≥ 1` ⇔ 已突破；首周目打满推 `realm_unlocked`） */
+  clears: number;
   isBossFloor: boolean;
   playerPower: number;
   floorRequirement: number;
@@ -57,7 +55,6 @@ export interface ZoneOnlineFrame {
   stuck: boolean;
   /** 卡层时还差多少战力（达标为 0） */
   shortfall: number;
-  idleUnlocked: boolean;
   kills: number;
   lingyunGained: number;
   events: ZoneOnlineEvent[];

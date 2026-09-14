@@ -1,9 +1,12 @@
 /**
- * MapService 边界测试（settings-revision-2 §5 / §6 / §7）
+ * MapService 边界测试（settings-revision-2 §5 / §6 / §7；§22 修订）
  *
- * 覆盖：发现（只下发已发现节点）/ 跑图门槛（恰好等于通过、差 1 拒绝）/
- * enter 幂等 / 传送点三态 / 秘境 idle_unlocked 置位与幂等 / 离线闸门过度规则 /
- * 战力复用（装备数与功法等级变化改变检定结果）。
+ * 覆盖：发现（只下发已发现节点）/ 相邻移动闸门与 enter 幂等 / 传送点三态 /
+ * 当前所在 game_map_state / DTO（adjacent / currentNodeCode / objects）/
+ * 战力回显复用（装备数与功法等级变化改变回显结果）。
+ *
+ * §22：秘境与地图彻底解耦 —— onZoneFloorPassed / zoneIdleGate /
+ * secretRealmNodeView 三个跨域方法已从服务删除，相关测试区块随之移除。
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -134,16 +137,13 @@ function mapDb(opts: MapDbOptions = {}) {
     .on(/FROM game_map_nodes WHERE code = \$1/, (params) => ({
       rows: nodes.filter((n) => n.code === params[0]),
     }))
-    .on(/FROM game_map_nodes WHERE zone_code = \$1 AND kind = 'secret_realm'/, (params) => ({
-      rows: nodes.filter((n) => n.zone_code === params[0] && n.kind === 'secret_realm'),
-    }))
     .on(/FROM game_node_progress WHERE character_id = \$1 AND node_id = \$2/, (params) => ({
       rows: progress.filter((p) => p.character_id === params[0] && p.node_id === params[1]),
     }))
     .on(/FROM game_node_progress WHERE character_id = \$1$/, (params) => ({
       rows: progress.filter((p) => p.character_id === params[0]),
     }))
-    .on(/INSERT INTO game_node_progress/, (params, sql) => {
+    .on(/INSERT INTO game_node_progress/, (params) => {
       const [charId, nodeId] = params as [number, number, unknown];
       let row = find(charId, nodeId);
       if (!row) {
@@ -151,13 +151,10 @@ function mapDb(opts: MapDbOptions = {}) {
         row = { id: seq, character_id: charId, node_id: nodeId, visited: false, waypoint_unlocked: false, idle_unlocked: false, cleared: false };
         progress.push(row);
       }
-      if (sql.includes('waypoint_unlocked = game_node_progress')) {
-        row.visited = true;
-        row.waypoint_unlocked = Boolean(row.waypoint_unlocked) || Boolean(params[2]);
-      } else {
-        row.idle_unlocked = true;
-        row.cleared = Boolean(row.cleared) || Boolean(params[2]);
-      }
+      // §22 起只剩 enter 一种写入：置 visited + 点亮传送点
+      //（onZoneFloorPassed 的 idle_unlocked 置位已随跨域方法删除）
+      row.visited = true;
+      row.waypoint_unlocked = Boolean(row.waypoint_unlocked) || Boolean(params[2]);
       return { rows: [row] };
     })
     // P2.0 §5：角色当前所在（game_map_state）的读写
@@ -868,186 +865,6 @@ describe('MapService.waypoint 边界（§5.2）', () => {
     assert.equal(res.success, true);
     assert.equal((res.data as { node: { code: string; name: string } }).node.code, 'n1');
     assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
-  });
-});
-
-// ===== 秘境三态：idle_unlocked 置位 =====
-
-describe('MapService.onZoneFloorPassed 边界（§5.5 / D2）', () => {
-  const REALM = nodeRow({
-    id: 7,
-    code: 'qy_houshan',
-    name: '后山峰',
-    kind: 'secret_realm',
-    zone_code: 'zone_houshan',
-    threshold: 115,
-    order_index: 7,
-  });
-
-  test('非 Boss 层且未通关 -> not_boss，不写库', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
-      zoneCode: 'zone_houshan',
-      floor: 1,
-      isBossFloor: false,
-      cleared: false,
-    });
-    assert.deepEqual(res, { changed: false, nodeCode: null, reason: 'not_boss' });
-    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
-  });
-
-  test('Boss 层通过 -> idle_unlocked 置位（changed=true）', async () => {
-    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
-      zoneCode: 'zone_houshan',
-      floor: 3,
-      isBossFloor: true,
-      cleared: true,
-    });
-    assert.deepEqual(res, { changed: true, nodeCode: 'qy_houshan', reason: 'unlocked' });
-    assert.equal((progress[0] as { idle_unlocked: boolean }).idle_unlocked, true);
-    assert.equal((progress[0] as { cleared: boolean }).cleared, true);
-    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
-  });
-
-  test('幂等：重复置位只写一次，第二次返回 already_unlocked', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const { svc } = makeService({ db });
-    const event = { zoneCode: 'zone_houshan', floor: 3, isBossFloor: true, cleared: true };
-    const first = await svc.onZoneFloorPassed(11, event);
-    const second = await svc.onZoneFloorPassed(11, event);
-    assert.equal(first.changed, true);
-    assert.deepEqual(second, { changed: false, nodeCode: 'qy_houshan', reason: 'already_unlocked' });
-    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 1);
-  });
-
-  test('已解锁后再传非 Boss 层 -> 不误报 changed', async () => {
-    const { db } = mapDb({
-      maps: [mapRow()],
-      nodes: [REALM],
-      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, waypoint_unlocked: false, idle_unlocked: true })],
-    });
-    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
-      zoneCode: 'zone_houshan',
-      floor: 1,
-      isBossFloor: false,
-      cleared: false,
-    });
-    assert.equal(res.changed, false);
-  });
-
-  test('通关但非 Boss 层（兜底）-> 仍置位', async () => {
-    const { db, progress } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
-      zoneCode: 'zone_houshan',
-      floor: 2,
-      isBossFloor: false,
-      cleared: true,
-    });
-    assert.equal(res.changed, true);
-    assert.equal(progress[0].idle_unlocked, true);
-  });
-
-  test('没有地图节点的遗留秘境 -> no_map_node，不写库（过渡规则）', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const res = await makeService({ db }).svc.onZoneFloorPassed(11, {
-      zoneCode: 'zone_qingyun',
-      floor: 10,
-      isBossFloor: true,
-      cleared: false,
-    });
-    assert.deepEqual(res, { changed: false, nodeCode: null, reason: 'no_map_node' });
-    assert.equal(db.callsMatching(/INSERT INTO game_node_progress/).length, 0);
-  });
-});
-
-// ===== 离线闸门 =====
-
-describe('MapService.zoneIdleGate 边界（R2 过渡规则）', () => {
-  const REALM = nodeRow({ id: 7, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan' });
-
-  test('遗留秘境（无地图节点）-> enforced=false（离线结算不受影响）', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    for (const code of ['zone_qingyun', 'zone_miwu', 'zone_guhai', 'zone_dajie', 'zone_hundun']) {
-      const gate = await makeService({ db }).svc.zoneIdleGate(11, code);
-      assert.deepEqual(gate, { enforced: false, unlocked: false, nodeCode: null, nodeName: null }, code);
-    }
-  });
-
-  test('挂在 qy_houshan 且未通关 -> enforced=true / unlocked=false', async () => {
-    const { db } = mapDb({
-      maps: [mapRow()],
-      nodes: [REALM],
-      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: false })],
-    });
-    assert.deepEqual(await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan'), {
-      enforced: true,
-      unlocked: false,
-      nodeCode: 'qy_houshan',
-      nodeName: '后山峰',
-    });
-  });
-
-  test('挂在 qy_houshan 且已通关 -> unlocked=true', async () => {
-    const { db } = mapDb({
-      maps: [mapRow()],
-      nodes: [REALM],
-      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: true })],
-    });
-    assert.equal((await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan')).unlocked, true);
-  });
-
-  test('无进度行 -> 视为未解锁', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    assert.equal((await makeService({ db }).svc.zoneIdleGate(11, 'zone_houshan')).unlocked, false);
-  });
-});
-
-describe('MapService.secretRealmNodeView（P3.0 T4 在线历练白名单）', () => {
-  const REALM = nodeRow({ id: 7, code: 'qy_houshan', name: '后山峰', kind: 'secret_realm', zone_code: 'zone_houshan' });
-
-  test('命中秘境节点 -> 返回 nodeCode/nodeName + 该角色的 idle_unlocked', async () => {
-    const { db } = mapDb({
-      maps: [mapRow()],
-      nodes: [REALM],
-      progress: [nodeProgressRow({ id: 1, node_id: 7, visited: true, idle_unlocked: true })],
-    });
-    assert.deepEqual(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), {
-      nodeCode: 'qy_houshan',
-      nodeName: '后山峰',
-      idleUnlocked: true,
-    });
-  });
-
-  test('无进度行 -> idleUnlocked=false（不是 undefined）', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    assert.deepEqual(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), {
-      nodeCode: 'qy_houshan',
-      nodeName: '后山峰',
-      idleUnlocked: false,
-    });
-  });
-
-  test('遗留秘境（无 secret_realm 节点）-> null（在线也不推进）', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    for (const code of ['zone_qingyun', 'zone_miwu', 'zone_guhai', 'zone_dajie', 'zone_hundun', '不存在']) {
-      assert.equal(await makeService({ db }).svc.secretRealmNodeView(11, code), null, code);
-    }
-  });
-
-  test('kind 不是 secret_realm 的同 zone_code 节点不算（只认秘境峰）', async () => {
-    const route = nodeRow({ id: 8, code: 'qy_fake', name: '假峰', kind: 'route', zone_code: 'zone_houshan' });
-    const { db } = mapDb({ maps: [mapRow()], nodes: [route] });
-    assert.equal(await makeService({ db }).svc.secretRealmNodeView(11, 'zone_houshan'), null);
-  });
-
-  test('与 zoneIdleGate 解耦：enforced 语义不参与在线判定（同输入可同时为一真一假）', async () => {
-    const { db } = mapDb({ maps: [mapRow()], nodes: [REALM] });
-    const svc = makeService({ db }).svc;
-    // qy_houshan：闸门 enforced=true；遗留秘境：enforced=false 但在线白名单同样是 null
-    assert.equal((await svc.zoneIdleGate(11, 'zone_houshan')).enforced, true);
-    assert.equal((await svc.zoneIdleGate(11, 'zone_qingyun')).enforced, false);
-    assert.equal(await svc.secretRealmNodeView(11, 'zone_qingyun'), null);
   });
 });
 

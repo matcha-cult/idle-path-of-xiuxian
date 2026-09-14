@@ -1,12 +1,15 @@
 /**
- * 在线历练 tick（P3.0 T3 骨架 / T4 结算 / T5 推送）。
+ * 在线历练 tick（P3.0 T3 骨架 / T4 结算 / T5 推送；§22 重做挂载点与通关语义）。
  *
  * 职责边界（刻意划清）：
  * - **谁在线**：`OnlineSessionService`（活着的 WS 会话 + 页面可见）—— 本服务只问它要列表；
  * - **打没打赢 / 门槛多少**：`ZoneService.onlineContext`（既有 `floorRequirement` 公式）；
  * - **掉落怎么抽**：`CombatLogicService.settleKills`（既有辨宝法阵）；
  * - **涨层怎么落库**：`ZoneService.advanceFloor`（与 `challenge` 同表同口径）；
- * - **击败 Boss 解锁挂机**：`MapLogicService.onZoneFloorPassed`（既有 D2 钩子，幂等）；
+ * - **突破怎么发**：`advanced.clears` 从 0 变 1 → 推送 `realm_unlocked`（§22 取代 D2 的
+ *   地图节点 `idle_unlocked` 钩子）；
+ * - **打满一轮怎么办**：`ZoneService.leaveBattle` —— §22 Q3：通关 3 层**自动退出**，
+ *   `game_zone_state` 清行 ⇒ 离线挂机立刻恢复（用户 Q6 的互斥由此复位）；
  * - **推送怎么发**：`OnlineNotifyService`（既有 NotificationPort + 节流）；
  * - **本服务只做**：节拍、击杀速率→击杀数、层内累计、事件归纳。
  *
@@ -17,23 +20,29 @@
  *
  * ⚠️ 层内击杀累计**刻意只放内存**（不落库）：它是「本次在线会话的临时进度」，
  * 落库会引入「离线期间它还在那儿」的歧义；进程重启后重新从 0 累计是本设计的预期代价。
+ *
+ * §22 变更记录：
+ * - **不再依赖地图节点**：删掉 `secretRealmNodeView` 白名单 —— 战斗上下文只由
+ *   `game_zone_state` 决定（秘境与地图已解耦）；
+ * - **通关即退出**：`advanceFloor` 返回 `cleared` 时调用 `leaveBattle`，不留在秘境里
+ *   无限刷（Q3 自动退出）；重复挑战要再进一次；
+ * - 事件 `idle_unlocked` → `realm_unlocked`（解锁的是秘境本身，不是挂机）。
  */
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { CharacterService } from '../../../character/character.service.js';
 import { OnlineSessionService } from '../../../online/online-session.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
-import { MapLogicService } from '../../map/map.logic.service.js';
 import { OnlineNotifyService } from './online-notify.service.js';
 import { ZoneService } from './zone.service.js';
 import { ONLINE_TICK, killRatePerSecond, killsForTick, powerRatio } from './online-tick.config.js';
-import type { ZoneOnlineEvent, ZoneOnlineFrame, ZoneOnlineReason } from './online.types.js';
+import type { ZoneOnlineEvent, ZoneOnlineFrame } from './online.types.js';
+import type { ZoneOnlineContext } from './zone.types.js';
 
 /**
  * 构造选项的 DI token（与 `ONLINE_SESSION_OPTIONS` 同理：普通对象参数必须给显式 token，
  * 否则 Nest 会把 `Object` 当 provider 解析而启动失败）。
  */
 export const ONLINE_EXPLORE_OPTIONS = Symbol('ONLINE_EXPLORE_OPTIONS');
-import type { ZoneOnlineContext } from './zone.types.js';
 
 /** 每个在线角色的**会话内**进度（只存内存，进程重启即归零）。 */
 export interface OnlineCharacterState {
@@ -46,6 +55,9 @@ export interface OnlineCharacterState {
   /** 最近一次处理时刻（内存治理用） */
   lastSeenAt: number;
 }
+
+/** 里程碑事件：必须即时送达（不能被推送节流吃掉，见 `runTick`）。 */
+const MILESTONE_EVENTS: ReadonlySet<ZoneOnlineEvent> = new Set(['boss_defeated', 'realm_unlocked']);
 
 /** 一次 tick 的结果（日志 / 测试 / e2e 实测用）。 */
 export interface OnlineTickReport {
@@ -73,7 +85,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     private readonly characterService: CharacterService,
     private readonly zoneService: ZoneService,
     private readonly combatLogic: CombatLogicService,
-    private readonly mapLogic: MapLogicService,
     @Optional() @Inject(OnlineNotifyService) private readonly notifier: OnlineNotifyService | null = null,
     @Optional()
     @Inject(ONLINE_EXPLORE_OPTIONS)
@@ -139,7 +150,15 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       seen.add(character.id);
       const frame = await this.tickCharacter(userId, character.id, character.realm, at);
       // 推送节流在 OnlineNotifyService 内：没内容不发、未到 pushEveryMs 合并
-      if (frame !== null) this.notifier?.record(userId, character.id, frame, at);
+      if (frame !== null) {
+        const sent = this.notifier?.record(userId, character.id, frame, at) ?? false;
+        // §22：**里程碑帧不允许被节流吃掉**。打满一轮会自动退出（tick 之后不再产出任何帧），
+        // 若这最后一帧（含 boss_defeated / realm_unlocked）滞留在节流缓冲里，客户端会一直
+        // 以为「还在战斗中」，也没人再来 flush 它。所以里程碑帧落进缓冲时立即补发一次。
+        if (!sent && frame.events.some((event) => MILESTONE_EVENTS.has(event))) {
+          this.notifier?.flush(character.id, at);
+        }
+      }
     }
     this.pruneStates(at);
     return { at, onlineUsers: userIds.length, processed: seen.size, noCharacter };
@@ -171,19 +190,16 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     const alive = this.onlineSessions.isSessionAlive(userId, at);
     const online = alive && this.onlineSessions.isVisible(userId);
     const context = await this.zoneService.onlineContext(character.id, character.realm);
-    const node = context === null ? null : await this.mapLogic.secretRealmNodeView(character.id, context.zoneCode);
     if (online) {
-      if (context === null) return this.idleFrame('no_realm');
-      if (node === null) return this.idleFrame('not_map_realm', context);
-      return this.frameOf(context, node, this.ensureState(character.id, at));
+      if (context === null) return this.idleFrame('no_battle');
+      return this.frameOf(context, this.ensureState(character.id, at));
     }
     return this.idleFrame(alive ? 'hidden' : 'no_session', context ?? undefined, {
-      node,
       floorKills: this.states.get(character.id)?.floorKills ?? 0,
     });
   }
 
-  /** 一个角色的一拍（T4：击杀 → 产出 → 涨层 → Boss 解锁）。 */
+  /** 一个角色的一拍（T4：击杀 → 产出 → 涨层 → 通关即自动退出）。 */
   protected async tickCharacter(
     _userId: number,
     characterId: number,
@@ -192,8 +208,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
   ): Promise<ZoneOnlineFrame | null> {
     const context = await this.zoneService.onlineContext(characterId, realm);
     if (!context) return null;
-    let node = await this.mapLogic.secretRealmNodeView(characterId, context.zoneCode);
-    if (!node) return null;
     const state = this.ensureState(characterId, at);
 
     // ===== 步 1：碾压比 → 本 tick 击杀数（含小数进位与单 tick 上限）=====
@@ -224,7 +238,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     const stuck = context.playerPower < context.floorRequirement;
     state.floorKills += kills;
     let current = context;
-    let idleUnlocked = node.idleUnlocked;
 
     if (stuck) {
       // 边沿触发：只在「刚被打回卡层」时推一次，避免每 3 秒刷一条同样的提示。
@@ -237,40 +250,63 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
     } else {
       state.stuck = false;
     }
-    if (!stuck && state.floorKills >= ONLINE_TICK.killsPerFloor && !context.cleared) {
+    // §22：涨层闸门（两个条件缺一不可，2026-09-14 修一处真实死代码）：
+    // - `!context.cleared`：`context.cleared` = 「**本轮**已打满」（cleared ∧ floor ≥ maxFloor）。
+    //   注意不能用「`!progress.cleared`」——已突破的秘境重复挑战时 `cleared` 列恒为 true
+    //   （解锁证据），会把新一轮永久挡死；
+    // - `floor <= maxFloor`：**必须允许在末层再涨一次** —— `advanceFloor` 正是靠
+    //   `floor === maxFloor`（nextFloor > maxFloor）判定通关的。写成 `< maxFloor` 会让
+    //   「打满 → 自动退出 → 突破」这条唯一路径永远走不到（曾是这样，已被 e2e 发现）。
+    if (
+      !stuck &&
+      state.floorKills >= ONLINE_TICK.killsPerFloor &&
+      !context.cleared &&
+      context.floor <= context.maxFloor
+    ) {
       // 一拍最多涨一层：剩余击杀留在本层累计，下一拍继续。
       // 现实取值下不可能多涨（单 tick 上限 20 < killsPerFloor 30），这样写是为了
       // 避免在同一拍里手工重算新层的门槛 / 单位 / 层加成（重读一次就够）。
       state.floorKills -= ONLINE_TICK.killsPerFloor;
-      const passedFloor = context.floor;
       const passedBoss = context.isBossFloor;
       const advanced = await this.zoneService.advanceFloor(characterId, context.zoneId, {
         floor: context.floor,
         bestFloor: context.bestFloor,
         maxFloor: context.maxFloor,
       });
-      // ===== 步 5：Boss 层通过 → 既有钩子置位 idle_unlocked（幂等，重复击败不重复置位）=====
-      const unlock = await this.mapLogic.onZoneFloorPassed(characterId, {
-        zoneCode: context.zoneCode,
-        floor: passedFloor,
-        isBossFloor: passedBoss,
-        cleared: advanced.cleared,
-      });
       events.push(passedBoss ? 'boss_defeated' : 'floor_up');
-      if (unlock.changed) events.push('idle_unlocked');
-      idleUnlocked = idleUnlocked || unlock.changed;
-      // 重读一次上下文：新层的门槛 / 单位 / Boss 标记 / 层加成全部由既有公式重算，
+      if (advanced.cleared) {
+        // ===== §22 Q3：打满一轮 → **自动退出**（清 game_zone_state ⇒ 离线挂机恢复）=====
+        await this.zoneService.leaveBattle(characterId);
+        // 首周目（clears 0→1）= 突破成功：秘境从此出现在秘境页面
+        if (context.clears === 0 && advanced.clears >= 1) events.push('realm_unlocked');
+        // 终帧：显示「打完了一圈」的事实 + 事件，同时标注已不在战斗中。
+        // floorKills 清到上限以下，避免面板出现「45 / 30」。
+        state.floorKills = Math.min(state.floorKills, ONLINE_TICK.killsPerFloor);
+        return this.frameOf(
+          { ...context, cleared: true, clears: advanced.clears, floor: advanced.floor, isBossFloor: false },
+          state,
+          {
+            kills,
+            lingyunGained,
+            events,
+            exploring: false,
+            reason: 'no_battle',
+            floor: advanced.floor,
+            bestFloor: advanced.bestFloor,
+            cleared: true,
+            clears: advanced.clears,
+            isBossFloor: false,
+          },
+        );
+      }
+      // 普通涨层：重读一次上下文：新层的门槛 / 单位 / Boss 标记 / 层加成全部由既有公式重算，
       // 本服务不复制任何一条派生规则。
       const next = await this.zoneService.onlineContext(characterId, realm);
       if (next) current = next;
       if (!current.cleared && current.isBossFloor) events.push('boss_floor');
-      node = { ...node, idleUnlocked };
     }
 
-    // 通关后层内击杀不再有意义（进度已到底）：夹在 killsPerFloor，避免面板出现「45 / 30」
-    if (current.cleared) state.floorKills = Math.min(state.floorKills, ONLINE_TICK.killsPerFloor);
-
-    return this.frameOf(current, node, state, { kills, lingyunGained, events, idleUnlocked });
+    return this.frameOf(current, state, { kills, lingyunGained, events });
   }
 
   /** 取（或建）会话内进度。 */
@@ -287,7 +323,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
   /** 组装一帧（`kills` / `lingyunGained` / `events` 等由调用方覆盖）。 */
   protected frameOf(
     context: ZoneOnlineContext,
-    node: { nodeCode: string; nodeName: string; idleUnlocked: boolean },
     state: OnlineCharacterState,
     overrides: Partial<ZoneOnlineFrame> = {},
   ): ZoneOnlineFrame {
@@ -296,13 +331,16 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       online: true,
       exploring: true,
       reason: 'ok',
-      zone: { code: context.zoneCode, name: context.zoneName },
-      nodeCode: node.nodeCode,
-      nodeName: node.nodeName,
+      zone: {
+        code: context.zoneCode,
+        name: context.zoneName,
+        realm: context.realm,
+      },
       floor: context.floor,
       maxFloor: context.maxFloor,
       bestFloor: context.bestFloor,
       cleared: context.cleared,
+      clears: context.clears,
       isBossFloor: context.isBossFloor,
       playerPower: context.playerPower,
       floorRequirement: context.floorRequirement,
@@ -310,7 +348,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       killsPerFloor: ONLINE_TICK.killsPerFloor,
       stuck,
       shortfall: stuck ? Math.max(0, context.floorRequirement - context.playerPower) : 0,
-      idleUnlocked: node.idleUnlocked,
       kills: 0,
       lingyunGained: 0,
       events: [],
@@ -321,32 +358,27 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 离线 / 未进秘境 / 非秘境峰时的帧。
+   * 离线 / 未在战斗时的帧。
    *
-   * `extras` 让「已暂停」的帧也能带上**上次打到哪**（层数 / 本层击杀 / 节点 / 解锁态），
+   * `extras` 让「已暂停」的帧也能带上**上次打到哪**（层数 / 本层击杀），
    * 面板切回前台时不会显示成「第 0 层」。这些数字只来自服务端内存快照，**不含离线补算**。
    */
   protected idleFrame(
-    reason: ZoneOnlineReason,
+    reason: ZoneOnlineFrame['reason'],
     context?: ZoneOnlineContext,
-    extras: {
-      node?: { nodeCode: string; nodeName: string; idleUnlocked: boolean } | null;
-      floorKills?: number;
-    } = {},
+    extras: { floorKills?: number } = {},
   ): ZoneOnlineFrame {
-    const node = extras.node ?? null;
     const floorKills = extras.floorKills ?? 0;
     return {
       online: reason !== 'no_session' && reason !== 'hidden',
       exploring: false,
       reason,
-      zone: context ? { code: context.zoneCode, name: context.zoneName } : null,
-      nodeCode: node?.nodeCode ?? null,
-      nodeName: node?.nodeName ?? null,
+      zone: context ? { code: context.zoneCode, name: context.zoneName, realm: context.realm } : null,
       floor: context?.floor ?? 0,
       maxFloor: context?.maxFloor ?? 0,
       bestFloor: context?.bestFloor ?? 0,
       cleared: context?.cleared ?? false,
+      clears: context?.clears ?? 0,
       isBossFloor: context?.isBossFloor ?? false,
       playerPower: context?.playerPower ?? 0,
       floorRequirement: context?.floorRequirement ?? 0,
@@ -354,7 +386,6 @@ export class OnlineExploreService implements OnModuleInit, OnModuleDestroy {
       killsPerFloor: ONLINE_TICK.killsPerFloor,
       stuck: false,
       shortfall: 0,
-      idleUnlocked: node?.idleUnlocked ?? false,
       kills: 0,
       lingyunGained: 0,
       events: [],

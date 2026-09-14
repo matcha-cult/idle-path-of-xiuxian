@@ -1,15 +1,21 @@
 /**
- * 秘境域共享类型（P5.1）
+ * 秘境域共享类型（§22 重做，2026-09-14 晚）
+ *
+ * 语义反转（相对 P5.1/P3.0）：
+ * - 秘境按**境界**分档（1~13），与地图节点彻底解耦 —— 不再是节点的"宿主"；
+ * - `realm` 是**数值档位与展示**，不是入场闸门（"全都可突破，进去送人头都行"）；
+ * - 解锁 = 在线打满 3 层（`clears ≥ 1`）；挂机 = 已解锁 ∧ `idle_allowed`。
  */
 export { type FailResult, fail } from '../../../../common/kernel/result.js';
+
+/** §22：历练（免费·可挂机）/ 特殊（需道具·不可挂机）。 */
+export type ZoneTierKind = 'training' | 'special';
 
 export interface ZoneRow {
   id: number;
   code: string;
   name: string;
-  chapter: number;
   order_index: number;
-  min_realm: number;
   unit_code: string;
   boss_code: string | null;
   base_power: number;
@@ -17,9 +23,20 @@ export interface ZoneRow {
   max_floor: number;
   lingyun_bonus_per_floor: number;
   boss_every_floors: number;
-  require_prev_best_floor: number;
   tier_bonus_every_floors: number;
   drop_bonus_every_floors: number;
+  /** §22：该秘境对应第几境（1~13）。旧库里可能为 NULL（种子重灌前），不得静默回落成 0。 */
+  realm: number | null;
+  /** §22：`training` | `special`（旧库缺省 DEFAULT 'training'）。 */
+  tier_kind: string;
+  /** §22：special 的突破道具（本轮只留字段 + 展示，不消耗）。 */
+  unlock_item_code: string | null;
+  /** §22：能否离线挂机（training=true / special=false）。 */
+  idle_allowed: boolean;
+  // ===== 语义作废的旧列（§22 §5.1：物理删列排到 T10，此前保留在行结构里）=====
+  chapter: number | null;
+  min_realm: number | null;
+  require_prev_best_floor: number;
 }
 
 export interface ZoneProgressRow {
@@ -29,6 +46,8 @@ export interface ZoneProgressRow {
   floor: number;
   best_floor: number;
   cleared: boolean;
+  /** §22：通关次数（重复挑战每打满一轮 +1）；「已解锁」的唯一权威证据。 */
+  clears: number;
 }
 
 export interface ZoneStateRow {
@@ -37,15 +56,76 @@ export interface ZoneStateRow {
   current_zone_id: number;
 }
 
+/** §22 挂机点：离线结算目标（与 `game_zone_state`="在线战斗所在"刻意分开）。 */
+export interface ZoneIdleStateRow {
+  id: number;
+  character_id: number;
+  zone_id: number;
+}
+
 export interface ZoneProgressView {
   floor: number;
   bestFloor: number;
   cleared: boolean;
+  clears: number;
 }
 
 export function progressOf(row: ZoneProgressRow | null): ZoneProgressView {
-  if (!row) return { floor: 1, bestFloor: 0, cleared: false };
-  return { floor: Number(row.floor), bestFloor: Number(row.best_floor), cleared: Boolean(row.cleared) };
+  if (!row) return { floor: 1, bestFloor: 0, cleared: false, clears: 0 };
+  return {
+    floor: Number(row.floor),
+    bestFloor: Number(row.best_floor),
+    cleared: Boolean(row.cleared),
+    clears: Number(row.clears) || 0,
+  };
+}
+
+/**
+ * 「已突破 / 已解锁」的权威判定 = `clears ≥ 1`（不是 `cleared` 列）。
+ *
+ * 为什么不用 `cleared`：`startRun` 会把已突破秘境的 `floor` 重置回 1 开新一轮，
+ * 此时 `cleared` 若被清掉就会丢失「已解锁」；`clears` 是**只增不减**的周目计数，
+ * 天然表达「曾经打满过至少一轮」。
+ */
+export function isUnlocked(view: ZoneProgressView): boolean {
+  return view.clears >= 1;
+}
+
+/** 秘境境界（1~14 合法；NULL / 越界 → 0 = 未知，供调用方显式失败，绝不静默参与数值）。 */
+export function zoneRealm(zone: ZoneRow): number {
+  const r = Number(zone.realm);
+  return Number.isInteger(r) && r >= 1 && r <= 14 ? r : 0;
+}
+
+/** 秘境类别（DB 里是字符串，除 `special` 外一律按 `training` 处理 —— 白名单语义）。 */
+export function zoneTierKind(zone: ZoneRow): ZoneTierKind {
+  return zone.tier_kind === 'special' ? 'special' : 'training';
+}
+
+/** 突破准入（§22 §6.2）：不校验境界、不校验战力 —— 只问「要不要道具」。 */
+export interface ZoneAccess {
+  canBreakthrough: boolean;
+  reason: 'ok' | 'item_required';
+  /** 所需道具 code（`reason='item_required'` 时有值，仅展示 / 后期实装消耗）。 */
+  itemCode: string | null;
+}
+
+/**
+ * 突破准入的**唯一**判定。两种失败之外的都放行（用户原话「进去送人头都行」）。
+ */
+export function accessOf(zone: ZoneRow): ZoneAccess {
+  if (zoneTierKind(zone) === 'special') {
+    return { canBreakthrough: false, reason: 'item_required', itemCode: zone.unlock_item_code ?? null };
+  }
+  return { canBreakthrough: true, reason: 'ok', itemCode: null };
+}
+
+/**
+ * 可挂机判定（§22 Q5 / §6.2）：已解锁 ∧ `idle_allowed`。
+ * `idle_allowed` 失效时按 FALSE（安全侧：绝不允许"意外可挂机"）。
+ */
+export function idleEligible(zone: ZoneRow, view: ZoneProgressView): boolean {
+  return isUnlocked(view) && zone.idle_allowed === true;
 }
 
 export function floorRequirement(zone: ZoneRow, floor: number): number {
@@ -67,7 +147,7 @@ export function dropDrawBonusFor(zone: ZoneRow, floor: number): number {
 }
 
 /**
- * 在线历练上下文（P3.0 T4）：把「打一层」需要的既有派生量一次性打包。
+ * 在线历练上下文（P3.0 T4 保留，§22 加 `clears`）：把「打一层」需要的既有派生量一次性打包。
  *
  * 目的：在线 tick **不重写任何公式** —— 门槛走 {@link floorRequirement}、Boss 层走
  * {@link isBossFloor}、掉落深度走 {@link tierOffsetBonusFor} / {@link dropDrawBonusFor}，
@@ -78,10 +158,14 @@ export interface ZoneOnlineContext {
   zoneId: number;
   zoneCode: string;
   zoneName: string;
+  /** §22：秘境对应境界（帧里显示「第 N 境秘境」用；未知为 0） */
+  realm: number;
   maxFloor: number;
   floor: number;
   bestFloor: number;
   cleared: boolean;
+  /** §22：周目计数（「本轮是不是首个周目」由此判断 exhaust unlock 事件） */
+  clears: number;
   playerPower: number;
   /** 本层门槛 = base_power + (floor-1) × power_step（既有公式） */
   floorRequirement: number;

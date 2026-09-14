@@ -141,6 +141,19 @@ export const ZONE_CMD = {
    * ⚠️ 只上报「可见 / 不可见」，**禁止**上报任何时长（时长可伪造，R2 §4.2）。
    */
   visibility: 6,
+  /**
+   * (100,7) 突破秘境 → 进入在线战斗 `{ zoneCode }`（§22；training 免费 / special 需道具，
+   * 境界・战力一律不校验 —— "进去送人头都行"）。
+   */
+  breakthrough: 7,
+  /**
+   * (100,8) 离开当前战斗（§22 Q3：打满 3 层自动离开之外，玩家也可手动离开）。
+   */
+  leave: 8,
+  /**
+   * (100,9) 设置离线挂机点 `{ zoneCode }`（需已突破且 idle_allowed；特殊秘境不可挂机）。
+   */
+  idleTarget: 9,
 } as const;
 
 /** 任务段（L3，依赖 zone, combat, item）—— 旧 REST: /api/game/quests*、/api/game/quest/sync、/api/game/chapters*、/api/game/chapter/sync */

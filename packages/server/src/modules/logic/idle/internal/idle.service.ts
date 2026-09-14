@@ -1,5 +1,5 @@
 /**
- * 离线收益服务（P4.2）
+ * 离线收益服务（P4.2；§22 修订挂机点与互斥）
  *
  * 公式（v2 §9.2）：有效小时 = min(离线小时, idleMaxOfflineHours) × idleEfficiencyPct%
  *                 击杀数 = floor(有效小时 × idleRoundsPerHour)
@@ -7,6 +7,13 @@
  * - 日物品上限走 game_idle_counters（达到上限后仅停发物品，灵韵/通货/精华照常）
  * - 计时锚点 characters.last_settle_at；结算成功即刷新
  * - hours 覆盖仅非生产环境可用（生产 → FORBIDDEN）
+ *
+ * §22 修订：
+ * - **挂机点 = `game_idle_state`**（由 `zone.idleTarget` 写入），只认已突破且
+ *   `idle_allowed` 的秘境；不再有「已解锁最低 order 兜底」；
+ * - **在线战斗互斥**（用户 Q6）：`game_zone_state` 有行 = 在线战斗中 ⇒ `idle.settle`
+ *   直接拒绝（`ONLINE_BATTLE_ACTIVE`）—— 不是暂停计时，是**拒绝结算**；
+ * - 挂机打的是**已突破秘境的最深层**（`zone.idleEncounter` 用 `min(progress.floor, maxFloor)`）。
  */
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
@@ -15,7 +22,6 @@ import { DatabaseService } from '../../../database/database.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
 import { type FailResult, fail } from '../../../../common/kernel/result.js';
-import { MapLogicService } from '../../map/map.logic.service.js';
 import { ZoneLogicService } from '../../zone/zone.logic.service.js';
 
 interface SettleAnchorRow {
@@ -34,7 +40,6 @@ export class IdleService {
     private readonly characterService: CharacterService,
     private readonly combatLogic: CombatLogicService,
     private readonly zoneLogic: ZoneLogicService,
-    private readonly mapLogic: MapLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -156,26 +161,21 @@ export class IdleService {
       };
     }
 
-    // unitCode 缺省 → 当前秘境当前层遭遇单位（Boss 层取 bossCode）
+    // ===== §22 Q6：在线战斗期间强制关闭离线挂机 =====
+    // 判据是 `game_zone_state` 有行（正在某秘境里打），而不是「页面在不在线」。
+    // 打满 3 层会自动退出（online tick 调 leaveBattle），挂机随行清除而恢复。
+    if (await this.zoneLogic.inOnlineBattle(character.id)) {
+      return fail('ONLINE_BATTLE_ACTIVE', '在线战斗中，离线挂机已暂停（离开秘境后恢复）');
+    }
+
+    // unitCode 缺省 → 挂机点遭遇单位（Boss 层取 bossCode）
     let unitCode = unitCodeInput && unitCodeInput.trim() ? unitCodeInput.trim() : undefined;
     let zoneInfo: { code: string; name: string; floor: number; isBoss: boolean } | null = null;
     if (!unitCode) {
-      const encounter = await this.zoneLogic.encounterForCharacter(character.id, character.realm);
-      if (!encounter) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
-
-      // ===== R2 离线闸门（settings-revision-2 §2 第 2 步 / R2-3）=====
-      // 「离线时间只能兑换产出，不能兑换进度」：未解锁离线挂机的秘境不得作为结算目标。
-      //
-      // 过渡规则（必须保留，直到地图形 2/3 定义完）：只有「挂在某个地图节点上的秘境」
-      // 才受新闸门约束。zone_qingyun / zone_miwu / zone_guhai / zone_dajie / zone_hundun
-      // 这 5 个遗留秘境在 game_map_nodes 里没有对应节点，zoneIdleGate.enforced = false，
-      // 其离线结算行为保持不变，避免打断现有游戏。
-      // 退场条件：遗留秘境被重新归属到地图节点后，删除 map.service.ts 的 enforced 分支。
-      // 迁移债由 test/modules/map-seed.test.ts 的「未归属任何地图节点的遗留秘境」用例守着。
-      const gate = await this.mapLogic.zoneIdleGate(character.id, encounter.zoneCode);
-      if (gate.enforced && !gate.unlocked) {
-        return fail('ZONE_NOT_IDLE_UNLOCKED', '秘境未解锁离线挂机：' + encounter.zoneName);
-      }
+      // §22：挂机点 = game_idle_state（zone.idleTarget 写入；需已突破且 idle_allowed）。
+      // `idleEncounter` 返回 null 只有两种原因：没设挂机点 / 挂机点不再满足资格。
+      const encounter = await this.zoneLogic.idleEncounter(character.id);
+      if (!encounter) return fail('IDLE_TARGET_NOT_SET', '尚未设置挂机点（请先在秘境页面选择已突破的秘境）');
 
       unitCode = encounter.unitCode;
       zoneInfo = {

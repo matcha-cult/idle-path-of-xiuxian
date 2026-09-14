@@ -1,12 +1,20 @@
 /**
- * 秘境服务（P5.1 + P5.2）：图鉴 / 当前秘境 / 进入 / 层数挑战
+ * 秘境服务（§22 重做，2026-09-14 晚）
  *
- * - 战力 = realm×realmWeight + 已装备件数×equipWeight + floor(功法等级和/skillDivisor)
- * - 解锁 = realm ≥ min_realm 且 前置秘境 bestFloor ≥ require_prev_best_floor（链式，P5.2）
- * - 挑战胜利条件：playerPower ≥ basePower + (floor−1)×powerStep（确定性战力检定）
- * - 层奖励：层内单位 1 次 settleKills + floor×lingyunBonusPerFloor 灵韵加成
- * - 层深度（P5.2）：每 N 层 tierOffset +1 / 每 N 层 +1 掉落判定；Boss 层再加 zoneBossExtraDraws
- * - 进度：game_zone_progress(floor/best_floor/cleared)；当前秘境：game_zone_state
+ * 语义（用户 8 答，任务书 22 §1）：
+ * - 秘境 = `game_zones` 里按境界分档的 13 条记录，与地图节点**彻底解耦**；
+ * - **突破**（`zone.breakthrough`）= 与「秘境石台」对象交互 → 进入在线战斗。
+ *   准入只看「要不要道具」：training 免费、special 需道具（本轮道具未实装 → 一律
+ *   `ZONE_ITEM_REQUIRED`）。**不校验境界、不校验战力**（"进去送人头都行"）；
+ * - **解锁** = 在线打满 3 层 → `clears` +1 → `cleared`；已解锁秘境出现在秘境页面；
+ * - **挂机** = 已解锁 ∧ `idle_allowed` 的秘境（写 `game_idle_state`）；
+ * - 在线战斗（`game_zone_state` 有行）期间**离线挂机暂停**；打满 3 层**自动离开**；
+ * - `zone.challenge` 降级为开发者工具（R2 §4.3），UI 不再有「挑战本层」按钮。
+ *
+ * 表：
+ * - `game_zones` 配置；`game_zone_progress(floor/best_floor/cleared/clears)` 玩家进度；
+ * - `game_zone_state` = 在线战斗所在（有行 ⇒ 在线 ⇒ 挂机暂停）；
+ * - `game_idle_state` = 离线挂机目标。两件事可同时存在，表也分开（§22 §5.3）。
  */
 import { Injectable } from '@nestjs/common';
 import { APP_CONFIG } from '../../../../common/config/app-config.js';
@@ -14,19 +22,25 @@ import { CharacterService } from '../../../character/character.service.js';
 import { PlayerPowerService } from '../../../character/player-power.service.js';
 import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
-import { MapLogicService } from '../../map/map.logic.service.js';
 import {
   type FailResult,
+  type ZoneIdleStateRow,
   type ZoneProgressRow,
+  type ZoneProgressView,
   type ZoneRow,
   type ZoneStateRow,
   type ZoneOnlineContext,
-  fail,
+  accessOf,
   dropDrawBonusFor,
+  fail,
   floorRequirement,
+  idleEligible,
   isBossFloor,
+  isUnlocked,
   progressOf,
   tierOffsetBonusFor,
+  zoneRealm,
+  zoneTierKind,
 } from './zone.types.js';
 
 export interface ZoneEncounter {
@@ -37,13 +51,12 @@ export interface ZoneEncounter {
   unitCode: string;
 }
 
-interface UnlockInfo {
-  unlocked: boolean;
-  reason: 'ok' | 'realm' | 'prev';
-  realmOk: boolean;
-  chainOk: boolean;
-  prevZone: ZoneRow | null;
-  prevBest: number;
+/** 「进入一场秘境战斗」的公共响应体（enter / breakthrough 同构）。 */
+interface ZoneBattleEntry {
+  currentZone: { code: string; name: string; realm: number };
+  floor: number;
+  bestFloor: number;
+  clears: number;
 }
 
 @Injectable()
@@ -53,7 +66,6 @@ export class ZoneService {
     private readonly characterService: CharacterService,
     private readonly combatLogic: CombatLogicService,
     private readonly playerPowerService: PlayerPowerService,
-    private readonly mapLogic: MapLogicService,
   ) {}
 
   private async resolveCharacter(userId: number) {
@@ -105,45 +117,45 @@ export class ZoneService {
     return new Map(rows.map((r) => [Number(r.zone_id), r]));
   }
 
-  /** 链式解锁判定 */
-  private unlockInfo(zone: ZoneRow, realm: number, zones: ZoneRow[], progressByZone: Map<number, ZoneProgressRow>): UnlockInfo {
-    const realmOk = realm >= zone.min_realm;
-    let prevZone: ZoneRow | null = null;
-    let prevBest = 0;
-    if (zone.require_prev_best_floor > 0) {
-      const earlier = zones
-        .filter((z) => z.order_index < zone.order_index)
-        .sort((a, b) => b.order_index - a.order_index);
-      if (earlier.length > 0) {
-        prevZone = earlier[0];
-        prevBest = progressOf(progressByZone.get(Number(prevZone.id)) ?? null).bestFloor;
-      }
-    }
-    const chainOk = zone.require_prev_best_floor <= 0 || prevBest >= zone.require_prev_best_floor;
-    const reason: UnlockInfo['reason'] = !realmOk ? 'realm' : !chainOk ? 'prev' : 'ok';
-    return { unlocked: realmOk && chainOk, reason, realmOk, chainOk, prevZone, prevBest };
+  /** 在线战斗所在（无行 = 不在任何秘境战斗 = 离线挂机可用）。 */
+  private async battleStateRow(characterId: number): Promise<ZoneStateRow | null> {
+    const rows = await this.gameDb.query<ZoneStateRow>(
+      'SELECT * FROM game_zone_state WHERE character_id = $1',
+      [characterId],
+    );
+    return rows.rows[0] ?? null;
   }
 
-  private realmTooLow(zone: ZoneRow, realm: number) {
-    return {
-      success: false as const,
-      message: '境界不足：' + zone.name + '需要 ' + zone.min_realm + ' 境',
-      data: { code: 'REALM_TOO_LOW', required: zone.min_realm, current: realm },
-    };
+  /** 挂机点（无行 = 尚未设置挂机点）。 */
+  private async idleStateRow(characterId: number): Promise<ZoneIdleStateRow | null> {
+    const rows = await this.gameDb.query<ZoneIdleStateRow>(
+      'SELECT * FROM game_idle_state WHERE character_id = $1',
+      [characterId],
+    );
+    return rows.rows[0] ?? null;
   }
 
-  private zoneLocked(zone: ZoneRow, info: UnlockInfo) {
-    return {
-      success: false as const,
-      message: '尚未解锁：' + zone.name,
-      data: {
-        code: 'ZONE_LOCKED',
-        reason: 'prev',
-        prevZone: info.prevZone ? info.prevZone.code : null,
-        requiredPrevBestFloor: zone.require_prev_best_floor,
-        prevBestFloor: info.prevBest,
-      },
-    };
+  /** 写入「当前在哪个秘境战斗」（§22 §2.2：有行 ⇒ 离线挂机暂停）。 */
+  private async setBattleState(characterId: number, zoneId: number): Promise<void> {
+    await this.gameDb.query(
+      `INSERT INTO game_zone_state (character_id, current_zone_id, updated_at)
+       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (character_id) DO UPDATE SET current_zone_id = EXCLUDED.current_zone_id, updated_at = CURRENT_TIMESTAMP`,
+      [characterId, zoneId],
+    );
+  }
+
+  /** 离开秘境：清掉在线战斗行（§22 Q3 打满 3 层自动退出的落点）。 */
+  async leaveBattle(characterId: number): Promise<{ left: boolean }> {
+    const row = await this.battleStateRow(characterId);
+    if (!row) return { left: false };
+    await this.gameDb.query('DELETE FROM game_zone_state WHERE character_id = $1', [characterId]);
+    return { left: true };
+  }
+
+  /** 供 idle 域复用：在线战斗中（`game_zone_state` 有行）⇒ 离线挂机暂停（§22 Q6）。 */
+  async inOnlineBattle(characterId: number): Promise<boolean> {
+    return (await this.battleStateRow(characterId)) !== null;
   }
 
   /** 层深度派生：tierOffset 加成、额外掉落判定、是否 Boss 层 */
@@ -154,49 +166,101 @@ export class ZoneService {
     return { boss, tierOffset, extraDraws };
   }
 
-  /** 当前秘境 id：state 优先，否则取已解锁的最低 order 秘境（不落库） */
-  private async currentZoneId(characterId: number, realm: number): Promise<number | null> {
-    const state = await this.gameDb.query<ZoneStateRow>(
-      'SELECT * FROM game_zone_state WHERE character_id = $1',
-      [characterId],
+  /**
+   * 开一轮战斗：把 `floor` 归到该轮应有的起点（§22 §2.2）。
+   *
+   * 规则：**已突破（clears ≥ 1）的秘境**才重置 —— 打满 3 层后 `floor` 停在 `max_floor`，
+   * 再来一次要回到第 1 层（重复挑战是"一轮一轮"的）；未突破的半程跑（打到第 2 层手动退出）
+   * **保留进度**，回来接着打。未突破且从未打过的行不存在（progressOf 缺省 floor=1）。
+   *
+   * ⚠️ 只动 `floor`：`cleared` / `clears` 是解锁证据，**绝不回退**。
+   */
+  private async startRun(characterId: number, zoneId: number, view: ZoneProgressView): Promise<ZoneProgressView> {
+    const mustReset = isUnlocked(view) && view.floor > 1;
+    if (!mustReset) return view;
+    await this.gameDb.query(
+      `INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared, clears)
+       VALUES ($1, $2, 1, $3, TRUE, $4)
+       ON CONFLICT (character_id, zone_id)
+       DO UPDATE SET floor = 1, cleared = TRUE, updated_at = CURRENT_TIMESTAMP`,
+      [characterId, zoneId, view.bestFloor, view.clears],
     );
-    if (state.rows[0]) return Number(state.rows[0].current_zone_id);
-    const zones = await this.allZones();
-    const rows = await this.progressRows(characterId);
-    const map = this.progressMap(rows);
-    const unlocked = zones.filter((z) => this.unlockInfo(z, realm, zones, map).unlocked);
-    return unlocked.length > 0 ? Number(unlocked[0].id) : null;
-  }
-
-  /** 离线结算用：当前秘境当前层遭遇单位 */
-  async encounterForCharacter(characterId: number, realm: number): Promise<ZoneEncounter | null> {
-    const zoneId = await this.currentZoneId(characterId, realm);
-    if (zoneId == null) return null;
-    const zone = await this.zoneById(zoneId);
-    if (!zone) return null;
-    const progress = progressOf(await this.progressRow(characterId, zone.id));
-    const boss = isBossFloor(zone, progress.floor);
-    const unitCode = boss && zone.boss_code ? zone.boss_code : zone.unit_code;
-    return { zoneCode: zone.code, zoneName: zone.name, floor: progress.floor, isBoss: boss, unitCode };
+    return { floor: 1, bestFloor: view.bestFloor, cleared: true, clears: view.clears };
   }
 
   /**
-   * 在线历练上下文（P3.0 T4）：当前秘境 + 层进度 + 战力 + 本层门槛 / 遭遇单位 / 层加成。
+   * 在线历练的层推进落库（P3.0 T4 保留，§22 加 `clears`）：
+   * 与 `challenge` 同一张表、同一 `GREATEST` 口径。
    *
-   * 全部走既有派生函数（`floorRequirement` / `isBossFloor` / `tierOffsetBonusFor` /
-   * `dropDrawBonusFor`），**不另写一套战力检定**。
+   * §22 差异：
+   * - 通关（nextFloor > maxFloor）时 `clears` **+1**（打满一轮）且 `floor` 停在上限；
+   * - **不加回退**：首轮通关 `clears 0→1` 就是"解锁"，由调用方（在线 tick）据证发解锁事件；
+   * - `cleared` 与 `clears ≥ 1` 恒同步（列保留给既有 SQL / 展示）。
    *
-   * ⚠️ 与 `challenge` / `idle` 的一处刻意的差异：在线历练**只认 `zone.enter` 写入的当前秘境**
-   * （`game_zone_state` 有行），**不使用 `currentZoneId` 的「已解锁最低 order 兜底」** ——
-   * 否则一个从没进过任何秘境的角色会被自动算成「正在历练」，与「进入历练」的交互语义矛盾。
-   * 没有当前秘境 → 返回 `null`（tick 不推进；面板给 reason='no_realm'）。
+   * @returns 落库后的 `{ floor, bestFloor, cleared, clears }`
+   */
+  async advanceFloor(
+    characterId: number,
+    zoneId: number,
+    input: { floor: number; bestFloor: number; maxFloor: number },
+  ): Promise<{ floor: number; bestFloor: number; cleared: boolean; clears: number }> {
+    const nextFloor = input.floor + 1;
+    const completedRun = nextFloor > input.maxFloor;
+    const storedFloor = completedRun ? input.maxFloor : nextFloor;
+    const nextBest = Math.max(input.bestFloor, input.floor);
+    const rows = await this.gameDb.query<ZoneProgressRow>(
+      `INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared, clears)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (character_id, zone_id) DO UPDATE SET
+         floor = EXCLUDED.floor,
+         best_floor = GREATEST(game_zone_progress.best_floor, EXCLUDED.best_floor),
+         cleared = EXCLUDED.cleared,
+         clears = game_zone_progress.clears + EXCLUDED.clears,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [characterId, zoneId, storedFloor, nextBest, completedRun, completedRun ? 1 : 0],
+    );
+    const row = rows.rows[0];
+    return {
+      floor: storedFloor,
+      bestFloor: nextBest,
+      cleared: completedRun,
+      clears: row ? Number(row.clears) : input.floor >= input.maxFloor ? 1 : 0,
+    };
+  }
+
+  private battleEntry(zone: ZoneRow, view: ZoneProgressView): ZoneBattleEntry {
+    return {
+      currentZone: { code: zone.code, name: zone.name, realm: zoneRealm(zone) },
+      floor: view.floor,
+      bestFloor: view.bestFloor,
+      clears: view.clears,
+    };
+  }
+
+  /** 离线结算用：挂机点的遭遇（挂机打当前最深层；无挂机点 / 非法 → null）。 */
+  async idleEncounter(characterId: number): Promise<ZoneEncounter | null> {
+    const idleState = await this.idleStateRow(characterId);
+    if (!idleState) return null;
+    const zone = await this.zoneById(Number(idleState.zone_id));
+    if (!zone) return null;
+    const progress = progressOf(await this.progressRow(characterId, zone.id));
+    if (!idleEligible(zone, progress)) return null;
+    const floor = Math.min(Math.max(progress.floor, 1), Math.max(zone.max_floor, 1));
+    const boss = isBossFloor(zone, floor);
+    const unitCode = boss && zone.boss_code ? zone.boss_code : zone.unit_code;
+    return { zoneCode: zone.code, zoneName: zone.name, floor, isBoss: boss, unitCode };
+  }
+
+  /**
+   * 在线历练上下文（P3.0 T4 保留 + §22 `clears`）：只认 `zone.enter` / `zone.breakthrough`
+   * 写入的**当前战斗**（`game_zone_state` 有行），**没有"已解锁最低 order 兜底"** ——
+   * 否则一个从未进过秘境的人会被自动算成"正在战斗"。
+   * 没有当前战斗 → 返回 `null`（tick 不推进；面板给 reason='no_battle'）。
    */
   async onlineContext(characterId: number, realm: number): Promise<ZoneOnlineContext | null> {
-    const state = await this.gameDb.query<ZoneStateRow>(
-      'SELECT * FROM game_zone_state WHERE character_id = $1',
-      [characterId],
-    );
-    const zoneId = state.rows[0]?.current_zone_id;
+    const state = await this.battleStateRow(characterId);
+    const zoneId = state?.current_zone_id;
     if (zoneId == null) return null;
     const zone = await this.zoneById(Number(zoneId));
     if (!zone) return null;
@@ -207,10 +271,12 @@ export class ZoneService {
       zoneId: Number(zone.id),
       zoneCode: zone.code,
       zoneName: zone.name,
+      realm: zoneRealm(zone),
       maxFloor: Number(zone.max_floor),
       floor: progress.floor,
       bestFloor: progress.bestFloor,
-      cleared: progress.cleared,
+      cleared: progress.cleared && progress.floor >= Number(zone.max_floor),
+      clears: progress.clears,
       playerPower: power,
       floorRequirement: floorRequirement(zone, progress.floor),
       isBossFloor: boss,
@@ -222,100 +288,113 @@ export class ZoneService {
   }
 
   /**
-   * 在线历练的层推进落库（P3.0 T4）：与 `challenge` 同一张表、同一 `GREATEST` 口径。
+   * 秘境图鉴（§22 Q4：**只下发已突破的秘境**）+ 突破名录（全部 13 境）+ 挂机点。
    *
-   * 差异只有一处（刻意）：**通关时不把 `floor` 写超过 `max_floor`** —— 在线面板要显示
-   * 「第 3 / 3 层」，而 `challenge`（已降级为开发者工具，R2 §4.3）保留原行为写 floor+1。
-   * `cleared` / `best_floor` 语义与 `challenge` 完全一致。
-   *
-   * @returns 落库后的 `{ floor, bestFloor, cleared }`
+   * 两个数组各司其职：
+   * - `zones`：已突破（`clears ≥ 1`）→ 秘境页面（用户 Q4「未解锁的不在秘境页面显示」）；
+   * - `breakthrough`：全部 13 境 → 第八峰·后山「秘境石台」的突破选择（用户 Q1/Q3）；
+   * - `idleTarget`：当前挂机点 code（秘境页面展示 / 切换）。
    */
-  async advanceFloor(
-    characterId: number,
-    zoneId: number,
-    input: { floor: number; bestFloor: number; maxFloor: number },
-  ): Promise<{ floor: number; bestFloor: number; cleared: boolean }> {
-    const nextFloor = input.floor + 1;
-    const cleared = nextFloor > input.maxFloor;
-    const storedFloor = cleared ? input.maxFloor : nextFloor;
-    const nextBest = Math.max(input.bestFloor, input.floor);
-    await this.gameDb.query(
-      'INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (character_id, zone_id) DO UPDATE SET floor = EXCLUDED.floor, best_floor = GREATEST(game_zone_progress.best_floor, EXCLUDED.best_floor), cleared = EXCLUDED.cleared, updated_at = CURRENT_TIMESTAMP',
-      [characterId, zoneId, storedFloor, nextBest, cleared],
-    );
-    return { floor: storedFloor, bestFloor: nextBest, cleared };
-  }
-
   async catalog(userId: number): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-    const [zones, power, currentZoneId, progressRows] = await Promise.all([
+    const [zones, power, progressRows, battleState, idleState] = await Promise.all([
       this.allZones(),
       this.playerPower(character.id, character.realm),
-      this.currentZoneId(character.id, character.realm),
       this.progressRows(character.id),
+      this.battleStateRow(character.id),
+      this.idleStateRow(character.id),
     ]);
     const map = this.progressMap(progressRows);
-    const views = zones.map((z) => {
-      const info = this.unlockInfo(z, character.realm, zones, map);
+    const currentZoneId = battleState ? Number(battleState.current_zone_id) : null;
+    const currentCode = currentZoneId != null ? (zones.find((z) => Number(z.id) === currentZoneId)?.code ?? null) : null;
+    const idleCode = idleState ? (zones.find((z) => Number(z.id) === Number(idleState.zone_id))?.code ?? null) : null;
+
+    const cleared = zones.filter((z) => isUnlocked(progressOf(map.get(Number(z.id)) ?? null)));
+    const views = cleared.map((z) => {
+      const progress = progressOf(map.get(Number(z.id)) ?? null);
       return {
         id: z.id,
         code: z.code,
         name: z.name,
-        chapter: z.chapter,
+        realm: zoneRealm(z),
+        tierKind: zoneTierKind(z),
         orderIndex: z.order_index,
-        minRealm: z.min_realm,
-        requirePrevBestFloor: z.require_prev_best_floor,
-        unlocked: info.unlocked,
-        unlockedReason: info.reason,
-        prevZone: info.prevZone ? info.prevZone.code : null,
-        prevBestFloor: info.prevBest,
-        current: Number(z.id) === currentZoneId,
+        idleAllowed: z.idle_allowed === true,
+        unlockItemCode: z.unlock_item_code ?? null,
         unitCode: z.unit_code,
         bossCode: z.boss_code,
         basePower: z.base_power,
         powerStep: z.power_step,
         maxFloor: z.max_floor,
         lingyunBonusPerFloor: z.lingyun_bonus_per_floor,
-        progress: progressOf(map.get(Number(z.id)) ?? null),
+        current: Number(z.id) === currentZoneId,
+        progress,
       };
     });
-    const current = views.find((v) => v.current);
+
+    const breakthrough = zones.map((z) => {
+      const access = accessOf(z);
+      const progress = progressOf(map.get(Number(z.id)) ?? null);
+      return {
+        code: z.code,
+        name: z.name,
+        realm: zoneRealm(z),
+        tierKind: zoneTierKind(z),
+        canBreakthrough: access.canBreakthrough,
+        lockReason: access.reason,
+        unlockItemCode: access.itemCode,
+        cleared: isUnlocked(progress),
+        clears: progress.clears,
+        bestFloor: progress.bestFloor,
+        maxFloor: z.max_floor,
+        basePower: z.base_power,
+        powerStep: z.power_step,
+      };
+    });
+
     return {
       success: true,
       message: '获取秘境图鉴成功',
-      data: { total: views.length, playerPower: power, currentZone: current ? current.code : null, zones: views },
+      data: {
+        total: views.length,
+        playerPower: power,
+        currentZone: currentCode,
+        idleTarget: idleCode,
+        zones: views,
+        breakthrough,
+      },
     };
   }
 
+  /** 当前在线战斗的进度（无当前战斗 → `NO_ONLINE_BATTLE`，属预期分支）。 */
   async progress(userId: number): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-    const zones = await this.allZones();
-    const map = this.progressMap(await this.progressRows(character.id));
-    const zoneId = await this.currentZoneId(character.id, character.realm);
-    if (zoneId == null) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
-    const zone = zones.find((z) => Number(z.id) === zoneId) ?? null;
-    if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在');
-    const progress = progressOf(map.get(Number(zone.id)) ?? null);
+    const state = await this.battleStateRow(character.id);
+    if (!state) return fail('NO_ONLINE_BATTLE', '当前不在秘境中');
+    const zone = await this.zoneById(Number(state.current_zone_id));
+    if (!zone) {
+      // 战斗行指向已删秘境（种子重灌前的老数据）：清掉，避免「在线战斗」永久为真
+      await this.leaveBattle(character.id);
+      return fail('NO_ONLINE_BATTLE', '当前不在秘境中');
+    }
+    const progress = progressOf(await this.progressRow(character.id, zone.id));
     const power = await this.playerPower(character.id, character.realm);
     const req = floorRequirement(zone, progress.floor);
     const { boss, tierOffset, extraDraws } = this.depth(zone, progress.floor);
-    const info = this.unlockInfo(zone, character.realm, zones, map);
     return {
       success: true,
       message: '获取秘境进度成功',
       data: {
-        currentZone: { code: zone.code, name: zone.name, chapter: zone.chapter },
+        currentZone: { code: zone.code, name: zone.name, realm: zoneRealm(zone) },
         floor: progress.floor,
         bestFloor: progress.bestFloor,
+        clears: progress.clears,
         cleared: progress.cleared,
-        unlocked: info.unlocked,
         playerPower: power,
         floorRequirement: req,
-        canChallenge: info.unlocked && !progress.cleared && power >= req,
         isBossFloor: boss,
-        encounterUnit: boss && zone.boss_code ? zone.boss_code : zone.unit_code,
         lingyunBonus: progress.floor * zone.lingyun_bonus_per_floor,
         dropTierOffset: tierOffset,
         extraDropDraws: extraDraws,
@@ -323,63 +402,120 @@ export class ZoneService {
     };
   }
 
+  /** 进入一场**已突破**秘境的战斗（重复挑战入口；§22 Q3 只经此处与 breakthrough）。 */
   async enter(userId: number, zoneCode: string): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
     const zone = await this.zoneByCode(zoneCode);
     if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在：' + zoneCode);
-    const zones = await this.allZones();
-    const map = this.progressMap(await this.progressRows(character.id));
-    const info = this.unlockInfo(zone, character.realm, zones, map);
-    if (!info.realmOk) return this.realmTooLow(zone, character.realm);
-    if (!info.chainOk) return this.zoneLocked(zone, info);
-    await this.gameDb.query(
-      'INSERT INTO game_zone_state (character_id, current_zone_id, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (character_id) DO UPDATE SET current_zone_id = EXCLUDED.current_zone_id, updated_at = CURRENT_TIMESTAMP',
-      [character.id, zone.id],
-    );
-    const progress = progressOf(await this.progressRow(character.id, zone.id));
+    const view = progressOf(await this.progressRow(character.id, zone.id));
+    if (!isUnlocked(view)) {
+      return fail(
+        'ZONE_NOT_UNLOCKED',
+        '尚未突破该秘境：' + zone.name + '（需在线打满 ' + zone.max_floor + ' 层解锁）',
+      );
+    }
+    const started = await this.startRun(character.id, zone.id, view);
+    await this.setBattleState(character.id, zone.id);
     return {
       success: true,
       message: '已进入秘境：' + zone.name,
-      data: {
-        currentZone: { code: zone.code, name: zone.name, chapter: zone.chapter },
-        floor: progress.floor,
-        bestFloor: progress.bestFloor,
-      },
+      data: this.battleEntry(zone, started),
     };
   }
 
+  /**
+   * 突破秘境（§22 Q1/Q3）—— 与「秘境石台」对象交互后调用。
+   *
+   * 准入只有一条：training 免费放行；special 需道具（本轮未实装 → `ZONE_ITEM_REQUIRED`）。
+   * **不校验境界、不校验战力、不校验是否已突破**（重复挑战自由）。进入即在线战斗。
+   */
+  async breakthrough(userId: number, zoneCode: string): Promise<{ success: boolean; message: string; data?: unknown }> {
+    const { character, error } = await this.resolveCharacter(userId);
+    if (error) return error;
+    const zone = await this.zoneByCode(zoneCode);
+    if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在：' + zoneCode);
+    const access = accessOf(zone);
+    if (!access.canBreakthrough) {
+      return {
+        success: false,
+        message: '突破需要特殊道具：' + zone.name,
+        data: {
+          code: 'ZONE_ITEM_REQUIRED',
+          zone: { code: zone.code, name: zone.name, realm: zoneRealm(zone) },
+          itemCode: access.itemCode,
+        },
+      };
+    }
+    const view = progressOf(await this.progressRow(character.id, zone.id));
+    const started = await this.startRun(character.id, zone.id, view);
+    await this.setBattleState(character.id, zone.id);
+    return {
+      success: true,
+      message: '进入突破：' + zone.name,
+      data: this.battleEntry(zone, started),
+    };
+  }
+
+  /** 手动离开当前战斗（打满 3 层由在线 tick 自动调用；这里是玩家的「离开」按钮）。 */
+  async leave(userId: number): Promise<{ success: boolean; message: string; data?: unknown }> {
+    const { character, error } = await this.resolveCharacter(userId);
+    if (error) return error;
+    const { left } = await this.leaveBattle(character.id);
+    return {
+      success: true,
+      message: left ? '已离开秘境' : '当前不在秘境中',
+      data: { currentZone: null, left },
+    };
+  }
+
+  /** 设置离线挂机点（需**已突破**且 `idle_allowed`）。 */
+  async idleTarget(userId: number, zoneCode: string): Promise<{ success: boolean; message: string; data?: unknown }> {
+    const { character, error } = await this.resolveCharacter(userId);
+    if (error) return error;
+    const zone = await this.zoneByCode(zoneCode);
+    if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在：' + zoneCode);
+    const view = progressOf(await this.progressRow(character.id, zone.id));
+    if (!idleEligible(zone, view)) {
+      return fail(
+        'ZONE_NOT_IDLE_ELIGIBLE',
+        isUnlocked(view) ? '该秘境不可挂机（特殊秘境）' : '尚未突破该秘境，不能设为挂机点',
+      );
+    }
+    await this.gameDb.query(
+      `INSERT INTO game_idle_state (character_id, zone_id, updated_at)
+       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (character_id) DO UPDATE SET zone_id = EXCLUDED.zone_id, updated_at = CURRENT_TIMESTAMP`,
+      [character.id, zone.id],
+    );
+    return {
+      success: true,
+      message: '已设置挂机点：' + zone.name,
+      data: { idleTarget: { code: zone.code, name: zone.name, realm: zoneRealm(zone) } },
+    };
+  }
+
+  /**
+   * 层数挑战（**降级为开发者工具**，R2 §4.3）：无准入、无境界/战力校验门槛外的原生判定。
+   *
+   * 玩家侧推进一律走在线 tick（`online-explore.service.ts`）；本方法仅保留给调试与
+   * 协议回归（`zone.challenge` 的既有 e2e）。仍走同一套 settleKills + advanceFloor 口径。
+   */
   async challenge(userId: number, zoneCode?: string): Promise<{ success: boolean; message: string; data?: unknown }> {
     const { character, error } = await this.resolveCharacter(userId);
     if (error) return error;
-
     const zones = await this.allZones();
-    const map = this.progressMap(await this.progressRows(character.id));
-
     let zone: ZoneRow | null = null;
     if (zoneCode) {
       zone = zones.find((z) => z.code === zoneCode) ?? null;
       if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在：' + zoneCode);
     } else {
-      const zoneId = await this.currentZoneId(character.id, character.realm);
-      if (zoneId == null) return fail('ZONE_NOT_FOUND', '暂无可用秘境');
-      zone = zones.find((z) => Number(z.id) === zoneId) ?? null;
-    }
-    if (!zone) return fail('ZONE_NOT_FOUND', '秘境不存在');
-
-    const info = this.unlockInfo(zone, character.realm, zones, map);
-    if (!info.realmOk) return this.realmTooLow(zone, character.realm);
-    if (!info.chainOk) return this.zoneLocked(zone, info);
-
-    const progress = progressOf(map.get(Number(zone.id)) ?? null);
-    if (progress.cleared || progress.floor > zone.max_floor) {
-      return {
-        success: false,
-        message: '该秘境已通关：' + zone.name,
-        data: { code: 'ALREADY_CLEARED', zone: { code: zone.code, name: zone.name } },
-      };
+      const state = await this.battleStateRow(character.id);
+      zone = state ? (zones.find((z) => Number(z.id) === Number(state.current_zone_id)) ?? null) : null;
+      if (!zone) return fail('NO_ONLINE_BATTLE', '当前不在秘境中');
     }
 
+    const progress = progressOf(await this.progressRow(character.id, zone.id));
     const power = await this.playerPower(character.id, character.realm);
     const req = floorRequirement(zone, progress.floor);
     if (power < req) {
@@ -406,24 +542,12 @@ export class ZoneService {
     });
     if (!settled.ok) return settled.result;
 
-    const nextFloor = progress.floor + 1;
-    const nextBest = Math.max(progress.bestFloor, progress.floor);
-    const cleared = nextFloor > zone.max_floor;
-    await this.gameDb.query(
-      'INSERT INTO game_zone_progress (character_id, zone_id, floor, best_floor, cleared) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (character_id, zone_id) DO UPDATE SET floor = EXCLUDED.floor, best_floor = GREATEST(game_zone_progress.best_floor, EXCLUDED.best_floor), cleared = EXCLUDED.cleared, updated_at = CURRENT_TIMESTAMP',
-      [character.id, zone.id, nextFloor, nextBest, cleared],
-    );
-
-    // 地图层挂钩（settings-revision-2 §5.5 / D2）：本层是 Boss 层且挑战成功（= 击败该秘境
-    // 第一个 Boss）或已通关时，通知 map 域把对应地图节点的 idle_unlocked 置位。
-    // 层数判定留在 zone 域（isBossFloor / max_floor），map 域只负责置位，不重复实现层数逻辑；
-    // 没有地图节点的遗留秘境（zone_qingyun 等 5 个）在 map 域内直接被忽略，行为不变。
-    await this.mapLogic.onZoneFloorPassed(character.id, {
-      zoneCode: zone.code,
+    const advanced = await this.advanceFloor(character.id, zone.id, {
       floor: progress.floor,
-      isBossFloor: boss,
-      cleared,
+      bestFloor: progress.bestFloor,
+      maxFloor: zone.max_floor,
     });
+    const nextFloor = advanced.cleared ? zone.max_floor : progress.floor + 1;
 
     return {
       success: true,
@@ -432,8 +556,9 @@ export class ZoneService {
         zone: { code: zone.code, name: zone.name },
         floor: progress.floor,
         nextFloor,
-        bestFloor: nextBest,
-        cleared,
+        bestFloor: advanced.bestFloor,
+        clears: advanced.clears,
+        cleared: advanced.cleared,
         playerPower: power,
         floorRequirement: req,
         isBossFloor: boss,

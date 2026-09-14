@@ -145,8 +145,14 @@ describe('RealmLogicService / CombatLogicService 转发边界', () => {
 });
 
 describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicService 转发边界', () => {
-  test('zone（含 P3.0 在线历练转发）', async () => {
-    const zone = { catalog: stub(() => 'C'), progress: stub(() => 'P'), enter: stub(() => 'E'), challenge: stub(() => 'H') };
+  test('zone（§22 起含 breakthrough/leave/idleTarget 与 idle 域复用的两个挂钩）', async () => {
+    const zone = {
+      catalog: stub(() => 'C'), progress: stub(() => 'P'), enter: stub(() => 'E'),
+      breakthrough: stub(() => 'B'), leave: stub(() => 'L'), idleTarget: stub(() => 'T'),
+      inOnlineBattle: stub(async () => true),
+      idleEncounter: stub(async () => ({ zoneCode: 'z', zoneName: 'z', floor: 1, isBoss: false, unitCode: 'u' })),
+      challenge: stub(() => 'H'),
+    };
     const explore = {
       snapshot: stub(async () => ({ online: true })),
       setVisibility: stub(() => undefined),
@@ -157,6 +163,18 @@ describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicSe
     assert.equal(await svc.enter(1, 'z'), 'E');
     assert.equal(await svc.challenge(1, 'z'), 'H');
     assert.deepEqual(zone.challenge.last, [1, 'z']);
+    // §22 新增动作：突破 / 离开 / 挂机点
+    assert.equal(await svc.breakthrough(1, 'z'), 'B');
+    assert.deepEqual(zone.breakthrough.last, [1, 'z']);
+    assert.equal(await svc.leave(1), 'L');
+    assert.deepEqual(zone.leave.last, [1]);
+    assert.equal(await svc.idleTarget(1, 'z'), 'T');
+    assert.deepEqual(zone.idleTarget.last, [1, 'z']);
+    // §22 供 idle 域复用的两个挂钩
+    assert.equal(await svc.inOnlineBattle(11), true);
+    assert.deepEqual(zone.inOnlineBattle.last, [11]);
+    assert.equal((await svc.idleEncounter(11))?.unitCode, 'u');
+    assert.deepEqual(zone.idleEncounter.last, [11]);
     // online：成功信封 + 一帧 data（离线也是成功，不是业务失败）
     const online = await svc.online(1);
     assert.equal(online.success, true);
@@ -186,23 +204,19 @@ describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicSe
     assert.equal(await svc.questStory(1, 'q'), 'B');
     assert.equal(await svc.markSeen(1, 'k'), 'C');
   });
-  test('map（含 zone/idle 复用的两个挂钩）', async () => {
+  test('map（§22 起只剩 list/enter/waypoint 三个玩家动作）', async () => {
     const map = {
       panel: stub(() => 'PANEL'),
       enter: stub(() => 'ENTER'),
       waypoint: stub(() => 'WAYPOINT'),
-      onZoneFloorPassed: stub(() => 'HOOK'),
-      zoneIdleGate: stub(() => 'GATE'),
     };
     const svc = new MapLogicService(map as never);
     assert.equal(await svc.list(1), 'PANEL');
     assert.equal(await svc.enter(1, 'n1'), 'ENTER');
     assert.equal(await svc.waypoint(1, 'n1'), 'WAYPOINT');
-    const event = { zoneCode: 'z1', floor: 3, isBossFloor: true, cleared: true };
-    assert.equal(await svc.onZoneFloorPassed(1, event), 'HOOK');
-    assert.deepEqual(map.onZoneFloorPassed.last, [1, event]);
-    assert.equal(await svc.zoneIdleGate(1, 'zone_houshan'), 'GATE');
-    assert.deepEqual(map.zoneIdleGate.last, [1, 'zone_houshan']);
+    assert.deepEqual(map.panel.last, [1]);
+    assert.deepEqual(map.enter.last, [1, 'n1']);
+    assert.deepEqual(map.waypoint.last, [1, 'n1']);
   });
   test('idle', async () => {
     const idle = { status: stub(() => 'S'), settle: stub(() => 'T') };
