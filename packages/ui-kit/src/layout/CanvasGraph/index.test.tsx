@@ -226,7 +226,8 @@ describe('缩放', () => {
     render(<CanvasGraph rows={ROWS} cols={COLS} items={ITEMS} />);
     const host = screen.getByTestId('canvas-graph');
     const fit = Number(screen.getByTestId('canvas-graph-zoom').textContent?.replace('%', ''));
-    fireEvent.wheel(host, { deltaY: 480, clientX: 300, clientY: 300 });
+    // 到底了就不消费滚轮 → 交回页面滚动（fireEvent 返回 false 表示被 preventDefault）
+    expect(fireEvent.wheel(host, { deltaY: 480, clientX: 300, clientY: 300 })).toBe(true);
     await waitFor(() => {
       const now = Number(screen.getByTestId('canvas-graph-zoom').textContent?.replace('%', ''));
       expect(now).toBeGreaterThanOrEqual(fit - 1);
@@ -297,6 +298,45 @@ describe('缩放', () => {
       pointer(host, 'pointerup', { pointerId: 1, clientX: 200, clientY: 300 });
     });
     expect(onSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe('滚轮的「到边界就还给页面」', () => {
+  it('⭐ 已在整图适配下界还要缩小 → 不消费滚轮（否则鼠标停在画布上就永远滚不动页面）', () => {
+    render(<CanvasGraph rows={ROWS} cols={COLS} items={ITEMS} />);
+    const host = screen.getByTestId('canvas-graph');
+    // fit 即下界：继续向下滚不该被吃掉（fireEvent 返回 true = 未 preventDefault）
+    expect(fireEvent.wheel(host, { deltaY: 300, clientX: 300, clientY: 300 })).toBe(true);
+  });
+
+  it('还能缩放时正常消费滚轮（否则页面会跟着一起滚，缩放抖动）', async () => {
+    render(<CanvasGraph rows={ROWS} cols={COLS} items={ITEMS} />);
+    const host = screen.getByTestId('canvas-graph');
+    // 向上滚 = 放大，此时未到上界 → 应被消费
+    expect(fireEvent.wheel(host, { deltaY: -120, clientX: 300, clientY: 300 })).toBe(false);
+    await waitFor(() => {
+      const now = Number(screen.getByTestId('canvas-graph-zoom').textContent?.replace('%', ''));
+      expect(now).toBeGreaterThan(0);
+    });
+  });
+
+  it('放大到上界后继续向上滚 → 同样还给页面', async () => {
+    render(<CanvasGraph rows={ROWS} cols={COLS} items={ITEMS} />);
+    const host = screen.getByTestId('canvas-graph');
+    // 一口气顶到 maxZoom（相对 zoom_fit 的 4 倍）
+    for (let i = 0; i < 40; i += 1) fireEvent.wheel(host, { deltaY: -120, clientX: 300, clientY: 300 });
+    await waitFor(() => {
+      const now = Number(screen.getByTestId('canvas-graph-zoom').textContent?.replace('%', ''));
+      expect(now).toBeGreaterThan(0);
+    });
+    // 动画收敛后再滚一次：应已在上界 → 不消费
+    await waitFor(() => expect(fireEvent.wheel(host, { deltaY: -120, clientX: 300, clientY: 300 })).toBe(true));
+  });
+
+  it('deltaY 为 0 的滚轮事件既不缩放也不消费（某些设备会发这种事件）', () => {
+    render(<CanvasGraph rows={ROWS} cols={COLS} items={ITEMS} />);
+    const host = screen.getByTestId('canvas-graph');
+    expect(fireEvent.wheel(host, { deltaY: 0, clientX: 300, clientY: 300 })).toBe(true);
   });
 });
 

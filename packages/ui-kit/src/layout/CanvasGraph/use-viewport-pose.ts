@@ -18,8 +18,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { MutableRefObject } from 'react';
 import { fitZoom } from '../GraphCanvas/geometry.js';
 import { createPoseStore } from './pose-store.js';
+import { useCanvasWheel } from './use-canvas-wheel.js';
 import { UNKNOWN_SIZE, useElementSize } from './use-element-size.js';
-import { zoomFactorFromWheel } from './viewport-math.js';
 import type { PoseBounds } from './viewport-math.js';
 import type { CanvasGraphPose } from './types.js';
 
@@ -120,29 +120,6 @@ export function useViewportPose(options: ViewportPoseOptions): ViewportPoseApi {
     live.current.onSettle(fitted);
   }, [size.w, size.h, worldW, worldH]);
 
-  // 滚轮 / 触控板捏合：画布内滚轮就是缩放（见文件头）
-  useEffect(() => {
-    const host = ref.current;
-    if (host === null) return;
-    const onWheel = (event: WheelEvent): void => {
-      event.preventDefault();
-      const rect = host.getBoundingClientRect();
-      store.current.zoomTo(
-        boundsRef.current,
-        zoomFactorFromWheel(event.deltaY, event.ctrlKey),
-        event.clientX - rect.left,
-        event.clientY - rect.top,
-      );
-      schedule();
-    };
-    host.addEventListener('wheel', onWheel, { passive: false });
-    return () => host.removeEventListener('wheel', onWheel);
-  }, [schedule]);
-
-  const setDragPan = useCallback((originPanX: number, originPanY: number, dx: number, dy: number): void => {
-    live.current.onPose(store.current.dragTo(boundsRef.current, originPanX, originPanY, dx, dy));
-  }, []);
-
   const zoomTo = useCallback(
     (factor: number, anchorX: number, anchorY: number): void => {
       store.current.zoomTo(boundsRef.current, factor, anchorX, anchorY);
@@ -150,6 +127,13 @@ export function useViewportPose(options: ViewportPoseOptions): ViewportPoseApi {
     },
     [schedule],
   );
+
+  // 滚轮 / 触控板捏合：画布内滚轮就是缩放；到上下界把滚轮交回页面（见 use-canvas-wheel.ts）
+  useCanvasWheel({ ref, bounds: () => boundsRef.current, zoom: () => store.current.pose().zoom, zoomTo });
+
+  const setDragPan = useCallback((originPanX: number, originPanY: number, dx: number, dy: number): void => {
+    live.current.onPose(store.current.dragTo(boundsRef.current, originPanX, originPanY, dx, dy));
+  }, []);
 
   const panBy = useCallback(
     (dx: number, dy: number): void => {
