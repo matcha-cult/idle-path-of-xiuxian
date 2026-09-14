@@ -21,7 +21,7 @@ import {
   floorKillsLabel,
   floorLabel,
   floorProgressPercent,
-  idleUnlockedHint,
+  realmUnlockedHint,
   rhythmText,
   statusText,
   stuckText,
@@ -39,7 +39,7 @@ export function ZoneOnlineSection(props: ZoneOnlineSectionProps) {
   const { frame, onRefresh } = props;
   const percent = floorProgressPercent(frame);
   const stuck = stuckText(frame);
-  const idleHint = idleUnlockedHint(frame);
+  const unlockHint = realmUnlockedHint(frame);
   const summary = summaryText(frame);
   const events = eventLabelsOf(frame);
 
@@ -87,8 +87,8 @@ export function ZoneOnlineSection(props: ZoneOnlineSectionProps) {
 
         <Flex wrap gap={8} data-testid="zone-online-tags">
           {frame?.isBossFloor === true ? <Tag color="gold">Boss 层</Tag> : null}
-          {frame?.cleared === true ? <Tag color="success">已通关</Tag> : null}
-          {frame?.idleUnlocked === true ? <Tag color="success">离线挂机已解锁</Tag> : null}
+          {frame?.cleared === true ? <Tag color="success">本轮已打满</Tag> : null}
+          {frame !== null && frame.clears >= 1 ? <Tag color="success">已突破</Tag> : null}
           {events.map((label) => (
             <Tag key={label} color="processing">
               {label}
@@ -103,9 +103,9 @@ export function ZoneOnlineSection(props: ZoneOnlineSectionProps) {
           </div>
         )}
 
-        {idleHint === null ? null : (
-          <div data-testid="zone-online-idle-hint">
-            <Alert type="success" showIcon title={idleHint} />
+        {unlockHint === null ? null : (
+          <div data-testid="zone-online-unlock-hint">
+            <Alert type="success" showIcon title={unlockHint} />
           </div>
         )}
 

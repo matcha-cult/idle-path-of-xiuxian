@@ -61,12 +61,11 @@ function makeObject(overrides: Partial<MapObjectView> = {}): MapObjectView {
 function setup(
   node: MapNodeView,
   playerPower: number,
-  options: { current?: boolean; withRealm?: boolean; objects?: MapObjectView[] } = {},
+  options: { current?: boolean; objects?: MapObjectView[] } = {},
 ) {
-  const { current = false, withRealm = true, objects = [] } = options;
+  const { current = false, objects = [] } = options;
   const onEnter = vi.fn();
   const onWaypoint = vi.fn();
-  const onEnterRealm = vi.fn();
   render(
     <MapNodeCard
       node={node}
@@ -75,10 +74,9 @@ function setup(
       objects={objects}
       onEnter={onEnter}
       onWaypoint={onWaypoint}
-      {...(withRealm ? { onEnterRealm } : {})}
     />,
   );
-  return { onEnter, onWaypoint, onEnterRealm };
+  return { onEnter, onWaypoint };
 }
 
 /** 历练秘境峰（用户定调：挂机只能在它这里）。 */
@@ -311,31 +309,17 @@ describe('MapNodeCard · 动作', () => {
   });
 });
 
-describe('MapNodeCard · 秘境节点的「进入历练」（地图→历练秘境峰→挂机的闭环）', () => {
-  it('秘境节点渲染「进入历练」，点击回传 zoneCode（不是节点 code）', async () => {
-    const { onEnterRealm } = setup(REALM, 100);
-    await userEvent.click(screen.getByTestId(`map-node-enter-realm-${REALM.code}`));
-    expect(onEnterRealm).toHaveBeenCalledTimes(1);
-    expect(onEnterRealm).toHaveBeenCalledWith('zone_houshan');
+describe('MapNodeCard · §22：秘境入口不再挂在节点上', () => {
+  it('任何节点都不渲染「进入历练」按钮（秘境已与地图解耦）', () => {
+    // §22 前这里是 `map-node-enter-realm-*`（把挂机目标切到该秘境）；
+    // 秘境界面搬到第八峰·后山的「秘境石台」就地交互区后，节点卡不得再出现该按钮。
+    setup(REALM, 100);
+    expect(screen.queryByTestId(`map-node-enter-realm-${REALM.code}`)).toBeNull();
+    expect(screen.queryByText(/进入历练/)).toBeNull();
   });
 
-  it('未到达该节点时禁用（先跑图再历练）', () => {
-    setup(makeNode({ ...REALM, progress: progress({ visited: false }) }), 100);
-    expect(screen.getByTestId(`map-node-enter-realm-${REALM.code}`)).toBeDisabled();
-  });
-
-  it('已解锁离线挂机时，文案体现出来（这是 D2 的结果）', () => {
-    setup(makeNode({ ...REALM, progress: progress({ visited: true, idleUnlocked: true }) }), 100);
-    expect(screen.getByTestId(`map-node-enter-realm-${REALM.code}`)).toHaveTextContent('可离线挂机');
-  });
-
-  it('非秘境节点不给「进入历练」（跑图点不是挂机处）', () => {
-    setup(makeNode({ kind: 'route', zoneCode: null }), 100);
-    expect(screen.queryByTestId('map-node-enter-realm-n_1')).toBeNull();
-  });
-
-  it('未接 onEnterRealm 时不渲染（可选能力，不强制调用方）', () => {
-    setup(REALM, 100, { withRealm: false });
+  it('第八峰·后山（featureKey=realm）在节点卡上只报「承载系统：秘境」，不报怪物数据', () => {
+    setup(makeNode({ ...REALM, featureKey: 'realm', level: null, threshold: null }), 100);
     expect(screen.queryByTestId(`map-node-enter-realm-${REALM.code}`)).toBeNull();
   });
 });

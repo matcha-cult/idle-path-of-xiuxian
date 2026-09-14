@@ -79,16 +79,15 @@ describe('GameHud', () => {
     harness.seed(() => {
       harness.root.zone.playerPower = 12000;
       harness.root.zone.progress = {
-        currentZone: { code: 'zone_1', name: '落霞谷', chapter: 1 },
+        // §22：currentZone 带 realm、进度带 clears（旧 chapter/unlocked/canChallenge 已删）
+        currentZone: { code: 'zone_1', name: '落霞谷', realm: 2 },
         floor: 3,
         bestFloor: 3,
+        clears: 1,
         cleared: false,
-        unlocked: true,
         playerPower: 12000,
         floorRequirement: 15000,
-        canChallenge: false,
         isBossFloor: false,
-        encounterUnit: 'wolf',
         lingyunBonus: 10,
         dropTierOffset: 0,
         extraDropDraws: 0,

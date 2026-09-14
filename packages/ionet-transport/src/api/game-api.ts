@@ -71,6 +71,8 @@ import type {
   UnitSpawnData,
   ZoneChallengeData,
   ZoneEnterData,
+  ZoneIdleTargetData,
+  ZoneLeaveData,
   ZoneOnlineData,
   ZoneProgressData,
   ZoneVisibilityData,
@@ -717,34 +719,32 @@ export class CombatApi {
 
 // ===== zone 段（cmd 100）=====
 
-/** zone 段：秘境列表 / 进度 / 进入 / 挑战（07 §2.9）。 */
+/** zone 段：秘境图鉴 / 在线战斗进度 / 突破 / 进入 / 离开 / 挂机点（§22）。 */
 export class ZoneApi {
   constructor(private readonly transport: GameApiTransport) {}
 
   /**
-   * 秘境列表（含解锁状态与进度）。无业务码。
-   * 出处：`zone.action.ts:22-27`、`zone.service.ts:187-227`。
+   * 秘境图鉴（**只含已突破的秘境** + 全量突破名录 + 挂机点）。无业务码。
+   * 出处：`zone.action.ts` 的 `zones`、`zone.service.ts:catalog`。
    */
   zones(options?: SendOptions): Promise<ActionResult<ZonesData>> {
     return this.transport.request<ZonesData>(ZONE_CMD.cmd, ZONE_CMD.zones, {}, options);
   }
 
   /**
-   * 当前秘境进度（楼层 / 战力 / 能否挑战）。失败码：`ZONE_NOT_FOUND`。
-   * 出处：`zone.action.ts:29-34`、`zone.service.ts:229-262`。
+   * 当前在线战斗的进度（层数 / 战力 / 周目）。失败码：`NO_ONLINE_BATTLE`。
+   * 出处：`zone.action.ts` 的 `progress`、`zone.service.ts:progress`。
    */
   progress(options?: SendOptions): Promise<ActionResult<ZoneProgressData>> {
     return this.transport.request<ZoneProgressData>(ZONE_CMD.cmd, ZONE_CMD.progress, {}, options);
   }
 
   /**
-   * 进入秘境。
+   * 进入一个**已突破**秘境的战斗（重复挑战）。
    *
    * 业务失败是**预期分支**（`{ allowBusinessFailure: true }`）：
-   * `INVALID_PARAM`、`ZONE_NOT_FOUND`、`REALM_TOO_LOW`（data 额外含 required/current）、
-   * `ZONE_LOCKED`（data 额外含 reason/prevZone/requiredPrevBestFloor/prevBestFloor）——
-   * 两者按 `ZoneFailData`（07 §5.9）解析。
-   * 出处：`zone.action.ts:36-43`、`zone.service.ts:264-288`。
+   * `INVALID_PARAM`、`ZONE_NOT_FOUND`、`ZONE_NOT_UNLOCKED`。
+   * 出处：`zone.action.ts` 的 `enter`、`zone.service.ts:enter`。
    */
   enter(zoneCode: string, options?: SendOptions): Promise<ActionResult<ZoneEnterData>> {
     return this.transport.request<ZoneEnterData>(
@@ -756,13 +756,48 @@ export class ZoneApi {
   }
 
   /**
-   * 挑战当前/指定秘境的一层。
+   * 突破秘境并进入在线战斗（§22 Q1/Q3）。
+   *
+   * **不校验境界、不校验战力**（training 免费放行）；`special` 需道具 → 失败
+   * `ZONE_ITEM_REQUIRED`（`ZoneFailData`）。
+   * 业务失败是**预期分支**：`INVALID_PARAM`、`ZONE_NOT_FOUND`、`ZONE_ITEM_REQUIRED`。
+   * 出处：`zone.action.ts` 的 `breakthrough`、`zone.service.ts:breakthrough`。
+   */
+  breakthrough(zoneCode: string, options?: SendOptions): Promise<ActionResult<ZoneEnterData>> {
+    return this.transport.request<ZoneEnterData>(
+      ZONE_CMD.cmd,
+      ZONE_CMD.breakthrough,
+      { zoneCode },
+      expectedBusinessFailure(options),
+    );
+  }
+
+  /** 手动离开当前战斗（§22 Q3 通关自动离开之外也可手动离开）。无业务码。 */
+  leave(options?: SendOptions): Promise<ActionResult<ZoneLeaveData>> {
+    return this.transport.request<ZoneLeaveData>(ZONE_CMD.cmd, ZONE_CMD.leave, {}, options);
+  }
+
+  /**
+   * 设置离线挂机点（需已突破且 `idle_allowed`）。
+   *
+   * 业务失败是**预期分支**：`INVALID_PARAM`、`ZONE_NOT_FOUND`、`ZONE_NOT_IDLE_ELIGIBLE`。
+   * 出处：`zone.action.ts` 的 `idleTarget`、`zone.service.ts:idleTarget`。
+   */
+  idleTarget(zoneCode: string, options?: SendOptions): Promise<ActionResult<ZoneIdleTargetData>> {
+    return this.transport.request<ZoneIdleTargetData>(
+      ZONE_CMD.cmd,
+      ZONE_CMD.idleTarget,
+      { zoneCode },
+      expectedBusinessFailure(options),
+    );
+  }
+
+  /**
+   * 层数挑战一个秘境的记录（**开发者工具**，§22 起 UI 不再有「挑战本层」按钮）。
    *
    * 业务失败是**预期分支**（`{ allowBusinessFailure: true }`）：
-   * `INVALID_PARAM`、`ZONE_NOT_FOUND`、`REALM_TOO_LOW`、`ZONE_LOCKED`、
-   * `ALREADY_CLEARED`、`CHALLENGE_FAILED`（四者 data 形状见 `ZoneFailData`，07 §5.9）、
-   * `UNIT_NOT_FOUND`、`NOT_KILLABLE`。
-   * 出处：`zone.action.ts:45-56`、`zone.service.ts:290-383`。
+   * `INVALID_PARAM`、`ZONE_NOT_FOUND`、`NO_ONLINE_BATTLE`、`CHALLENGE_FAILED`（`ZoneFailData`）。
+   * 出处：`zone.action.ts` 的 `challenge`、`zone.service.ts:challenge`。
    */
   challenge(zoneCode?: string, options?: SendOptions): Promise<ActionResult<ZoneChallengeData>> {
     return this.transport.request<ZoneChallengeData>(
@@ -776,9 +811,9 @@ export class ZoneApi {
   /**
    * 在线历练实况（P3.0 T5/T6）：一帧「此刻」的服务端权威状态。
    *
-   * 无业务失败码：离线 / 未进秘境 / 不在秘境峰都是**成功信封**，用 `data.reason` 区分，
-   * 因此**不加** `allowBusinessFailure`。同一 `(100,5)` 也是服务端推送的路由
-   * （`root-store` 会把 `ZONE_CMD.cmd` 的推送转给 zone store 的 `handleNotification`）。
+   * 无业务失败码：离线 / 未在战斗都是**成功信封**，用 `data.reason` 区分（`ok/hidden/
+   * no_session/no_battle`），因此**不加** `allowBusinessFailure`。同一 `(100,5)` 也是服务端
+   * 推送的路由（`root-store` 会把 `ZONE_CMD.cmd` 的推送转给 zone store 的 `handleNotification`）。
    */
   online(options?: SendOptions): Promise<ActionResult<ZoneOnlineData>> {
     return this.transport.request<ZoneOnlineData>(ZONE_CMD.cmd, ZONE_CMD.online, {}, options);

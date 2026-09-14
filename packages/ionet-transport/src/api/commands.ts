@@ -84,6 +84,12 @@ export const ZONE_CMD = {
   online: 5,
   /** 页面可见性上报（P3.0 T2）：只报可见性，不报时长 */
   visibility: 6,
+  /** §22：突破秘境 → 进入在线战斗（training 免费 / special 需道具） */
+  breakthrough: 7,
+  /** §22：离开当前战斗（通关自动离开之外也可手动离开） */
+  leave: 8,
+  /** §22：设置离线挂机点（需已突破且 idle_allowed） */
+  idleTarget: 9,
 } as const;
 
 export const QUEST_CMD = {

@@ -12,7 +12,9 @@
  *
  * 本组件是纯展示 + 回调，不读 store、不发请求。
  */
+import type { ReactNode } from 'react';
 import type { MapNodeView, MapObjectView } from '@idle-path/ionet-transport';
+import { Flex } from 'antd';
 import { SectionCard } from '@idle-path/ui-kit';
 import { MapNodeCard } from './MapNodeCard.js';
 import { detailSubtitleTail } from './node-detail.js';
@@ -28,9 +30,13 @@ export interface MapDetailPanelProps {
   moving?: boolean;
   /** 正在移动的目标节点 code。 */
   movingTo?: string | null;
+  /**
+   * §22：节点专属的**就地交互区**（当前只有第八峰·后山 → 秘境石台）。
+   * 由容器（`MapPanel`）决定给不给、给什么 —— 本组件只负责挂上去，保持纯展示。
+   */
+  realmSection?: ReactNode;
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
-  onEnterRealm?: (zoneCode: string) => void;
 }
 
 export function MapDetailPanel(props: MapDetailPanelProps) {
@@ -41,28 +47,30 @@ export function MapDetailPanel(props: MapDetailPanelProps) {
     objects = [],
     moving = false,
     movingTo = null,
+    realmSection,
     onEnter,
     onWaypoint,
-    onEnterRealm,
   } = props;
   const state = nodeVisualState(node, currentCode);
   const nodeObjects = objects.filter((object) => object.nodeCode === node.code);
   return (
-    <SectionCard
-      title="地点详情"
-      subtitle={`${nodeStateLabel(state)} · ${detailSubtitleTail(node)}`}
-    >
-      <MapNodeCard
-        node={node}
-        playerPower={playerPower}
-        current={state === 'current'}
-        objects={nodeObjects}
-        moving={moving}
-        movingTo={movingTo}
-        onEnter={onEnter}
-        onWaypoint={onWaypoint}
-        onEnterRealm={onEnterRealm}
-      />
-    </SectionCard>
+    <Flex vertical gap={12}>
+      <SectionCard
+        title="地点详情"
+        subtitle={`${nodeStateLabel(state)} · ${detailSubtitleTail(node)}`}
+      >
+        <MapNodeCard
+          node={node}
+          playerPower={playerPower}
+          current={state === 'current'}
+          objects={nodeObjects}
+          moving={moving}
+          movingTo={movingTo}
+          onEnter={onEnter}
+          onWaypoint={onWaypoint}
+        />
+      </SectionCard>
+      {realmSection}
+    </Flex>
   );
 }

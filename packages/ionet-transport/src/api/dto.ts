@@ -573,68 +573,116 @@ export interface SettlementData {
   itemsProduced: number;
 }
 
-// ===== WS：zone（zone.service.ts:131-383 / zone.types.ts:40-49）=====
+// ===== WS：zone（§22 重做；zone.service.ts / zone.types.ts）=====
 
-/** 单秘境进度（`zone.types.ts:40-49`）。 */
+/** 单秘境进度（`zone.types.ts:progressOf`）。 */
 export interface ZoneProgressView {
   floor: number;
   bestFloor: number;
   cleared: boolean;
+  /** §22：通关次数（重复挑战每打满一轮 +1）；`clears ≥ 1` ⇔ 已突破。 */
+  clears: number;
 }
 
-/** 秘境视图（`zone.service.ts:199-219`）。 */
+/** §22：秘境类别（training 免费可挂机 / special 需道具不可挂机）。 */
+export type ZoneTierKind = 'training' | 'special';
+
+/**
+ * 已突破秘境视图（`zone.service.ts:catalog` 的 `zones` 数组）—— **秘境页面**的数据源。
+ *
+ * §22 Q4：**未突破的秘境根本不下发**在这里；想要全量清单看 `ZoneBreakthroughView`
+ * （`breakthrough` 数组，石台交互面板的数据源）。
+ */
 export interface ZoneView {
   id: number;
   code: string;
   name: string;
-  chapter: number;
+  /** 该秘境对应第几境（1~13；**不是入场闸门**） */
+  realm: number;
+  tierKind: ZoneTierKind;
   orderIndex: number;
-  minRealm: number;
-  requirePrevBestFloor: number;
-  unlocked: boolean;
-  unlockedReason: 'ok' | 'realm' | 'prev';
-  prevZone: string | null;
-  prevBestFloor: number;
-  current: boolean;
+  idleAllowed: boolean;
+  /** special 的突破道具 code（仅展示；training 恒为 null） */
+  unlockItemCode: string | null;
   unitCode: string;
   bossCode: string | null;
   basePower: number;
   powerStep: number;
   maxFloor: number;
   lingyunBonusPerFloor: number;
+  /** 是否正在其中在线战斗 */
+  current: boolean;
   progress: ZoneProgressView;
 }
 
-/** zone.zones 成功 data（`zone.service.ts:187-227`）。 */
-export interface ZonesData {
-  total: number;
-  playerPower: number;
-  currentZone: string | null;
-  zones: ZoneView[];
+/** 突破名录条目（`zone.service.ts:catalog` 的 `breakthrough` 数组）—— 石台面板的数据源。 */
+export interface ZoneBreakthroughView {
+  code: string;
+  name: string;
+  realm: number;
+  tierKind: ZoneTierKind;
+  /** §22：training 恒 true；special 本轮恒 false（道具未实装） */
+  canBreakthrough: boolean;
+  /** `'ok' | 'item_required'`（canBreakthrough=false 的原因） */
+  lockReason: 'ok' | 'item_required';
+  unlockItemCode: string | null;
+  /** 是否已突破（clears ≥ 1） */
+  cleared: boolean;
+  clears: number;
+  bestFloor: number;
+  maxFloor: number;
+  basePower: number;
+  powerStep: number;
 }
 
-/** zone.progress 成功 data（`zone.service.ts:229-262`）。 */
+/** zone.zones 成功 data（`zone.service.ts:catalog`）。 */
+export interface ZonesData {
+  /** 已突破秘境数（`zones.length`） */
+  total: number;
+  playerPower: number;
+  /** 当前在线战斗所在秘境 code（无战斗为 null） */
+  currentZone: string | null;
+  /** 当前挂机点秘境 code（未设置 / 不再可挂机为 null） */
+  idleTarget: string | null;
+  /** 已突破秘境（秘境页面；§22 Q4 未解锁不显示） */
+  zones: ZoneView[];
+  /** 全部 13 境突破名录（第八峰·后山「秘境石台」交互用） */
+  breakthrough: ZoneBreakthroughView[];
+}
+
+/** zone.progress 成功 data（`zone.service.ts:progress`；当前在线战斗的进度）。 */
 export interface ZoneProgressData {
-  currentZone: { code: string; name: string; chapter: number };
+  currentZone: { code: string; name: string; realm: number };
   floor: number;
   bestFloor: number;
+  clears: number;
   cleared: boolean;
-  unlocked: boolean;
   playerPower: number;
   floorRequirement: number;
-  canChallenge: boolean;
   isBossFloor: boolean;
-  encounterUnit: string;
   lingyunBonus: number;
   dropTierOffset: number;
   extraDropDraws: number;
 }
 
-/** zone.enter 成功 data（`zone.service.ts:264-288`）。 */
+/** zone.enter / zone.breakthrough 成功 data（同一形状，`zone.service.ts:battleEntry`）。 */
 export interface ZoneEnterData {
-  currentZone: { code: string; name: string; chapter: number };
+  currentZone: { code: string; name: string; realm: number };
   floor: number;
   bestFloor: number;
+  clears: number;
+}
+
+/** zone.leave 成功 data。 */
+export interface ZoneLeaveData {
+  currentZone: null;
+  /** 是否真的清掉了一场战斗（本来就无战斗 = false，幂等） */
+  left: boolean;
+}
+
+/** zone.idleTarget 成功 data。 */
+export interface ZoneIdleTargetData {
+  idleTarget: { code: string; name: string; realm: number };
 }
 
 /** zone.challenge 成功 data 的奖励块（`zone.service.ts:290-383`）。 */
@@ -652,12 +700,13 @@ export interface ZoneChallengeRewards {
   essences: Record<string, number>;
 }
 
-/** zone.challenge 成功 data（`zone.service.ts:290-383`）。 */
+/** zone.challenge 成功 data（开发者工具；`zone.service.ts:challenge`）。 */
 export interface ZoneChallengeData {
   zone: { code: string; name: string };
   floor: number;
   nextFloor: number;
   bestFloor: number;
+  clears: number;
   cleared: boolean;
   playerPower: number;
   floorRequirement: number;
@@ -667,7 +716,7 @@ export interface ZoneChallengeData {
   rewards: ZoneChallengeRewards;
 }
 
-// ===== 在线历练（P3.0 T5/T6；R2 §4.2 的 tick 模型）=====
+// ===== 在线历练（P3.0 T5/T6；R2 §4.2 的 tick 模型；§22 修订）=====
 
 /**
  * 在线结算事件（`online.types.ts:ZoneOnlineEvent`）。
@@ -678,18 +727,17 @@ export type ZoneOnlineEvent =
   | 'floor_up'
   | 'boss_floor'
   | 'boss_defeated'
-  | 'idle_unlocked'
+  | 'realm_unlocked'
   | 'stuck';
 
 /**
  * 不推进的原因：
- * - `ok` 正在历练；
+ * - `ok` 正在战斗；
  * - `hidden` 会话活着但页面不可见（切后台不算在线）；
  * - `no_session` 没有活着的 WS 会话；
- * - `no_realm` 还没进入任何秘境；
- * - `not_map_realm` 当前秘境没挂在地图节点上（不是「历练秘境峰」）。
+ * - `no_battle` 没有当前战斗（没进秘境 / 刚打满一轮自动退出）。
  */
-export type ZoneOnlineReason = 'ok' | 'hidden' | 'no_session' | 'no_realm' | 'not_map_realm';
+export type ZoneOnlineReason = 'ok' | 'hidden' | 'no_session' | 'no_battle';
 
 /**
  * `zone.online` 成功 data，也是 `zone.online` **推送帧**的 data（同一形状）。
@@ -702,13 +750,13 @@ export interface ZoneOnlineData {
   online: boolean;
   exploring: boolean;
   reason: ZoneOnlineReason;
-  zone: { code: string; name: string } | null;
-  nodeCode: string | null;
-  nodeName: string | null;
+  zone: { code: string; name: string; realm: number } | null;
   floor: number;
   maxFloor: number;
   bestFloor: number;
   cleared: boolean;
+  /** §22：周目计数（`clears ≥ 1` ⇔ 已突破） */
+  clears: number;
   isBossFloor: boolean;
   playerPower: number;
   floorRequirement: number;
@@ -716,7 +764,6 @@ export interface ZoneOnlineData {
   killsPerFloor: number;
   stuck: boolean;
   shortfall: number;
-  idleUnlocked: boolean;
   kills: number;
   lingyunGained: number;
   events: ZoneOnlineEvent[];
@@ -730,22 +777,15 @@ export interface ZoneVisibilityData {
 }
 
 /**
- * zone 段四个「非 `{code}` 单键」失败码的 data 联合（07 §5.9、§2.9 注）。
+ * zone 段特殊失败 data 联合（§22 修订）。
  *
- * `REALM_TOO_LOW` / `ZONE_LOCKED` / `ALREADY_CLEARED` / `CHALLENGE_FAILED` 是唯一
- * 不走 `fail()` 而内联构造的失败（`zone.service.ts:131-137,139-151,314-318,324-334`），
- * 其余失败码（含 `ZONE_NOT_FOUND` / `INVALID_PARAM`）落在最后的 `{ code: string }` 兜底成员。
+ * 内联构造（不走 `fail()`）：`ZONE_ITEM_REQUIRED` / `CHALLENGE_FAILED`
+ * （`zone.service.ts` 的 breakthrough / challenge）；
+ * 其余失败码（`NO_ONLINE_BATTLE` / `ZONE_NOT_UNLOCKED` / `ZONE_NOT_FOUND` /
+ * `ZONE_NOT_IDLE_ELIGIBLE` / `INVALID_PARAM` 等）落在最后的 `{ code: string }` 兜底成员。
  */
 export type ZoneFailData =
-  | { code: 'REALM_TOO_LOW'; required: number; current: number }
-  | {
-      code: 'ZONE_LOCKED';
-      reason: 'prev';
-      prevZone: string | null;
-      requiredPrevBestFloor: number;
-      prevBestFloor: number;
-    }
-  | { code: 'ALREADY_CLEARED'; zone: { code: string; name: string } }
+  | { code: 'ZONE_ITEM_REQUIRED'; zone: { code: string; name: string; realm: number }; itemCode: string | null }
   | {
       code: 'CHALLENGE_FAILED';
       zone: { code: string; name: string };

@@ -100,9 +100,12 @@ const HOUSHAN = makeNode({
   code: 'qy_houshan',
   name: '后山峰',
   ring: 'peaks',
-  kind: 'secret_realm',
-  threshold: 115,
-  zoneCode: 'zone_houshan',
+  // §22：秘境已与地图解耦 —— 这个峰现在只是「秘境入口」地点（featureKey=realm），
+  // 不再是 secret_realm 副本本体，也没有 level / threshold / zoneCode。
+  kind: 'route',
+  featureKey: 'realm',
+  threshold: null,
+  zoneCode: null,
   gridRow: 4,
   gridCol: 1,
 });
@@ -213,12 +216,15 @@ describe('MapPanel · 首屏与三态', () => {
     expect(screen.queryByTestId('map-node-card-n_1')).toBeNull();
   });
 
-  it('概览统计给出战力/地点/传送点/秘境/离线挂机', () => {
+  it('概览统计给出战力/地点/传送点/已突破秘境/可突破秘境（§22 起秘境与地图解耦）', () => {
     const harness = setup((root) => {
       root.map.playerPower = 100;
-      root.map.nodes = NODES.map((node) =>
-        node.code === 'qy_houshan' ? { ...node, progress: progress({ idleUnlocked: true }) } : node,
-      );
+      // §22：秘境不再是地图节点上的东西 —— 统计改读 zone store 的突破名录
+      root.zone.zones = [{ code: 'zone_r1' } as never];
+      root.zone.breakthrough = [
+        { code: 'zone_r1', canBreakthrough: true } as never,
+        { code: 'zone_r6', canBreakthrough: false } as never,
+      ];
     });
     harness.render(<MapPanel />);
     const overview = screen.getByTestId('map-overview');
@@ -226,8 +232,8 @@ describe('MapPanel · 首屏与三态', () => {
     expect(overview).toHaveTextContent('100');
     expect(overview).toHaveTextContent('已发现地点');
     expect(overview).toHaveTextContent('已点亮传送点');
-    expect(overview).toHaveTextContent('秘境');
-    expect(overview).toHaveTextContent('已解锁离线挂机');
+    expect(overview).toHaveTextContent('已突破秘境');
+    expect(overview).toHaveTextContent('可突破秘境');
   });
 });
 
@@ -651,25 +657,52 @@ describe('MapPanel · 移动端（<md 右栏降级为底部 Drawer）', () => {
   });
 });
 
-describe('MapPanel · 地图→历练秘境峰→挂机的闭环（用户定调：挂机只能在历练秘境峰）', () => {
-  it('点秘境节点的「进入历练」发出 zone.enter，payload 带 zoneCode（不是节点 code）', async () => {
+describe('MapPanel · §22：第八峰·后山的「秘境石台」是宗门秘境入口', () => {
+  it('选中第八峰·后山（featureKey=realm）→ 右栏就地展开石台，点「突破」发出 zone.breakthrough', async () => {
     const harness = setup((root) => {
-      root.map.nodes = NODES.map((node) =>
-        node.code === 'qy_houshan' ? { ...node, progress: progress({ visited: true }) } : node,
-      );
       root.map.currentCode = 'qy_houshan';
+      root.zone.breakthrough = [
+        {
+          code: 'zone_r1',
+          name: '青云山脚',
+          realm: 1,
+          tierKind: 'training',
+          canBreakthrough: true,
+          lockReason: 'ok',
+          unlockItemCode: null,
+          cleared: false,
+          clears: 0,
+          bestFloor: 0,
+          maxFloor: 3,
+          basePower: 15,
+          powerStep: 12,
+        },
+      ];
     });
     harness.render(<MapPanel />);
     await harness.connect();
 
-    await userEvent.click(screen.getByTestId('map-node-enter-realm-qy_houshan'));
+    // 石台只在选中第八峰·后山时出现（其它节点没有这一块）
+    expect(screen.getByTestId('realm-stone-section')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('realm-breakthrough-zone_r1'));
 
     await waitFor(() => {
-      const request = harness.requests.find((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.enter);
+      const request = harness.requests.find((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.breakthrough);
       expect(request).toBeDefined();
-      // zone 域要的是秘境 code；传成地图节点 code 会让「进入历练」静默失败
-      expect(request?.data).toEqual({ zoneCode: 'zone_houshan' });
+      // zone 域要的是秘境 code（zone_r1），不是地图节点 code（qy_peak_xunlian）
+      expect(request?.data).toEqual({ zoneCode: 'zone_r1' });
     });
+  });
+
+  it('选中普通地点（无 realm 承载）→ 右栏不出现石台', async () => {
+    const harness = setup((root) => {
+      root.map.currentCode = 'qy_gate_n';
+    });
+    harness.render(<MapPanel />);
+    await harness.connect();
+
+    expect(screen.queryByTestId('realm-stone-section')).toBeNull();
   });
 });
 

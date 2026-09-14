@@ -1,6 +1,9 @@
 /**
- * `ZoneOnlineSection` 单测（P3.0 T6）：进度 / 层数 / 卡层提示 / 解锁引导 / 事件标签 / 边界。
+ * `ZoneOnlineSection` 单测（P3.0 T6）：进度 / 层数 / 卡层提示 / 突破引导 / 事件标签 / 边界。
  *
+ * §22 修订：tag「离线挂机已解锁」→「已突破」；解锁提示 testid
+ * `zone-online-idle-hint` → `zone-online-unlock-hint` 且条件是 `no_battle + clears≥1`；
+ * reason 枚举去掉 no_realm / not_map_realm。
  * 组件是纯展示：不读 store、不发请求（`onRefresh` 只是回调）。
  */
 import { render, screen } from '@testing-library/react';
@@ -14,13 +17,12 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     online: true,
     exploring: true,
     reason: 'ok',
-    zone: { code: 'zone_houshan', name: '后山历练峰' },
-    nodeCode: 'qy_peak_xunlian',
-    nodeName: '第八峰·历练',
+    zone: { code: 'zone_r4', name: '后山兽潮', realm: 4 },
     floor: 2,
     maxFloor: 3,
     bestFloor: 1,
     cleared: false,
+    clears: 0,
     isBossFloor: false,
     playerPower: 100,
     floorRequirement: 87,
@@ -28,7 +30,6 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     killsPerFloor: 30,
     stuck: false,
     shortfall: 0,
-    idleUnlocked: false,
     kills: 0,
     lingyunGained: 0,
     events: [],
@@ -60,12 +61,19 @@ describe('ZoneOnlineSection · 正常态', () => {
     expect(screen.getByTestId('zone-online-rhythm')).toHaveTextContent('每 3 秒推送');
   });
 
-  it('Boss 层 / 已通关 / 已解锁标签按帧渲染', () => {
-    setup(frame({ isBossFloor: true, cleared: true, idleUnlocked: true }));
+  it('Boss 层 / 本轮已打满 / 已突破标签按帧渲染', () => {
+    setup(frame({ isBossFloor: true, cleared: true, clears: 1 }));
     const tags = screen.getByTestId('zone-online-tags');
     expect(tags).toHaveTextContent('Boss 层');
-    expect(tags).toHaveTextContent('已通关');
-    expect(tags).toHaveTextContent('离线挂机已解锁');
+    expect(tags).toHaveTextContent('本轮已打满');
+    expect(tags).toHaveTextContent('已突破');
+    // 旧文案已随 §22 删除
+    expect(tags).not.toHaveTextContent('离线挂机已解锁');
+  });
+
+  it('未突破（clears=0）不出现「已突破」标签', () => {
+    setup(frame({ cleared: false, clears: 0 }));
+    expect(screen.getByTestId('zone-online-tags')).not.toHaveTextContent('已突破');
   });
 
   it('推送帧的事件标签与产出摘要上屏；读接口（kills=0）不显示摘要', () => {
@@ -77,7 +85,7 @@ describe('ZoneOnlineSection · 正常态', () => {
   });
 });
 
-describe('ZoneOnlineSection · 卡层与解锁引导', () => {
+describe('ZoneOnlineSection · 卡层与突破引导', () => {
   it('卡层：给出「还差 N」且进度条转 exception', () => {
     setup(frame({ playerPower: 80, floorRequirement: 87, stuck: true, shortfall: 7, floorKills: 5 }));
     expect(screen.getByTestId('zone-online-stuck')).toHaveTextContent('战力不足，还差 7');
@@ -90,11 +98,14 @@ describe('ZoneOnlineSection · 卡层与解锁引导', () => {
     expect(screen.queryByTestId('zone-online-stuck')).toBeNull();
   });
 
-  it('未解锁时不渲染挂机引导；解锁后给出引导文案', () => {
-    setup(frame());
+  it('战斗中不渲染突破引导；打满一轮自动退出（no_battle）后给出引导', () => {
+    setup(frame({ clears: 0 }));
+    expect(screen.queryByTestId('zone-online-unlock-hint')).toBeNull();
     expect(screen.queryByTestId('zone-online-idle-hint')).toBeNull();
-    setup(frame({ idleUnlocked: true }));
-    expect(screen.getAllByTestId('zone-online-idle-hint')[0]).toHaveTextContent('已解锁离线挂机');
+
+    setup(frame({ reason: 'no_battle', exploring: false, cleared: true, clears: 1 }));
+    expect(screen.getAllByTestId('zone-online-unlock-hint')[0]).toHaveTextContent('已突破');
+    expect(screen.getAllByTestId('zone-online-unlock-hint')[0]).toHaveTextContent('重复挑战');
   });
 });
 
@@ -113,11 +124,10 @@ describe('ZoneOnlineSection · 边界', () => {
     expect(document.body).toHaveTextContent('后台');
   });
 
-  it('未进入秘境 / 不在秘境峰：给出可操作的解释', () => {
-    setup(frame({ online: true, exploring: false, reason: 'no_realm', zone: null }));
-    expect(document.body).toHaveTextContent('尚未进入秘境');
-    setup(frame({ online: true, exploring: false, reason: 'not_map_realm' }));
-    expect(document.body).toHaveTextContent('不是地图上的历练秘境峰');
+  it('无当前战斗（no_battle）：给出两条入场路径，不崩', () => {
+    setup(frame({ online: true, exploring: false, reason: 'no_battle', zone: null, floor: 0 }));
+    expect(document.body).toHaveTextContent('未在秘境中');
+    expect(document.body).toHaveTextContent('秘境石台');
   });
 
   it('killsPerFloor=0（配置漂移）：进度 0%，不出现 NaN', () => {

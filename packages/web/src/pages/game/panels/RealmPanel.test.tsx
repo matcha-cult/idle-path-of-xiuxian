@@ -1,12 +1,14 @@
 /**
- * RealmPanel（新版·玩法驱动）测试。
- * 重点：14 境进度与灵韵差额是否呈现、破境能解锁什么、协议字段是否真的没上屏。
- * 常量一律从 transport 导入（不写字面量），交互用例必须先 `await harness.connect()`。
+ * RealmPanel（新版·玩法驱动）测试：**14 境进度 + 破境后解锁**。
+ *
+ * 三态与破境动作拆到同目录 `RealmPanel.actions.test.tsx`（单文件规模）。
+ * §22：`可进秘境` 改为 join 服务端的**突破名录**（全部免费历练秘境 + 「特殊秘境需道具」），
+ * 不再按境界过滤（秘境已无境界闸门），因此 fixture 用 `ZoneBreakthroughView`。
+ * 常量一律从 transport 导入（不写字面量）。
  */
-import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { REALM_CMD, REALMS, type RealmStatusData, type ZoneView } from '@idle-path/ionet-transport';
+import { REALMS, type RealmStatusData, type ZoneBreakthroughView } from '@idle-path/ionet-transport';
 import { createPanelHarness } from '../../../../test/helpers/panel-harness.js';
 import { RealmPanel } from './RealmPanel.js';
 
@@ -14,35 +16,29 @@ function makeStatus(overrides: Partial<RealmStatusData> = {}): RealmStatusData {
   return { realm: 3, realmName: REALMS[2] ?? '柳筋', lingyun: 50, nextCost: 100, isMax: false, ...overrides };
 }
 
-function makeZone(overrides: Partial<ZoneView> = {}): ZoneView {
+function makeBreakthrough(overrides: Partial<ZoneBreakthroughView> = {}): ZoneBreakthroughView {
   return {
-    id: 1,
     code: 'zone_1',
     name: '青云山脚',
-    chapter: 1,
-    orderIndex: 1,
-    minRealm: 4,
-    requirePrevBestFloor: 0,
-    unlocked: true,
-    unlockedReason: 'ok',
-    prevZone: null,
-    prevBestFloor: 0,
-    current: true,
-    unitCode: 'wolf_1',
-    bossCode: null,
+    realm: 1,
+    tierKind: 'training',
+    canBreakthrough: true,
+    lockReason: 'ok',
+    unlockItemCode: null,
+    cleared: true,
+    clears: 2,
+    bestFloor: 4,
+    maxFloor: 10,
     basePower: 20,
     powerStep: 4,
-    maxFloor: 10,
-    lingyunBonusPerFloor: 2,
-    progress: { bestFloor: 4, branch: 1, cleared: false, unlocked: true },
     ...overrides,
-  } as ZoneView;
+  };
 }
 
 function setup(seedFn?: (root: ReturnType<typeof createPanelHarness>['root']) => void) {
   const harness = createPanelHarness();
   harness.seed(() => {
-    harness.root.zone.zones = [makeZone()];
+    harness.root.zone.breakthrough = [makeBreakthrough()];
     seedFn?.(harness.root);
   });
   return harness;
@@ -107,12 +103,21 @@ describe('RealmPanel · 14 境进度与灵韵差额（玩法信息）', () => {
     expect(screen.getByTestId('realm-cost-compare')).toHaveTextContent('可以破境');
   });
 
-  it('「破境后解锁」展示下一境名、可穿 T 阶与可进秘境（join 秘境名单）', () => {
+  it('「破境后解锁」列全部免费历练秘境，并提示特殊秘境需道具（不按境界过滤）', () => {
     const harness = setup((root) => {
       root.realm.status = makeStatus({ realm: 3 });
-      root.zone.zones = [
-        makeZone({ name: '青云山脚', minRealm: 4 }),
-        makeZone({ id: 2, code: 'zone_9', name: '寒潭', minRealm: 9, unlocked: false }),
+      root.zone.breakthrough = [
+        makeBreakthrough({ name: '青云山脚', realm: 1 }),
+        makeBreakthrough({ code: 'zone_5', name: '落霞谷', realm: 5 }),
+        makeBreakthrough({
+          code: 'zone_9',
+          name: '寒潭',
+          realm: 9,
+          tierKind: 'special',
+          canBreakthrough: false,
+          lockReason: 'item_required',
+          unlockItemCode: 'item_break_han',
+        }),
       ];
     });
     harness.render(<RealmPanel />);
@@ -122,115 +127,9 @@ describe('RealmPanel · 14 境进度与灵韵差额（玩法信息）', () => {
     expect(unlock).toHaveTextContent(REALMS[3] ?? '');
     expect(unlock).toHaveTextContent('T4');
     expect(unlock).toHaveTextContent('青云山脚');
+    expect(unlock).toHaveTextContent('落霞谷');
+    expect(unlock).toHaveTextContent('特殊秘境需道具');
+    // 特殊秘境不进「可进秘境」名单（只能以提示语表达）
     expect(unlock).not.toHaveTextContent('寒潭');
-  });
-});
-
-describe('RealmPanel · 三态与破境动作', () => {
-  it('空态：status 为 null 时显示空态文案且不崩', () => {
-    const harness = setup();
-    harness.render(<RealmPanel />);
-
-    expect(screen.getByTestId('async-boundary-empty')).toBeInTheDocument();
-    expect(screen.getByText('暂无境界数据')).toBeInTheDocument();
-    expect(screen.queryByTestId('realm-unlock')).toBeNull();
-  });
-
-  it('加载中显示骨架，错误显示可重试', () => {
-    const harness = setup((root) => {
-      root.realm.loading = true;
-    });
-    const view = harness.render(<RealmPanel />);
-    expect(screen.getByTestId('async-boundary-loading')).toBeInTheDocument();
-    view.unmount();
-
-    harness.seed(() => {
-      harness.root.realm.loading = false;
-      harness.root.realm.error = '境界信息加载失败';
-    });
-    harness.render(<RealmPanel />);
-    expect(screen.getByText('境界信息加载失败')).toBeInTheDocument();
-    expect(screen.getByTestId('async-boundary-retry')).toBeInTheDocument();
-  });
-
-  it('灵韵不足时突破按钮禁用，悬浮说明还差多少', async () => {
-    const harness = setup((root) => {
-      root.realm.status = makeStatus({ lingyun: 50, nextCost: 120 });
-    });
-    harness.render(<RealmPanel />);
-
-    const button = screen.getByTestId('realm-breakthrough');
-    expect(button).toBeDisabled();
-    await userEvent.hover(button);
-    expect(await screen.findByText(/还差 70/)).toBeInTheDocument();
-  });
-
-  it('灵韵充足时经确认后发出 realm.breakthrough', async () => {
-    const harness = setup((root) => {
-      root.realm.status = makeStatus({ lingyun: 200, nextCost: 120 });
-    });
-    harness.render(<RealmPanel />);
-    await harness.connect();
-
-    expect(screen.getByTestId('realm-breakthrough')).toBeEnabled();
-    await userEvent.click(screen.getByTestId('realm-breakthrough'));
-    await userEvent.click(await screen.findByRole('button', { name: /确\s*定/ }));
-
-    await waitFor(() =>
-      expect(
-        harness.requests.filter((r) => r.cmd === REALM_CMD.cmd && r.subCmd === REALM_CMD.breakthrough).length,
-      ).toBeGreaterThan(0),
-    );
-  });
-
-  it('点「刷新境界」经 WS 发出 realm.breakthroughInfo', async () => {
-    const harness = setup((root) => {
-      root.realm.status = makeStatus();
-    });
-    harness.render(<RealmPanel />);
-    await harness.connect();
-
-    await userEvent.click(screen.getByTestId('realm-refresh'));
-    await waitFor(() =>
-      expect(
-        harness.requests.some((r) => r.cmd === REALM_CMD.cmd && r.subCmd === REALM_CMD.breakthroughInfo),
-      ).toBe(true),
-    );
-  });
-});
-
-describe('RealmPanel · 边界与协议字段', () => {
-  it('边界：isMax=true 且 nextCost=null 时「已至封顶」、按钮禁用、进度条不崩', () => {
-    const harness = setup((root) => {
-      root.realm.status = makeStatus({
-        realm: REALMS.length,
-        realmName: REALMS[REALMS.length - 1] ?? '合道',
-        isMax: true,
-        nextCost: null,
-      });
-    });
-    harness.render(<RealmPanel />);
-
-    expect(screen.getByTestId('realm-breakthrough')).toBeDisabled();
-    expect(screen.getByTestId('realm-progress-stats')).toHaveTextContent('已至封顶');
-    expect(screen.getByTestId('realm-lingyun-bar')).toBeInTheDocument();
-    expect(screen.queryByTestId('realm-cost-compare')).toBeNull();
-    expect(screen.getByTestId('realm-unlock')).toHaveTextContent(`T${REALMS.length}`);
-    expect(screen.queryByTestId('async-boundary-empty')).not.toBeInTheDocument();
-  });
-
-  it('协议字段不上屏，且不出现成功率/尝试/失败字样（必定成功）', () => {
-    const harness = setup((root) => {
-      root.realm.status = makeStatus();
-    });
-    harness.render(<RealmPanel />);
-
-    const text = document.body.textContent ?? '';
-    for (const leaked of ['nextCost', 'isMax', 'realmName', 'breakthroughInfo', 'zone_1', 'wolf_1']) {
-      expect(text).not.toContain(leaked);
-    }
-    for (const forbidden of ['成功率', '尝试', '失败']) {
-      expect(text).not.toContain(forbidden);
-    }
   });
 });

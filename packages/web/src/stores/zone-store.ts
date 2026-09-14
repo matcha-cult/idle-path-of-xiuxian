@@ -1,12 +1,17 @@
 /**
- * ZoneStore —— 秘境列表 / 进度 / 进入 / 挑战（07 §2.9）。P3.0 起兼**在线历练实况**。
+ * ZoneStore —— 秘境图鉴 / 在线战斗进度 / 突破 / 重复挑战 / 挂机点（§22 重做）。
  *
- * 业务失败是**预期分支**：`zone.enter` / `zone.challenge` 都走 `allowBusinessFailure`，
- * 失败体不抛异常。`challenge` 按规格把失败体文案写进 `error` 并 toast，绝不向上抛。
- * `zone.progress` 在「尚未进入任何秘境」时返回 `ZONE_NOT_FOUND`（BusinessError），
- * 这是正常初始态，因此 load() 里单独吞掉，不影响 zones 列表展示。
+ * 业务失败是**预期分支**：`zone.enter` / `zone.breakthrough` / `zone.idleTarget`
+ * 都走 `allowBusinessFailure`，失败体不抛异常，只写 `error` 并 toast。
+ * `zone.progress` 在「不在任何秘境战斗中」时返回 `NO_ONLINE_BATTLE`（BusinessError），
+ * 这是正常初始态，因此 load() 里单独吞掉，不影响图鉴展示。
  *
- * 在线历练（P3.0）：`online` 是**服务端权威帧**（`zone.online` 读一次 / `(100,5)` 推送覆盖）。
+ * 三个数组/字段各司其职（§22 Q4）：
+ * - `zones`：**已突破**秘境（秘境页面列表）；
+ * - `breakthrough`：全部 13 境（地图上「秘境石台」的突破选择）；
+ * - `idleTarget`：当前挂机点 code（null = 未设置）。
+ *
+ * 在线战斗（P3.0）：`online` 是**服务端权威帧**（`zone.online` 读一次 / `(100,5)` 推送覆盖）。
  * 客户端**不本地涨层、不本地算产出**（R2 §4.2 明确不做）—— 本 store 只做「存帧 + 显示」。
  */
 import { makeAutoObservable, observable, runInAction } from 'mobx';
@@ -17,6 +22,7 @@ import {
   businessMessageOf,
 } from '@idle-path/ionet-transport';
 import type {
+  ZoneBreakthroughView,
   ZoneChallengeData,
   ZoneOnlineData,
   ZoneOnlineEvent,
@@ -37,23 +43,33 @@ const EVENT_TOASTS: Record<ZoneOnlineEvent, string> = {
   floor_up: '历练涨层',
   boss_floor: '进入 Boss 层',
   boss_defeated: '击败 Boss',
-  idle_unlocked: '已解锁离线挂机',
+  realm_unlocked: '突破成功，已录入秘境页面',
   stuck: '战力不足，已原地刷本层',
 };
 
 export class ZoneStore {
-  /** 秘境列表（含解锁状态与进度）。 */
+  /** 已突破秘境（秘境页面列表；§22 Q4 未突破的不下发）。 */
   zones: ZoneView[] = [];
+  /** 全部 13 境突破名录（地图上「秘境石台」的突破选择）。 */
+  breakthrough: ZoneBreakthroughView[] = [];
   /** 玩家战力（服务端计算）。 */
   playerPower = 0;
-  /** 当前所在秘境 code（未进入为 null）。 */
+  /** 当前在线战斗所在秘境 code（不在战斗为 null）。 */
   currentZone: string | null = null;
-  /** 当前秘境进度（无当前秘境为 null）。 */
+  /** 当前挂机点秘境 code（未设置为 null）。 */
+  idleTarget: string | null = null;
+  /** 当前战斗进度（不在战斗为 null）。 */
   progress: ZoneProgressData | null = null;
-  /** 最近一次挑战结果。 */
+  /** 最近一次挑战结果（开发者工具；UI 已不再暴露入口）。 */
   lastChallenge: ZoneChallengeData | null = null;
-  /** 在线历练实况（P3.0；null = 还没读到）。 */
+  /** 在线战斗实况（P3.0；null = 还没读到）。 */
   online: ZoneOnlineData | null = null;
+  /**
+   * 正在发起动作的秘境 code（突破 / 重复挑战 / 设挂机点）。
+   *
+   * 只用于**行级按钮 loading**：面板整体不卸载（P2.1 白屏修复的同一口径）。
+   */
+  busyZoneCode: string | null = null;
   loading = false;
   error: string | null = null;
 
@@ -72,7 +88,7 @@ export class ZoneStore {
     try {
       const [zonesResult, progressResult, onlineResult] = await Promise.all([
         this.ctx.game.zone.zones(),
-        // 无当前秘境时 progress 抛 ZONE_NOT_FOUND；按初始态处理，不阻断列表。
+        // 不在战斗时 progress 报 NO_ONLINE_BATTLE；按初始态处理，不阻断图鉴。
         this.ctx.game.zone.progress().catch(() => null),
         // 实况是增强信息：失败（老服务端 / 未鉴权）静默返回 null，不阻断列表与进度。
         this.ctx.game.zone.online().catch(() => null),
@@ -84,8 +100,10 @@ export class ZoneStore {
       const onlineData = onlineResult === null ? undefined : onlineResult.data;
       runInAction(() => {
         this.zones = zonesData.zones;
+        this.breakthrough = zonesData.breakthrough;
         this.playerPower = zonesData.playerPower;
         this.currentZone = zonesData.currentZone;
+        this.idleTarget = zonesData.idleTarget;
         this.progress = progressData ?? null;
         if (onlineData !== undefined) this.online = onlineData;
       });
@@ -155,9 +173,10 @@ export class ZoneStore {
     }
   }
 
-  /** 进入秘境（业务失败是预期分支：REALM_TOO_LOW / ZONE_LOCKED 等）。 */
+  /** 进入一个**已突破**秘境的战斗（重复挑战；业务失败是预期分支：ZONE_NOT_UNLOCKED 等）。 */
   async enter(zoneCode: string): Promise<void> {
     this.loading = true;
+    this.busyZoneCode = zoneCode;
     this.error = null;
     try {
       const result = await this.ctx.game.zone.enter(zoneCode);
@@ -184,6 +203,113 @@ export class ZoneStore {
     } finally {
       runInAction(() => {
         this.loading = false;
+        this.busyZoneCode = null;
+      });
+    }
+  }
+
+  /**
+   * 突破秘境 → 进入在线战斗（§22 Q1/Q3；training 免费放行，special 需道具）。
+   *
+   * 与 enter 的唯一区别是**入口语义**：breakthrough 允许未突破的秘境（突破就是首轮），
+   * enter 只允许已突破的（重复挑战）。两者的服务端响应同构。
+   */
+  async startBreakthrough(zoneCode: string): Promise<void> {
+    this.loading = true;
+    this.busyZoneCode = zoneCode;
+    this.error = null;
+    try {
+      const result = await this.ctx.game.zone.breakthrough(zoneCode);
+      if (result.success === false) {
+        const code = businessCodeOf(result);
+        const message = businessMessageOf(result) ?? businessErrorMessage(code);
+        runInAction(() => {
+          this.error = message;
+        });
+        this.ctx.toast.fromBusinessCode(code, message);
+        return;
+      }
+      const data = result.data;
+      if (data === undefined) throw new Error('突破响应缺少 data');
+      runInAction(() => {
+        this.currentZone = data.currentZone.code;
+      });
+      this.ctx.toast.success('开始突破', `${data.currentZone.name} · 打满整轮即突破`);
+      await this.load();
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : String(error);
+      });
+      this.ctx.toast.fromError(error, '突破失败');
+    } finally {
+      runInAction(() => {
+        this.loading = false;
+        this.busyZoneCode = null;
+      });
+    }
+  }
+
+  /** 离开当前战斗（业务失败不抛；打完一轮由服务端自动离开，这里是手动中断）。 */
+  async leave(): Promise<void> {
+    this.loading = true;
+    this.error = null;
+    try {
+      const result = await this.ctx.game.zone.leave();
+      if (result.success === false) {
+        const message = businessMessageOf(result) ?? businessErrorMessage(businessCodeOf(result));
+        runInAction(() => {
+          this.error = message;
+        });
+        this.ctx.toast.fromBusinessCode(businessCodeOf(result), message);
+        return;
+      }
+      this.ctx.toast.success('已离开秘境', '离线挂机已恢复');
+      await this.load();
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : String(error);
+      });
+      this.ctx.toast.fromError(error, '离开秘境失败');
+    } finally {
+      runInAction(() => {
+        this.loading = false;
+        this.busyZoneCode = null;
+      });
+    }
+  }
+
+  /** 设置离线挂机点（需已突破且可挂机；业务失败是预期分支：ZONE_NOT_IDLE_ELIGIBLE）。 */
+  async setIdleTarget(zoneCode: string): Promise<void> {
+    this.loading = true;
+    this.busyZoneCode = zoneCode;
+    this.error = null;
+    try {
+      const result = await this.ctx.game.zone.idleTarget(zoneCode);
+      if (result.success === false) {
+        const code = businessCodeOf(result);
+        const message = businessMessageOf(result) ?? businessErrorMessage(code);
+        runInAction(() => {
+          this.error = message;
+        });
+        this.ctx.toast.fromBusinessCode(code, message);
+        return;
+      }
+      const data = result.data;
+      if (data === undefined) throw new Error('挂机点响应缺少 data');
+      runInAction(() => {
+        this.idleTarget = data.idleTarget.code;
+      });
+      this.ctx.toast.success('已设置挂机点', data.idleTarget.name);
+      await this.load();
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : String(error);
+      });
+      this.ctx.toast.fromError(error, '设置挂机点失败');
+    } finally {
+      runInAction(() => {
+        this.loading = false;
+        this.busyZoneCode = null;
       });
     }
   }
@@ -221,6 +347,7 @@ export class ZoneStore {
     } finally {
       runInAction(() => {
         this.loading = false;
+        this.busyZoneCode = null;
       });
     }
   }

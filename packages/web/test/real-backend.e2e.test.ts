@@ -165,13 +165,13 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
   }, 45_000);
 
   /**
-   * P3.0 在线历练端到端（T8 实测口径）。
+   * P3.0 在线历练端到端（T8 实测口径；§22 修订）。
    *
    * 覆盖任务书 §9 第 6 条要的全部数字：连续 10 tick 的击杀累计、涨层时刻、
-   * 离线（hidden）时 tick 不推进、推送次数（证明节流）、idle_unlocked 置位前后。
+   * 离线（hidden）时 tick 不推进、推送次数（证明节流）、`realm_unlocked` 置位（首周目打满 ⇒ clears≥1）。
    * 用 5 境裸装战力 100：层门槛 75/87/99 → r = 1.33 / 1.15 / 1.01，全程可推进。
    */
-  it('历练峰在线打怪升阶（P3.0）：10 tick 击杀 / 涨层 / 节流 / 离线暂停 / 解锁离线挂机', async () => {
+  it('历练峰在线打怪升阶（P3.0）：10 tick 击杀 / 涨层 / 节流 / 离线暂停 / 突破秘境', async () => {
     const username = `webonline_${Date.now()}`;
     root = new RootStore({
       wsUrl: `ws://127.0.0.1:${port}/ws`,
@@ -199,14 +199,18 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     }
     expect(root.session.character?.realm).toBe(5);
 
-    // 2) 进入历练峰（zone.enter 才会写 game_zone_state；在线历练只认它）
-    await root.zone.enter('zone_houshan');
+    // 2) 突破历练秘境（§22：training 免费放行；`zone.enter` 只允许**已突破**的重复挑战）
+    //    §22 种子把旧 `zone_houshan`（历练峰）换成 13 境各自的秘境：门槛 75/87/99 对应 `zone_r4`
+    //    （basePower 75 / powerStep 12 / maxFloor 3），与下方 r = 1.33 / 1.15 / 1.01 的假设一致。
+    await root.zone.startBreakthrough('zone_r4');
     await root.zone.loadOnline();
     expect(root.zone.online?.reason).toBe('ok');
-    expect(root.zone.online?.nodeName).toBe('第八峰·历练');
+    // TODO(T9): 真后端 e2e 待重跑（§22 后帧里只有 zone{code,name,realm}，没有 nodeName）
+    expect(root.zone.online?.zone?.code).toBe('zone_r4');
     expect(root.zone.online?.floorRequirement).toBe(75);
     expect(root.zone.online?.playerPower).toBe(100);
-    expect(root.zone.online?.idleUnlocked).toBe(false);
+    // §22：新角色第一周目，尚未突破
+    expect(root.zone.online?.clears).toBe(0);
 
     // 3) 连续 10 个 tick：每 tick 采样一次 floorKills（1s 节拍）
     const samples: number[] = [root.zone.online?.floorKills ?? 0];
@@ -256,19 +260,24 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     expect(root.zone.online?.reason).toBe('ok');
     expect(root.zone.online?.floorKills ?? 0).toBeGreaterThanOrEqual(beforeHiddenKills);
 
-    // 5) 涨层：从第 1 层打到通关（3 层），记录每次涨层的耗时
+    // 5) 涨层：从第 1 层打到打满整轮（3 层）
+    //    §22：打满即**自动退出**并突破（clears 0→1）——终帧只在推送里出现，
+    //    自动退出之后的读接口只剩 no_battle 帧，所以两处都收。
     const start = Date.now();
     const floorMarks: string[] = [];
     let lastFloor = root.zone.online?.floor ?? 1;
-    for (let i = 0; i < 150 && (root.zone.online?.idleUnlocked ?? false) === false; i++) {
+    let terminal: ZoneOnlineData | null = pushed.find((f) => f.cleared) ?? null;
+    for (let i = 0; i < 150 && terminal === null; i++) {
       await sleep(1000);
       await root.zone.loadOnline();
+      terminal = pushed.find((f) => f.cleared) ?? terminal;
       const frame = root.zone.online;
       if (frame === null) continue;
       if (frame.floor !== lastFloor || frame.cleared) {
         floorMarks.push(`第${frame.floor}层@${Math.round((Date.now() - start) / 1000)}s`);
         lastFloor = frame.floor;
       }
+      if (frame.cleared) terminal = frame;
       if (i % 15 === 0) {
         console.log(
           `[P3.0 实测] 涨层循环 +${i}s 层=${frame.floor}/${frame.maxFloor} 本层击杀=${frame.floorKills}/${frame.killsPerFloor} 门槛=${frame.floorRequirement} 卡层=${frame.stuck}`,
@@ -277,16 +286,19 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     }
     console.log('[P3.0 实测] 涨层/通关时刻:', floorMarks.join(', '));
 
-    // 5) 解锁离线挂机（D2）：Boss 层通过后置位
-    expect(root.zone.online?.cleared).toBe(true);
-    expect(root.zone.online?.idleUnlocked).toBe(true);
-    console.log('[P3.0 实测] idle_unlocked 置位后：', JSON.stringify({
-      floor: root.zone.online?.floor,
-      cleared: root.zone.online?.cleared,
-      idleUnlocked: root.zone.online?.idleUnlocked,
+    // 6) §22：打满整轮 ⇒ 该秘境被突破（clears ≥ 1），且服务端已自动把玩家请出秘境
+    // TODO(T9): 真后端 e2e 待重跑（旧断言 idleUnlocked=true 已被 §22 的 clears ≥ 1 取代）
+    expect(terminal, '必须观测到「本轮已打满」的终帧').not.toBeNull();
+    expect(terminal?.cleared).toBe(true);
+    expect(terminal?.clears ?? 0).toBeGreaterThanOrEqual(1);
+    console.log('[P3.0 实测] 突破后终帧：', JSON.stringify({
+      floor: terminal?.floor,
+      cleared: terminal?.cleared,
+      clears: terminal?.clears,
+      reason: terminal?.reason,
     }));
 
-    // 6) 解锁事件在推送帧里出现过（前端据此弹提示）。
+    // 7) 突破事件在推送帧里出现过（前端据此弹提示）。
     //    读接口先于推送看到 DB 变化，而推送按 pushEveryMs 节流 —— 必须等一个节流窗口。
     await sleep(4000);
     const eventHistogram = pushed.flatMap((f) => f.events).reduce<Record<string, number>>((acc, e) => {
@@ -294,7 +306,7 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
       return acc;
     }, {});
     console.log('[P3.0 实测] 推送帧总数:', pushed.length, '/ 事件直方图:', JSON.stringify(eventHistogram));
-    expect(pushed.some((f) => f.events.includes('idle_unlocked'))).toBe(true);
-    expect(eventHistogram.idle_unlocked).toBe(1); // 幂等：解锁只推一次
+    expect(pushed.some((f) => f.events.includes('realm_unlocked'))).toBe(true);
+    expect(eventHistogram.realm_unlocked).toBe(1); // 幂等：突破只推一次
   }, 300_000);
 });

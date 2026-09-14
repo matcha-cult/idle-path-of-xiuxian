@@ -1,60 +1,39 @@
 /**
- * ZonePanel —— 秘境（玩法主轴）。**新版样板**：按 `10-玩法驱动的面板设计.md` §1.6 重做。
+ * ZonePanel —— 秘境（§22 重做：**只列已突破的秘境**）。
  *
- * 玩家在这张面板上要回答三个问题（界面的三段结构也据此组织）：
- *   1. 我在哪、还差多少战力？→ `StatGrid` + `StatCompare`
- *   2. 现在能不能打？不能的话为什么？→ 挑战按钮的禁用态与原因提示
- *   3. 打到了什么？→ `SettlementSummary`（灵韵/掉落/分解/出售/弃置/卡阶）
- * 下方图鉴只回答「还有哪些秘境、怎么解锁、进哪个」。
+ * 玩家在这张面板上回答三个问题：
+ *   1. 我现在打着吗、打到哪了？→ `ZoneOnlineSection`（服务端权威帧）
+ *   2. 这一轮打得动吗？→ `StatCompare`（战力 vs 本层门槛）+ 卡层提示
+ *   3. 我有哪些秘境可以再打？→ 下方「已突破秘境」卡列表（未突破的**不显示**，用户 Q4）
+ *
+ * 未突破的秘境不在这里出现 —— 它们只在地图的「第八峰·后山 → 秘境石台」处被发现与突破，
+ * 突破成功（在线打满整轮）后才会出现在本面板。
  *
  * 协议字段一律不上屏（`code` 只做 key、`orderIndex` 只排序、`unitCode/bossCode` 不展示）。
  * 容器模式：不在挂载时拉取（首屏由 `loadPanel()` 并发加载）；三态交给 `AsyncBoundary`。
  * 子组件与展示判定拆在同目录 `zone/` 下（单文件规模与单一职责）。
  */
 import { observer } from 'mobx-react-lite';
-import { useState } from 'react';
-import { Button, Flex, Space, Tag, Tooltip, Typography } from 'antd';
-import {
-  AsyncBoundary,
-  ConfirmAction,
-  ResourceGrid,
-  SectionCard,
-  SettlementSummary,
-  StatCompare,
-  StatGrid,
-  Toolbar,
-} from '@idle-path/ui-kit';
+import { Alert, Button, Flex, Space, Tag, Typography } from 'antd';
+import { AsyncBoundary, ResourceGrid, SectionCard, StatCompare, StatGrid, Toolbar } from '@idle-path/ui-kit';
 import { useRootStore } from '../../../app/root-context.js';
 import { ZoneCard } from './zone/ZoneCard.js';
 import { ZoneOnlineSection } from './zone/ZoneOnlineSection.js';
-import { challengeBlockReason } from './zone/presentation.js';
 
 export const ZonePanel = observer(function ZonePanel() {
   const root = useRootStore();
-  const { zone, session } = root;
+  const { zone } = root;
   const progress = zone.progress;
-  const realm = session.character?.realm;
-  const [selected, setSelected] = useState<string | undefined>(undefined);
-
-  const lastChallenge = zone.lastChallenge;
-  const blockReason =
-    progress === null
-      ? '尚未进入任何秘境'
-      : challengeBlockReason({
-          canChallenge: progress.canChallenge,
-          cleared: progress.cleared,
-          power: zone.playerPower,
-          need: progress.floorRequirement,
-        });
+  const idleTargetName = zone.breakthrough.find((entry) => entry.code === zone.idleTarget)?.name ?? null;
 
   return (
     <Flex vertical gap={12}>
-      {/* P3.0：历练峰在线打怪升阶的实时面板（帧全部来自服务端，客户端不本地推进） */}
+      {/* §22：在线战斗实况（帧全部来自服务端，客户端不本地推进） */}
       <ZoneOnlineSection frame={zone.online} onRefresh={() => void zone.loadOnline()} />
 
       <SectionCard
-        title={progress === null ? '秘境' : `${progress.currentZone.name} · 第 ${progress.floor} 层`}
-        subtitle="挑战一层会结算该层单位的掉落与灵韵加成"
+        title={progress === null ? '当前战斗' : `${progress.currentZone.name} · 第 ${progress.floor} 层`}
+        subtitle={progress === null ? '未在秘境中：到地图「第八峰·后山」的秘境石台突破' : '打满整轮即突破'}
         extra={
           <Button onClick={() => void zone.load()} data-testid="zone-refresh">
             刷新秘境
@@ -64,104 +43,72 @@ export const ZonePanel = observer(function ZonePanel() {
         <AsyncBoundary
           loading={zone.loading}
           error={zone.error}
-          empty={progress === null && zone.zones.length === 0}
-          emptyText="暂无可用秘境"
           onRetry={() => void zone.load()}
         >
-          <Flex vertical gap={12}>
-            <div data-testid="zone-progress-stats">
-              <StatGrid
-                items={[
-                  { key: 'floor', label: '当前层', value: progress?.floor ?? 0 },
-                  { key: 'best', label: '最高层', value: progress?.bestFloor ?? 0 },
-                  { key: 'power', label: '战力', value: zone.playerPower },
-                  { key: 'need', label: '本层门槛', value: progress?.floorRequirement ?? 0 },
-                ]}
-              />
-            </div>
+          {progress === null ? (
+            <Alert
+              type="info"
+              showIcon
+              title="当前没有进行中的战斗：到地图上的「秘境石台」选择秘境突破，或在下方列表里重复挑战已突破的秘境"
+            />
+          ) : (
+            <Flex vertical gap={12}>
+              <div data-testid="zone-progress-stats">
+                <StatGrid
+                  items={[
+                    { key: 'floor', label: '当前层', value: progress.floor },
+                    { key: 'best', label: '最高层', value: progress.bestFloor },
+                    { key: 'clears', label: '已通关', value: `${progress.clears} 轮` },
+                    { key: 'need', label: '本层门槛', value: progress.floorRequirement },
+                  ]}
+                />
+              </div>
 
-            <div data-testid="zone-power-compare">
-              <StatCompare
-                label="战力对比"
-                current={zone.playerPower}
-                target={progress?.floorRequirement ?? 0}
-                okText="可以挑战"
-                failText="战力不足"
-              />
-            </div>
+              <div data-testid="zone-power-compare">
+                <StatCompare
+                  label="战力对比"
+                  current={zone.playerPower}
+                  target={progress.floorRequirement}
+                  okText="打得动"
+                  failText="战力不足"
+                />
+              </div>
 
-            {progress === null ? null : (
               <Space wrap data-testid="zone-floor-tags">
                 {progress.isBossFloor ? <Tag color="gold">Boss 层</Tag> : null}
                 {progress.lingyunBonus > 0 ? <Tag color="green">层灵韵 +{progress.lingyunBonus}</Tag> : null}
                 {progress.dropTierOffset > 0 ? <Tag color="blue">掉落档 +{progress.dropTierOffset}</Tag> : null}
                 {progress.extraDropDraws > 0 ? <Tag>额外掉落判定 +{progress.extraDropDraws}</Tag> : null}
-                {progress.cleared ? <Tag color="success">已通关</Tag> : null}
               </Space>
-            )}
 
-            <Toolbar
-              left={
-                <Tooltip title={blockReason === '' ? undefined : blockReason}>
-                  {/* 禁用按钮不触发鼠标事件，需包一层 span 才能显示浮层 */}
-                  <span>
-                    <ConfirmAction
-                      title={`挑战「${progress?.currentZone.name ?? ''}」第 ${progress?.floor ?? 0} 层？`}
-                      description="挑战会立即结算本层掉落与灵韵"
-                      onConfirm={() => zone.challenge()}
-                      disabled={progress === null || !progress.canChallenge}
-                    >
-                      <Button
-                        type="primary"
-                        disabled={progress === null || !progress.canChallenge}
-                        data-testid="zone-challenge"
-                      >
-                        挑战本层
-                      </Button>
-                    </ConfirmAction>
-                  </span>
-                </Tooltip>
-              }
-              right={
-                progress === null ? null : (
-                  <Typography.Text type="secondary">
-                    {progress.cleared ? '本秘境已通关' : '推进后下一层门槛将提高'}
-                  </Typography.Text>
-                )
-              }
-            />
-          </Flex>
+              <Toolbar
+                left={
+                  <Button danger onClick={() => void zone.leave()} data-testid="zone-leave">
+                    离开秘境
+                  </Button>
+                }
+                right={<Typography.Text type="secondary">在线战斗期间离线挂机暂停，离开后恢复</Typography.Text>}
+              />
+            </Flex>
+          )}
         </AsyncBoundary>
       </SectionCard>
 
-      {lastChallenge === null ? null : (
-        <div data-testid="zone-settlement">
-          <SectionCard
-            title="本次挑战结算"
-            subtitle={`第 ${lastChallenge.floor} 层 → 第 ${lastChallenge.nextFloor} 层`}
-          >
-            <SettlementSummary
-              lingyun={{ gained: lastChallenge.rewards.lingyunGained, total: lastChallenge.rewards.lingyunTotal }}
-              kept={lastChallenge.rewards.kept}
-              salvaged={lastChallenge.rewards.salvaged}
-              sold={lastChallenge.rewards.sold}
-              blockedByTier={lastChallenge.rewards.blockedByTier}
-              resources={{ currencies: lastChallenge.rewards.currencies, essences: lastChallenge.rewards.essences }}
-            />
-          </SectionCard>
-        </div>
-      )}
-
       <SectionCard
-        title="秘境图鉴"
-        subtitle="解锁条件与推进进度"
+        title="已突破秘境"
+        subtitle="未突破的秘境不在此显示；到地图的秘境石台突破后即出现"
         extra={
           <Typography.Text type="secondary" data-testid="zone-total">
             共 {zone.zones.length} 处
           </Typography.Text>
         }
       >
-        <AsyncBoundary empty={zone.zones.length === 0} emptyText="暂无秘境" onRetry={() => void zone.load()}>
+        {idleTargetName === null ? null : (
+          <div data-testid="zone-idle-target">
+            <Typography.Text type="secondary">当前挂机点：{idleTargetName}</Typography.Text>
+          </div>
+        )}
+        <AsyncBoundary empty={zone.zones.length === 0} emptyText="尚未突破任何秘境" onRetry={() => void zone.load()}>
           <div data-testid="zone-list">
             <ResourceGrid
               items={zone.zones}
@@ -170,12 +117,8 @@ export const ZonePanel = observer(function ZonePanel() {
               renderItem={(entry) => (
                 <ZoneCard
                   zone={entry}
-                  realm={realm}
-                  current={entry.code === (progress?.currentZone.code ?? zone.currentZone)}
-                  onEnter={(code) => {
-                    setSelected(code);
-                    void zone.enter(code);
-                  }}
+                  current={entry.code === zone.currentZone}
+                  onEnter={(code) => void zone.enter(code)}
                 />
               )}
             />

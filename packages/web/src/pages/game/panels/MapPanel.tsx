@@ -1,38 +1,39 @@
 /**
  * `MapPanel` —— 地图（线路图 / 跑图 / 传送）。**地图层第一个面板，后续地图 2/3 的模板。**
  *
- * 玩家在这张面板上要回答三个问题（界面三段结构据此组织）：
- *   1. 我在哪、能去哪？→ **左画布**（`MapCanvas`，§14 坐标系）/ 列表视图兜底
- *   2. 去了能干什么？→ **右栏详情**（`MapDetailPanel` → `MapNodeCard`）
- *   3. 打过了算解锁了吗？→ 三态徽标 `MapNodeBadge` + 图例 `MapCanvasLegend`（形状/可交互性）
+ * 玩家在这张面板上要回答三个问题：我在哪、能去哪？→ 左画布（`MapCanvas`，§14 坐标系）
+ * / 列表兜底；去了能干什么？→ 右栏详情（`MapDetailPanel`）；有什么新东西？→ 概览
+ * （`MapOverview`）与 §22 的秘境石台（`RealmStoneSection`，只在第八峰·后山出现）。
  *
  * ## 交互契约（反直觉，必须记住，§12.1）
- * - **点击枢纽只选中，绝不移动**；移动只走右栏「前往此地」按钮（PC 双击是快捷键）；
- * - 底部常驻提示条教这条规则（`MapHintBar`），否则玩家以为「点不动 = 坏了」。
+ * **点击枢纽只选中，绝不移动**；移动只走右栏「前往此地」按钮（PC 双击是快捷键）；
+ * 底部常驻提示条教这条规则（`MapHintBar`），否则玩家以为「点不动 = 坏了」。
  *
  * ## 口径（任务书 §3 / §6）
- * - **挂载时不拉取**：首屏由 `RootStore.loadPanel()` 并发加载；
- * - 三态交给 `AsyncBoundary`；业务失败由 store 走 toast 出口，面板**不重判** `data.success`；
+ * - **挂载时不拉取**：首屏由 `RootStore.loadPanel()` 并发加载；三态交给 `AsyncBoundary`；
  * - 服务端只下发已发现节点与两端均已发现的边，面板**不得自行造节点**，也不过滤；
  * - 坐标缺失 / 坐标空间非法（老服务端、手改种子）→ 自动降级到**列表视图**，不崩；
  * - 开发者网格走 `resolveMapDebug(env, search)`（纯前端，后端与协议零参与，§13.1）；
- * - **`loading`（骨架屏）只用于首屏 / 整图重载**：移动期间面板不卸载，反馈落按钮（B1 修复）；
- * - 协议字段不上屏：`code` 只做 key/testid，`featureKey` 原文不展示。
+ * - **`loading`（骨架屏）只用于首屏 / 整图重载**：移动期间面板不卸载，反馈落按钮（B1）；
+ * - 协议字段不上屏：`code` 只做 key/testid，`featureKey` 原文不展示。顶部工具条在
+ *   `MapToolbar`，概览统计在 `MapOverview`（拆出以守住单文件规模）。
  */
 import { useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Button, Col, Drawer, Flex, Grid, Row, Segmented } from 'antd';
-import { AsyncBoundary, SectionCard, StatGrid } from '@idle-path/ui-kit';
+import { Button, Col, Flex, Grid, Row } from 'antd';
+import { AsyncBoundary, SectionCard } from '@idle-path/ui-kit';
 import { useRootStore } from '../../../app/root-context.js';
 import { MapCanvas } from './map/MapCanvas.js';
 import { MapCanvasLegend } from './map/MapCanvasLegend.js';
+import { MapDetailDrawer } from './map/MapDetailDrawer.js';
 import { MapDetailPanel } from './map/MapDetailPanel.js';
-import { MapHintBar } from './map/MapHintBar.js';
 import { MapNodeList } from './map/MapNodeList.js';
-import { MapViewSwitch } from './map/MapViewSwitch.js';
+import { MapOverview } from './map/MapOverview.js';
+import { MapToolbar } from './map/MapToolbar.js';
+import { RealmStoneSection } from './map/realm/RealmStoneSection.js';
 import { isCanvasGridReady } from './map/canvas-view.js';
 import { resolveMapDebug } from './map/debug-flags.js';
-import { isSecretRealm } from './map/presentation.js';
+import { REALM_FEATURE_KEY } from './map/feature-registry.js';
 
 /** 画布高度：整图适配按面板短边算，太扁会把图压小（§14.4 面板短边 ≥ 462px）。 */
 const CANVAS_HEIGHT = 520;
@@ -59,7 +60,10 @@ export const MapPanel = observer(function MapPanel() {
   const fallback = nodes.find((node) => node.code === map.currentCode) ?? nodes[0] ?? null;
   const selected = nodes.find((node) => node.code === selectedCode) ?? fallback;
   const waypointCount = nodes.filter((node) => node.progress.waypointUnlocked).length;
-  const idleUnlockedCount = map.progress.filter((progress) => progress.idleUnlocked).length;
+  // §22：秘境与地图解耦后，原先按节点统计的「秘境 / 已解锁离线挂机」已无意义，
+  // 改为统计 zone store 的突破名录（服务端字段，不在前端推导）。
+  const clearedRealmCount = root.zone.zones.length;
+  const breakthroughableCount = root.zone.breakthrough.filter((entry) => entry.canBreakthrough).length;
 
   /** 点击枢纽 / 列表项：**只选中**（绝不移动）。 */
   const selectNode = (code: string): void => {
@@ -84,8 +88,17 @@ export const MapPanel = observer(function MapPanel() {
     lastTap.current = { code, at: Date.now() };
     selectNode(code);
   };
-
-  const enterRealm = (zoneCode: string): void => void root.zone.enter(zoneCode);
+  const enterRealm = (zoneCode: string): void => void root.zone.startBreakthrough(zoneCode);
+  // §22：第八峰·后山是秘境解锁入口 —— 选中它时右栏就地展开「秘境石台」（Q1/Q3：与对象交互选择要突破的秘境）
+  const realmSection = selected?.featureKey !== REALM_FEATURE_KEY ? null : (
+    <RealmStoneSection
+      entries={root.zone.breakthrough}
+      busyCode={root.zone.busyZoneCode}
+      online={root.zone.online}
+      onBreakthrough={enterRealm}
+      onRefreshOnline={() => void root.zone.loadOnline()}
+    />
+  );
   const detail =
     selected === null ? null : (
       <MapDetailPanel
@@ -95,9 +108,9 @@ export const MapPanel = observer(function MapPanel() {
         objects={map.objects}
         moving={map.moving}
         movingTo={map.movingTo}
+        realmSection={realmSection}
         onEnter={goToNode}
         onWaypoint={(code) => void map.waypoint(code)}
-        onEnterRealm={enterRealm}
       />
     );
   return (
@@ -106,19 +119,14 @@ export const MapPanel = observer(function MapPanel() {
         title={currentMap?.name ?? '地图'}
         subtitle="沿线路图推进：到达即发现，首次到达点亮传送点"
         extra={
-          <Flex gap={8} wrap align="center">
-            {map.maps.length > 1 ? (
-              <Segmented
-                value={map.selectedMapCode ?? undefined}
-                onChange={(value) => map.selectMap(String(value))}
-                options={map.maps.map((entry) => ({ label: entry.name, value: entry.code }))}
-              />
-            ) : null}
-            <MapViewSwitch value={mode} onChange={setView} />
-            <Button onClick={() => void map.load()} data-testid="map-refresh">
-              刷新地图
-            </Button>
-          </Flex>
+          <MapToolbar
+            maps={map.maps}
+            selectedMapCode={map.selectedMapCode}
+            onSelectMap={(code) => map.selectMap(code)}
+            view={view}
+            onViewChange={setView}
+            onRefresh={() => void map.load()}
+          />
         }
       >
         <AsyncBoundary
@@ -129,17 +137,13 @@ export const MapPanel = observer(function MapPanel() {
           onRetry={() => void map.load()}
         >
           <Flex vertical gap={12}>
-            <div data-testid="map-overview">
-              <StatGrid
-                items={[
-                  { key: 'power', label: '我的战力', value: map.playerPower },
-                  { key: 'nodes', label: '已发现地点', value: nodes.length },
-                  { key: 'waypoints', label: '已点亮传送点', value: waypointCount },
-                  { key: 'secretRealms', label: '秘境', value: nodes.filter(isSecretRealm).length },
-                  { key: 'idle', label: '已解锁离线挂机', value: idleUnlockedCount },
-                ]}
-              />
-            </div>
+            <MapOverview
+              playerPower={map.playerPower}
+              nodeCount={nodes.length}
+              waypointCount={waypointCount}
+              clearedRealmCount={clearedRealmCount}
+              breakthroughableCount={breakthroughableCount}
+            />
             <Row gutter={[12, 12]} data-testid="map-main">
               {/* 宽屏画布 ≥62%（17/24≈70.8%）：原来 16/24 时右栏仍偏挤，点阵被压小 */}
               <Col xs={24} md={17} data-testid="map-route">
@@ -182,18 +186,14 @@ export const MapPanel = observer(function MapPanel() {
         </AsyncBoundary>
       </SectionCard>
 
-      {/* 移动端：详情降到「底部 Drawer」，画布占满宽度（§12.2） */}
-      <Drawer
-        data-testid="map-detail-drawer"
-        title={selected?.name ?? '地点详情'}
-        placement="bottom"
+      {/* 移动端：详情降到「底部 Drawer」+ 常驻提示条（§12.2；两者都在 MapDetailDrawer 内） */}
+      <MapDetailDrawer
         open={compact && detailOpen}
+        title={selected?.name ?? '地点详情'}
+        touch={compact}
+        detail={detail}
         onClose={() => setDetailOpen(false)}
-      >
-        {detail}
-      </Drawer>
-
-      <MapHintBar touch={compact} />
+      />
     </Flex>
   );
 });

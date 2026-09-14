@@ -1,7 +1,9 @@
 /**
- * `online-presentation.ts` 单测（P3.0 T6 的纯逻辑）。
+ * `online-presentation.ts` 单测（P3.0 T6 纯逻辑；§22 修订）。
  *
  * 钉死边界：空帧 / `killsPerFloor=0` / 越界进度 / 非法层数 / 未知事件 / 未知 reason。
+ * §22 变化：reason 只剩 ok|hidden|no_session|no_battle；事件是 `realm_unlocked`；
+ * 突破引导 `realmUnlockedHint` 基于稳定状态（no_battle + clears≥1）而非瞬时事件。
  */
 import { describe, expect, it } from 'vitest';
 import type { ZoneOnlineData } from '@idle-path/ionet-transport';
@@ -11,8 +13,8 @@ import {
   floorKillsLabel,
   floorLabel,
   floorProgressPercent,
-  idleUnlockedHint,
   isAdvancing,
+  realmUnlockedHint,
   rhythmText,
   statusText,
   stuckText,
@@ -24,13 +26,12 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     online: true,
     exploring: true,
     reason: 'ok',
-    zone: { code: 'zone_houshan', name: '后山历练峰' },
-    nodeCode: 'qy_peak_xunlian',
-    nodeName: '第八峰·历练',
+    zone: { code: 'zone_r4', name: '后山兽潮', realm: 4 },
     floor: 1,
     maxFloor: 3,
     bestFloor: 0,
     cleared: false,
+    clears: 0,
     isBossFloor: false,
     playerPower: 100,
     floorRequirement: 75,
@@ -38,7 +39,6 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     killsPerFloor: 30,
     stuck: false,
     shortfall: 0,
-    idleUnlocked: false,
     kills: 0,
     lingyunGained: 0,
     events: [],
@@ -81,13 +81,18 @@ describe('floorProgressPercent', () => {
 });
 
 describe('statusText', () => {
-  it('五种 reason 各有独立文案，null 有占位', () => {
+  it('四种 reason 各有独立文案，null 有占位', () => {
     expect(statusText(null)).toContain('尚未读取');
     expect(statusText(frame({ reason: 'ok' }))).toContain('正在历练');
     expect(statusText(frame({ reason: 'hidden' }))).toContain('后台');
     expect(statusText(frame({ reason: 'no_session' }))).toContain('连接断开');
-    expect(statusText(frame({ reason: 'no_realm' }))).toContain('尚未进入秘境');
-    expect(statusText(frame({ reason: 'not_map_realm' }))).toContain('不是地图上的');
+    expect(statusText(frame({ reason: 'no_battle' }))).toContain('未在秘境中');
+  });
+
+  it('no_battle 同时给出两条入场路径（秘境石台突破 / 秘境页面重复挑战）', () => {
+    const text = statusText(frame({ reason: 'no_battle', zone: null, exploring: false }));
+    expect(text).toContain('秘境石台');
+    expect(text).toContain('重复挑战');
   });
 
   it('未知 reason（服务端新增枚举）不崩、有兜底文案', () => {
@@ -123,7 +128,7 @@ describe('floorLabel / floorKillsLabel', () => {
   });
 });
 
-describe('stuckText / idleUnlockedHint', () => {
+describe('stuckText / realmUnlockedHint', () => {
   it('卡层提示用服务端的 shortfall，不重算门槛', () => {
     expect(stuckText(frame({ stuck: true, shortfall: 7, playerPower: 80, floorRequirement: 87 }))).toBe(
       '战力不足，还差 7（仍在原地刷本层，有产出、无进度）',
@@ -137,10 +142,23 @@ describe('stuckText / idleUnlockedHint', () => {
     expect(stuckText(frame({ stuck: true, shortfall: Number.NaN }))).toContain('还差 0');
   });
 
-  it('解锁引导只在 idleUnlocked 时出现', () => {
-    expect(idleUnlockedHint(frame({ idleUnlocked: true }))).toContain('已解锁离线挂机');
-    expect(idleUnlockedHint(frame())).toBeNull();
-    expect(idleUnlockedHint(null)).toBeNull();
+  it('突破引导：reason=no_battle 且 clears≥1 才出现，文案给出两条去向', () => {
+    const hint = realmUnlockedHint(frame({ reason: 'no_battle', exploring: false, cleared: true, clears: 1 }));
+    expect(hint).toContain('后山兽潮');
+    expect(hint).toContain('已突破');
+    expect(hint).toContain('重复挑战');
+    expect(hint).toContain('挂机点');
+  });
+
+  it('边界：战斗中（ok）不显示；未突破（clears=0 / 缺失 / 非有限）不显示；null 不显示', () => {
+    expect(realmUnlockedHint(frame({ clears: 1 }))).toBeNull();
+    expect(realmUnlockedHint(frame({ reason: 'no_battle', clears: 0 }))).toBeNull();
+    expect(realmUnlockedHint(frame({ reason: 'no_battle', clears: Number.NaN }))).toBeNull();
+    expect(realmUnlockedHint(null)).toBeNull();
+  });
+
+  it('zone 为 null 时用「该秘境」兜底，不崩', () => {
+    expect(realmUnlockedHint(frame({ reason: 'no_battle', zone: null, clears: 2 }))).toContain('该秘境');
   });
 });
 
@@ -149,7 +167,7 @@ describe('事件标签与产出摘要', () => {
     expect(eventLabelOf('floor_up')).toBe('涨层');
     expect(eventLabelOf('boss_floor')).toBe('进入 Boss 层');
     expect(eventLabelOf('boss_defeated')).toBe('击败 Boss');
-    expect(eventLabelOf('idle_unlocked')).toBe('解锁离线挂机');
+    expect(eventLabelOf('realm_unlocked')).toBe('突破成功');
     expect(eventLabelOf('stuck')).toBe('战力不足');
     expect(eventLabelOf('mystery_event')).toBeNull();
     expect(eventLabelsOf(frame({ events: ['floor_up', 'mystery_event' as never, 'stuck'] }))).toEqual([

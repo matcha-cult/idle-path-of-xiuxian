@@ -1,25 +1,26 @@
 /**
- * ZoneCard —— 单个秘境卡（从 ZonePanel 拆出，保持单文件规模与单一职责）。
+ * ZoneCard —— 单个已突破秘境卡（从 ZonePanel 拆出，保持单文件规模与单一职责）。
  *
- * 只展示「玩家选秘境需要的判断信息」：名称/章节/是否当前/进度/能否进入。
+ * §22：这张卡只出现在**秘境页面**，而秘境页面只列**已突破**的秘境（用户 Q4：
+ * 未解锁的不在秘境页面显示），因此卡上不再有「解锁条件 / 境界不足」那套 UI ——
+ * 只剩「我在这个秘境打到哪、要不要再打一轮」。
+ *
  * 协议字段不上屏：`code` 只做 key 与 testid，`unitCode/bossCode/orderIndex` 不展示。
  */
 import { Button, Card, Flex, Space, Tag, Typography } from 'antd';
-import { ConfirmAction, LockedHint } from '@idle-path/ui-kit';
+import { ConfirmAction } from '@idle-path/ui-kit';
 import type { ZoneView } from '@idle-path/ionet-transport';
-import { prevZoneHint, zoneFloorText } from './presentation.js';
+import { zoneClearsText, zoneFloorText, zoneTierLabel } from './presentation.js';
 
 export interface ZoneCardProps {
   zone: ZoneView;
-  /** 当前角色境界（用于「境界不足」对比；未知时传 undefined）。 */
-  realm: number | undefined;
-  /** 是否是该秘境为当前所在。 */
+  /** 是否是当前在线战斗所在的秘境。 */
   current: boolean;
   onEnter: (code: string) => void;
 }
 
 export function ZoneCard(props: ZoneCardProps) {
-  const { zone, realm, current, onEnter } = props;
+  const { zone, current, onEnter } = props;
 
   return (
     <Card
@@ -28,34 +29,23 @@ export function ZoneCard(props: ZoneCardProps) {
       title={
         <Space wrap>
           <span>{zone.name}</span>
-          <Tag>第 {zone.chapter} 章</Tag>
-          {current ? <Tag color="processing">当前</Tag> : null}
+          <Tag>第 {zone.realm} 境</Tag>
+          <Tag color={zone.tierKind === 'special' ? 'gold' : 'green'}>{zoneTierLabel(zone.tierKind)}</Tag>
+          {current ? <Tag color="processing">战斗中</Tag> : null}
         </Space>
       }
     >
       <Flex vertical gap={8}>
-        <Typography.Text type="secondary">{zoneFloorText(zone.progress?.bestFloor, zone.maxFloor)}</Typography.Text>
+        <Typography.Text type="secondary">
+          {zoneFloorText(zone.progress?.bestFloor, zone.maxFloor)} · {zoneClearsText(zone.progress?.clears)}
+        </Typography.Text>
 
-        {zone.unlocked ? (
-          current ? (
-            <Typography.Text type="secondary">已在此秘境</Typography.Text>
-          ) : (
-            <ConfirmAction title={`进入「${zone.name}」？`} onConfirm={() => onEnter(zone.code)}>
-              <Button data-testid={`zone-enter-${zone.code}`}>进入</Button>
-            </ConfirmAction>
-          )
+        {current ? (
+          <Typography.Text type="secondary">已在此秘境战斗</Typography.Text>
         ) : (
-          <div data-testid={`zone-locked-${zone.code}`}>
-            {zone.unlockedReason === 'realm' ? (
-              <LockedHint title={`${zone.name} 尚未解锁`} reason="realm" required={zone.minRealm} current={realm} />
-            ) : (
-              <LockedHint
-                title={`${zone.name} 尚未解锁`}
-                reason="prev"
-                hint={prevZoneHint(zone.prevZone, zone.requirePrevBestFloor, zone.prevBestFloor)}
-              />
-            )}
-          </div>
+          <ConfirmAction title={`进入「${zone.name}」再打一轮？`} onConfirm={() => onEnter(zone.code)}>
+            <Button data-testid={`zone-enter-${zone.code}`}>重复挑战</Button>
+          </ConfirmAction>
         )}
       </Flex>
     </Card>

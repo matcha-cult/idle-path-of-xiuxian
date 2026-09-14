@@ -10,6 +10,12 @@
  * `featureKey` **原文绝不上屏**，展示一律用下表中的中文名。
  */
 
+/**
+ * §22：承载「宗门秘境突破」的 feature key。地图右栏据此判断要不要挂上「秘境石台」交互区
+ * —— 用常量而不是散落的字面量，避免契约靠字符串巧合成立。
+ */
+export const REALM_FEATURE_KEY = 'realm';
+
 /** 当前协议可能出现的 `feature_key`（`MapNodeView.featureKey`）。 */
 export type MapFeatureKey =
   | 'skill'
@@ -21,7 +27,8 @@ export type MapFeatureKey =
   | 'farm'
   | 'pvp'
   | 'discipline'
-  | 'profession';
+  | 'profession'
+  | 'realm';
 
 /**
  * 已实现系统 → 承载面板 key。**未列出 = 尚未实现**（渲染「未开放」）。
@@ -39,6 +46,9 @@ export const FEATURE_PANELS: Partial<Record<MapFeatureKey, string>> = {
   craft: 'economy',
   quest: 'quest',
   waypoint: 'map',
+  // §22：第八峰·后山「秘境石台」—— 交互**就地发生**（`RealmStoneSection` 直接嵌在地图右栏），
+  // 因此这里登记的 `zone` 只是「秘境的家在秘境面板」这一事实，不是跳转动作。
+  realm: 'zone',
 };
 
 /** 系统展示名（中文）。协议 key 原文不上屏。 */
@@ -53,6 +63,7 @@ const FEATURE_LABELS: Record<MapFeatureKey, string> = {
   pvp: '斗法',
   discipline: '戒律',
   profession: '职业',
+  realm: '秘境',
 };
 
 /** 未实现 feature 清单（供 UI 与测试遍历；`FEATURE_PANELS` 是唯一事实来源）。 */

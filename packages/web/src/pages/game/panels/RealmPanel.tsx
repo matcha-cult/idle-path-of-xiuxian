@@ -12,7 +12,6 @@
  */
 import { observer } from 'mobx-react-lite';
 import { Button, Flex, Tag, Tooltip, Typography } from 'antd';
-import { REALMS, type RealmStatusData, type ZoneView } from '@idle-path/ionet-transport';
 import {
   AsyncBoundary,
   ConfirmAction,
@@ -22,55 +21,16 @@ import {
   StatCompare,
   StatGrid,
   Toolbar,
-  type KeyValueEntry,
 } from '@idle-path/ui-kit';
 import { useRootStore } from '../../../app/root-context.js';
 import { formatCompactNumber } from '../../../domain/format.js';
-
-/** 境界总数（14 境，来自协议常量，不本地硬编码）。 */
-const TOTAL_REALMS = REALMS.length;
-
-/** 下一境名（封顶或越界给占位符）。 */
-function nextRealmName(realm: number, isMax: boolean): string {
-  if (isMax) return '—';
-  const name: string | undefined = REALMS[realm];
-  return name ?? '—';
-}
-
-/** 破境后可穿的装备阶：下一境即 `T{realm+1}`，封顶则维持当前阶。 */
-function wearableTier(realm: number, isMax: boolean): number {
-  return isMax ? realm : realm + 1;
-}
-
-/** 破境后可进的秘境名（只 join `zone.zones`，不自行推导门槛规则）。 */
-function unlockedZoneText(zones: readonly ZoneView[], targetRealm: number): string {
-  const names = zones.filter((zone) => zone.minRealm <= targetRealm).map((zone) => zone.name);
-  return names.length > 0 ? names.join('、') : '暂无（以秘境图鉴为准）';
-}
-
-/** 不可破境时的一句话原因；可破境返回空串。只翻译服务端字段，不含任何公式。 */
-function breakthroughBlockReason(status: RealmStatusData): string {
-  if (status.isMax) return '已至封顶，暂无更高境界';
-  if (status.nextCost === null) return '暂无下一境消耗数据';
-  if (status.lingyun < status.nextCost) {
-    return `灵韵不足：还差 ${formatCompactNumber(status.nextCost - status.lingyun)}`;
-  }
-  return '';
-}
-
-/** 「破境后解锁」明细（下一境名 / 可穿 T 阶 / 可进秘境）。 */
-function unlockEntries(status: RealmStatusData, zones: readonly ZoneView[]): KeyValueEntry[] {
-  const tier = wearableTier(status.realm, status.isMax);
-  return [
-    {
-      key: 'nextRealm',
-      label: '下一境',
-      value: status.isMax ? '已至封顶' : nextRealmName(status.realm, status.isMax),
-    },
-    { key: 'tier', label: '可穿装备阶', value: `T${formatCompactNumber(tier)}` },
-    { key: 'zones', label: '可进秘境', value: unlockedZoneText(zones, tier), span: 2 },
-  ];
-}
+import {
+  TOTAL_REALMS,
+  breakthroughBlockReason,
+  nextRealmName,
+  unlockEntries,
+  wearableTier,
+} from './realm-presentation.js';
 
 export const RealmPanel = observer(function RealmPanel() {
   const root = useRootStore();
@@ -187,7 +147,7 @@ export const RealmPanel = observer(function RealmPanel() {
       {status === null ? null : (
         <SectionCard title="破境后解锁" subtitle="下一境可穿的装备阶与可进秘境">
           <div data-testid="realm-unlock">
-            <KeyValueList column={{ xs: 1, sm: 2 }} items={unlockEntries(status, zone.zones)} />
+            <KeyValueList column={{ xs: 1, sm: 2 }} items={unlockEntries(status, zone.breakthrough)} />
           </div>
         </SectionCard>
       )}

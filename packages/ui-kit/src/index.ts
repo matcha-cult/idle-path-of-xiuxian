@@ -93,3 +93,4 @@ export * from './game/CraftOpPicker/index.js';
 export * from './game/ItemPickerModal/index.js';
 export * from './game/AffixList/index.js';
 export * from './game/StoryTimeline/index.js';
+export * from './game/LadderProgress/index.js';

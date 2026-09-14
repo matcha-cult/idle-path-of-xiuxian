@@ -20,13 +20,12 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     online: true,
     exploring: true,
     reason: 'ok',
-    zone: { code: 'zone_houshan', name: '后山历练峰' },
-    nodeCode: 'qy_peak_xunlian',
-    nodeName: '第八峰·历练',
+    zone: { code: 'zone_r4', name: '后山兽潮', realm: 4 },
     floor: 1,
     maxFloor: 3,
     bestFloor: 0,
     cleared: false,
+    clears: 0,
     isBossFloor: false,
     playerPower: 100,
     floorRequirement: 75,
@@ -34,7 +33,6 @@ function frame(overrides: Partial<ZoneOnlineData> = {}): ZoneOnlineData {
     killsPerFloor: 30,
     stuck: false,
     shortfall: 0,
-    idleUnlocked: false,
     kills: 0,
     lingyunGained: 0,
     events: [],
@@ -49,7 +47,9 @@ function zoneHandler(overrides: Partial<Record<'online' | 'visibility', MockHand
   return async (request: Req) => {
     if (request.cmd !== ZONE_CMD.cmd) return null;
     // load() 会并发拉列表 + 进度；这里给最小成功体，避免 load() 在列表处提前 catch
-    if (request.subCmd === ZONE_CMD.zones) return ok({ total: 0, playerPower: 100, currentZone: null, zones: [] });
+    if (request.subCmd === ZONE_CMD.zones) {
+      return ok({ total: 0, playerPower: 100, currentZone: null, idleTarget: null, zones: [], breakthrough: [] });
+    }
     if (request.subCmd === ZONE_CMD.progress) return fail('ZONE_NOT_FOUND');
     if (request.subCmd === ZONE_CMD.online) {
       const handler = overrides.online;
@@ -115,14 +115,16 @@ describe('ZoneStore · handleNotification（服务端推送 → 覆盖帧）', (
     expect(harness.root.toast.toasts.some((t) => t.title === '历练涨层')).toBe(true);
   });
 
-  it('解锁事件给出「已解锁离线挂机」提示', async () => {
+  it('§22 突破事件（realm_unlocked）给出「已突破」提示，且帧里的 clears 落库', async () => {
     const harness = createPanelHarness({ handler: zoneHandler() });
     harness.root.zone.handleNotification({
       subCmd: ZONE_CMD.online,
-      data: frame({ cleared: true, idleUnlocked: true, events: ['boss_defeated', 'idle_unlocked'] }),
+      data: frame({ cleared: true, clears: 1, events: ['boss_defeated', 'realm_unlocked'] }),
     });
-    expect(harness.root.zone.online?.idleUnlocked).toBe(true);
-    expect(harness.root.toast.toasts.some((t) => t.title === '已解锁离线挂机')).toBe(true);
+    expect(harness.root.zone.online?.clears).toBe(1);
+    expect(
+      harness.root.toast.toasts.some((t) => t.title === '突破成功，已录入秘境页面'),
+    ).toBe(true);
   });
 
   it('未知事件：帧照常存，不弹提示、不崩', () => {

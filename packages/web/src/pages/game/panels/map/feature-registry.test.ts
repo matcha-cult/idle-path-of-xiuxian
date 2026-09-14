@@ -1,29 +1,37 @@
 /**
- * feature-registry 单测：**「是否实现」是客户端判断**，且 6 个未实现系统一个不漏。
+ * feature-registry 单测：**「是否实现」是客户端判断**，且未实现系统一个不漏。
  * 这条测试是任务书 §4 的可执行版本 —— 实现进度变化时它会失败，提醒维护者更新注册表。
  */
 import { describe, expect, it } from 'vitest';
 import {
   FEATURE_PANELS,
+  REALM_FEATURE_KEY,
   UNIMPLEMENTED_FEATURES,
   featureIsImplemented,
   featureLabelOf,
   featurePanelOf,
 } from './feature-registry.js';
 
-/** 任务书 §4 明确的 6 个「入图但未实现」系统。 */
+/** 任务书 §4 明确的「入图但未实现」系统（§22 起 `realm` 已实现，故不在列）。 */
 const EXPECTED_UNIMPLEMENTED = ['alchemy', 'beast', 'farm', 'pvp', 'discipline', 'profession'];
 
 describe('feature-registry · 已实现系统', () => {
-  it('登记了任务书约定的 4 个已实现系统', () => {
-    expect(Object.keys(FEATURE_PANELS).sort()).toEqual(['craft', 'quest', 'skill', 'waypoint']);
+  it('登记了 5 个已实现系统（§22 起新增 realm）', () => {
+    expect(Object.keys(FEATURE_PANELS).sort()).toEqual(['craft', 'quest', 'realm', 'skill', 'waypoint']);
   });
 
   it('已实现系统返回 true 并给出承载面板', () => {
-    for (const key of ['skill', 'craft', 'quest', 'waypoint']) {
+    for (const key of ['skill', 'craft', 'quest', 'waypoint', REALM_FEATURE_KEY]) {
       expect(featureIsImplemented(key)).toBe(true);
       expect(featurePanelOf(key)).not.toBeNull();
     }
+  });
+
+  it('§22：秘境（realm）已实现，展示名「秘境」，承载面板是秘境面板', () => {
+    expect(REALM_FEATURE_KEY).toBe('realm');
+    expect(featureLabelOf(REALM_FEATURE_KEY)).toBe('秘境');
+    expect(featurePanelOf(REALM_FEATURE_KEY)).toBe('zone');
+    expect(UNIMPLEMENTED_FEATURES).not.toContain(REALM_FEATURE_KEY);
   });
 
   it('featureKey 为 null（纯跑图）不算已实现，也没有面板', () => {

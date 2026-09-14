@@ -12,7 +12,7 @@ const EVENT_LABELS: Record<ZoneOnlineEvent, string> = {
   floor_up: '涨层',
   boss_floor: '进入 Boss 层',
   boss_defeated: '击败 Boss',
-  idle_unlocked: '解锁离线挂机',
+  realm_unlocked: '突破成功',
   stuck: '战力不足',
 };
 
@@ -65,10 +65,9 @@ export function statusText(frame: ZoneOnlineData | null): string {
       return '历练已暂停：页面切到后台时不计在线';
     case 'no_session':
       return '历练已暂停：连接断开时服务端不会推进';
-    case 'no_realm':
-      return '尚未进入秘境：先在秘境图鉴里进入历练峰';
-    case 'not_map_realm':
-      return '当前秘境不是地图上的历练秘境峰，无法在线历练';
+    case 'no_battle':
+      // §22：没在战斗 —— 两条入场路径都告诉玩家（地图上的秘境石台 / 秘境页面重复挑战）
+      return '未在秘境中：到「第八峰·后山」的秘境石台突破，或从秘境页面重复挑战';
     default:
       return '历练状态未知';
   }
@@ -100,10 +99,18 @@ export function stuckText(frame: ZoneOnlineData | null): string | null {
   return `战力不足，还差 ${shortfall}（仍在原地刷本层，有产出、无进度）`;
 }
 
-/** 击败首个 Boss 后的解锁引导；未解锁 → `null`。 */
-export function idleUnlockedHint(frame: ZoneOnlineData | null): string | null {
-  if (frame === null || !frame.idleUnlocked) return null;
-  return '已解锁离线挂机：切到左侧「挂机」面板即可按当前最深层结算离线收益';
+/**
+ * §22 突破成功后的引导（**基于稳定状态而非瞬时事件**，读接口也能显示）。
+ *
+ * 条件：已突破（`clears ≥ 1`）且当前不在战斗中（`reason === 'no_battle'`）。
+ * 面板据此告诉玩家「这个秘境现在在哪能用」—— 秘境页面重复挑战 / 设为挂机点。
+ */
+export function realmUnlockedHint(frame: ZoneOnlineData | null): string | null {
+  if (frame === null) return null;
+  if (frame.reason !== 'no_battle') return null;
+  if (!Number.isFinite(frame.clears) || frame.clears < 1) return null;
+  const name = frame.zone?.name ?? '该秘境';
+  return `「${name}」已突破：可在秘境页面重复挑战，历练秘境还能设为挂机点`;
 }
 
 /**

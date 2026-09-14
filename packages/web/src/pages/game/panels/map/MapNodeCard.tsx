@@ -12,7 +12,8 @@
  * - **前往**：相邻（服务端 `adjacent`，山门恒为相邻）且不是当前所在才可点；
  * - **传送**：`hasWaypoint` 且传送点已点亮才可点（语义一个字未改）；
  * - 一院多职能走 `MapObjectList`（节点 `featureKey` 是摘要，对象表是明细）；
- * - 「秘境节点额外给『进入历练』」：显式动作把挂机目标切到该秘境（`zone.enter`）；
+ *   **§22：秘境不再挂在节点上** —— 「进入历练」按钮与 `onEnterRealm` 已删除，
+ *   宗门秘境的入口改为第八峰·后山的「秘境石台」就地交互区（`RealmStoneSection`）；
  * - 协议字段不上屏：`code` 只做 testid/key，`featureKey` 原文不展示。
  */
 import { Button, Card, Flex, Tag, Tooltip, Typography } from 'antd';
@@ -42,8 +43,6 @@ export interface MapNodeCardProps {
   movingTo?: string | null;
   onEnter: (code: string) => void;
   onWaypoint: (code: string) => void;
-  /** 秘境节点专用：把挂机目标切到该秘境（`zoneCode` 由服务端下发）。 */
-  onEnterRealm?: (zoneCode: string) => void;
 }
 
 /** 节点属性明细（协议字段翻译成中文文案，不含 code / featureKey 原文）。 */
@@ -58,7 +57,6 @@ export function MapNodeCard(props: MapNodeCardProps) {
     movingTo = null,
     onEnter,
     onWaypoint,
-    onEnterRealm,
   } = props;
   const waypointReady = canUseWaypoint(node, current ? node.code : null);
   const enterLabel = current ? '当前所在' : enterActionLabel(node);
@@ -141,22 +139,6 @@ export function MapNodeCard(props: MapNodeCardProps) {
                       onClick={() => onWaypoint(node.code)}
                     >
                       传送
-                    </Button>
-                  </span>
-                </Tooltip>
-              ) : null}
-              {/* 秘境节点：把挂机目标切到该秘境（「地图 → 历练秘境峰 → 挂机」的闭环） */}
-              {node.kind === 'secret_realm' && node.zoneCode !== null && onEnterRealm !== undefined ? (
-                <Tooltip title={node.progress.visited ? undefined : '先到达该节点'}>
-                  <span>
-                    <Button
-                      type="primary"
-                      ghost
-                      disabled={!node.progress.visited}
-                      data-testid={`map-node-enter-realm-${node.code}`}
-                      onClick={() => node.zoneCode !== null && onEnterRealm(node.zoneCode)}
-                    >
-                      {node.progress.idleUnlocked ? '进入历练（可离线挂机）' : '进入历练'}
                     </Button>
                   </span>
                 </Tooltip>
