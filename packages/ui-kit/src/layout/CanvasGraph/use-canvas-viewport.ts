@@ -20,6 +20,7 @@
  */
 import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { resolveItemKey } from './pointer-gestures.js';
 import { createPointerMachine } from './pointer-machine.js';
 import type { PointerMachine } from './pointer-machine.js';
 import { useViewportPose } from './use-viewport-pose.js';
@@ -85,11 +86,9 @@ export function useCanvasViewport(options: CanvasViewportOptions): CanvasViewpor
   }
   const gestures = machine.current;
 
-  /** 命中枢纽靠 DOM 属性查（`data-canvas-item`），因此这一步留在 React 侧。 */
-  const itemKeyOf = (event: ReactPointerEvent<HTMLDivElement>): string | null => {
-    const hit = (event.target as HTMLElement).closest('[data-canvas-item]');
-    return hit instanceof HTMLElement ? hit.getAttribute('data-canvas-item') : null;
-  };
+  /** 命中枢纽靠 DOM 查询（见 `resolveItemKey`：枢纽**内部的按钮**不算点枢纽）。 */
+  const itemKeyOf = (event: ReactPointerEvent<HTMLDivElement>): string | null =>
+    resolveItemKey(event.target as Element | null);
 
   return {
     ref: poseApi.ref,

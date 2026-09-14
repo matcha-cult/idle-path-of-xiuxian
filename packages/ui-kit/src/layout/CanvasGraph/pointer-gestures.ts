@@ -68,6 +68,29 @@ export function resolvePointerUp(input: PointerUpInput): { outcome: PointerOutco
   return { outcome: { kind: 'background' }, memory: nextMemory };
 }
 
+/**
+ * 枢纽的**命中判定**：这次 pointerdown 到底算不算「点枢纽」。
+ *
+ * 关键一条（否则「在枢纽里放按钮」等于不能用）：指针落在枢纽**内部的可交互后代**上
+ * （真按钮 / 链接 / 输入框 / 任何带 `tabindex` 或 `role=button` 的元素）时，**不算点枢纽** ——
+ * 否则在按钮上**双击**会被判成枢纽的双击直达（＝把玩家传送走）。这类交互归那个元素自己。
+ *
+ * 判定顺序：先找枢纽祖先，再看指针起点是否被某个**非枢纽**的可交互元素接住。
+ * 纯 DOM 查询、无坐标数学 —— 这正是混合渲染相对全 canvas 的核心好处：命中交给浏览器。
+ */
+const HUB_SELECTOR = '[data-canvas-item]';
+const INTERACTIVE_SELECTOR =
+  'button, a[href], input, select, textarea, summary, [role="button"], [tabindex]';
+
+export function resolveItemKey(target: Element | null): string | null {
+  if (target === null) return null;
+  const hub = target.closest(HUB_SELECTOR);
+  if (hub === null) return null;
+  const inner = target.closest(INTERACTIVE_SELECTOR);
+  if (inner !== null && inner !== hub) return null;
+  return hub.getAttribute('data-canvas-item');
+}
+
 /** 两指几何：距离（驱动缩放）+ 中心（驱动平移）。`points` 少于 2 个时返回 null。 */
 export function pairGeometry(
   points: readonly { x: number; y: number }[],
