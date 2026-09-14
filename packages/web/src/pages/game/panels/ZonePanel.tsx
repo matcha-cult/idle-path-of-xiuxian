@@ -6,6 +6,9 @@
  *   2. 这一轮打得动吗？→ `StatCompare`（战力 vs 本层门槛）+ 卡层提示
  *   3. 我有哪些秘境可以再打？→ 下方「已突破秘境」卡列表（未突破的**不显示**，用户 Q4）
  *
+ * §23 ①：每张卡多一个「设为挂机点」快捷入口（特殊秘境禁用）；挂机点的**统一管理**
+ * 在挂机面板（`IdlePanel` → `IdleTargetBar` / `IdleTargetPicker`），这里只做就地快捷设置。
+ *
  * 未突破的秘境不在这里出现 —— 它们只在地图的「第八峰·后山 → 秘境石台」处被发现与突破，
  * 突破成功（在线打满整轮）后才会出现在本面板。
  *
@@ -19,12 +22,13 @@ import { AsyncBoundary, ResourceGrid, SectionCard, StatCompare, StatGrid, Toolba
 import { useRootStore } from '../../../app/root-context.js';
 import { ZoneCard } from './zone/ZoneCard.js';
 import { ZoneOnlineSection } from './zone/ZoneOnlineSection.js';
+import { idleTargetName } from './zone/presentation.js';
 
 export const ZonePanel = observer(function ZonePanel() {
   const root = useRootStore();
   const { zone } = root;
   const progress = zone.progress;
-  const idleTargetName = zone.breakthrough.find((entry) => entry.code === zone.idleTarget)?.name ?? null;
+  const idleTargetLabel = idleTargetName(zone.idleTarget, zone.zones, zone.breakthrough);
 
   return (
     <Flex vertical gap={12}>
@@ -103,9 +107,9 @@ export const ZonePanel = observer(function ZonePanel() {
           </Typography.Text>
         }
       >
-        {idleTargetName === null ? null : (
+        {idleTargetLabel === null ? null : (
           <div data-testid="zone-idle-target">
-            <Typography.Text type="secondary">当前挂机点：{idleTargetName}</Typography.Text>
+            <Typography.Text type="secondary">当前挂机点：{idleTargetLabel}</Typography.Text>
           </div>
         )}
         <AsyncBoundary empty={zone.zones.length === 0} emptyText="尚未突破任何秘境" onRetry={() => void zone.load()}>
@@ -118,7 +122,10 @@ export const ZonePanel = observer(function ZonePanel() {
                 <ZoneCard
                   zone={entry}
                   current={entry.code === zone.currentZone}
+                  isIdleTarget={entry.code === zone.idleTarget}
+                  idleBusy={zone.busyZoneCode === entry.code}
                   onEnter={(code) => void zone.enter(code)}
+                  onSetIdleTarget={(code) => void zone.setIdleTarget(code)}
                 />
               )}
             />

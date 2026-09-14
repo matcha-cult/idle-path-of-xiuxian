@@ -143,3 +143,45 @@ describe('ZonePanel · 已突破秘境列表', () => {
     expect(screen.getByTestId('zone-total')).toHaveTextContent('共 0 处');
   });
 });
+
+describe('ZonePanel · 卡片上的「设为挂机点」快捷入口（§23 ① G4/G5）', () => {
+  it('可挂机秘境：点一下直接发出 zone.idleTarget', async () => {
+    const harness = setup((root) => {
+      root.zone.zones = [makeZone(), makeZone({ id: 2, code: 'zone_2', name: '落霞谷' })];
+    });
+    harness.render(<ZonePanel />);
+    await harness.connect();
+
+    await userEvent.click(screen.getByTestId('zone-idle-set-zone_2'));
+
+    await waitFor(() =>
+      expect(
+        harness.requests.filter((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.idleTarget),
+      ).toHaveLength(1),
+    );
+    expect(
+      harness.requests.find((r) => r.cmd === ZONE_CMD.cmd && r.subCmd === ZONE_CMD.idleTarget)?.data,
+    ).toEqual({ zoneCode: 'zone_2' });
+  });
+
+  it('特殊秘境：按钮禁用（服务端会拒，前端不给必败入口）', () => {
+    const harness = setup((root) => {
+      root.zone.zones = [makeZone({ id: 3, code: 'zone_3', name: '寒潭', realm: 9, tierKind: 'special', idleAllowed: false })];
+    });
+    harness.render(<ZonePanel />);
+
+    expect(screen.queryByTestId('zone-idle-set-zone_3')).toBeNull();
+    expect(screen.getByTestId('zone-idle-disabled-zone_3')).toBeInTheDocument();
+  });
+
+  it('已是当前挂机点：卡片显示「挂机点」Tag，不再显示设置按钮', () => {
+    const harness = setup((root) => {
+      root.zone.idleTarget = 'zone_1';
+    });
+    harness.render(<ZonePanel />);
+
+    expect(screen.getByTestId('zone-idle-tag-zone_1')).toHaveTextContent('挂机点');
+    expect(screen.queryByTestId('zone-idle-set-zone_1')).toBeNull();
+    expect(screen.getByTestId('zone-idle-target')).toHaveTextContent('当前挂机点：青云山脚');
+  });
+});
