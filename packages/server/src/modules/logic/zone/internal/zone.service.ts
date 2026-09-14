@@ -24,6 +24,8 @@ import { GameDatabaseService } from '../../../game/game-database.service.js';
 import { CombatLogicService } from '../../combat/combat.logic.service.js';
 import {
   type FailResult,
+  type ZoneIdleFloor,
+  type ZoneIdlePlan,
   type ZoneIdleStateRow,
   type ZoneProgressRow,
   type ZoneProgressView,
@@ -42,14 +44,6 @@ import {
   zoneRealm,
   zoneTierKind,
 } from './zone.types.js';
-
-export interface ZoneEncounter {
-  zoneCode: string;
-  zoneName: string;
-  floor: number;
-  isBoss: boolean;
-  unitCode: string;
-}
 
 /** 「进入一场秘境战斗」的公共响应体（enter / breakthrough 同构）。 */
 interface ZoneBattleEntry {
@@ -238,18 +232,40 @@ export class ZoneService {
     };
   }
 
-  /** 离线结算用：挂机点的遭遇（挂机打当前最深层；无挂机点 / 非法 → null）。 */
-  async idleEncounter(characterId: number): Promise<ZoneEncounter | null> {
+  /**
+   * §23 A3：挂机点的**整轮计划**（逐层单位 / 门槛 / 层深加成）。
+   *
+   * 返回 `null` 只有两种原因（与旧 `idleEncounter` 一致，idle 域不区分）：
+   * 没设挂机点 / 挂机点已不满足 `idleEligible`（未突破 ∨ `idle_allowed=false`）。
+   *
+   * ⚠️ 与旧实现的关键差别：**不再**取 `min(progress.floor, maxFloor)` 当唯一遭遇层。
+   * 已突破秘境的 `progress.floor` 恒为 `max_floor`（= Boss 层）⇒ 旧实现挂机永远在打 Boss。
+   * 现在恒返回 1..maxFloor 全部层，由 idle 域按「循环整轮」把击杀摊到各层。
+   */
+  async idlePlan(characterId: number): Promise<ZoneIdlePlan | null> {
     const idleState = await this.idleStateRow(characterId);
     if (!idleState) return null;
     const zone = await this.zoneById(Number(idleState.zone_id));
     if (!zone) return null;
     const progress = progressOf(await this.progressRow(characterId, zone.id));
     if (!idleEligible(zone, progress)) return null;
-    const floor = Math.min(Math.max(progress.floor, 1), Math.max(zone.max_floor, 1));
-    const boss = isBossFloor(zone, floor);
-    const unitCode = boss && zone.boss_code ? zone.boss_code : zone.unit_code;
-    return { zoneCode: zone.code, zoneName: zone.name, floor, isBoss: boss, unitCode };
+    // `max_floor` 可能是 0 / 负数 / NaN（脏种子）：收敛为单层，绝不产生空计划。
+    const raw = Number(zone.max_floor);
+    const maxFloor = Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+    const floors: ZoneIdleFloor[] = [];
+    for (let floor = 1; floor <= maxFloor; floor++) {
+      const { boss, tierOffset, extraDraws } = this.depth(zone, floor);
+      floors.push({
+        floor,
+        unitCode: boss && zone.boss_code ? zone.boss_code : zone.unit_code,
+        isBoss: boss,
+        floorRequirement: floorRequirement(zone, floor),
+        lingyunBonusFlat: floor * Number(zone.lingyun_bonus_per_floor),
+        tierOffsetBonus: tierOffset,
+        dropDrawBonus: extraDraws,
+      });
+    }
+    return { zoneCode: zone.code, zoneName: zone.name, realm: zoneRealm(zone), maxFloor, floors };
   }
 
   /**

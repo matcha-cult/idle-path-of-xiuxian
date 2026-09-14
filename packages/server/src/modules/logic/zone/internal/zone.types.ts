@@ -70,6 +70,42 @@ export interface ZoneProgressView {
   clears: number;
 }
 
+/**
+ * §23 A3：挂机「整轮」中**单层**的结算参数（`zone.idlePlan` 的组成单元）。
+ *
+ * 每一层都带齐自己的遭遇单位与三项层深加成，idle 域**不重算任何公式** —— 直接把这些
+ * 值透传给既有的 `combat.settleKills`，与 `zone.challenge` / 在线 tick 同一套口径。
+ */
+export interface ZoneIdleFloor {
+  /** 层号（1 起） */
+  floor: number;
+  /** 该层遭遇单位（Boss 层取 `boss_code`，缺省回落 `unit_code`） */
+  unitCode: string;
+  isBoss: boolean;
+  /** 该层门槛 = base_power + (floor-1) × power_step（仅展示 / 诊断用） */
+  floorRequirement: number;
+  /** 层灵韵加成 = floor × lingyun_bonus_per_floor（`settleKills` 每次调用加一次） */
+  lingyunBonusFlat: number;
+  tierOffsetBonus: number;
+  /** 含 Boss 层额外判定（`zoneBossExtraDraws`） */
+  dropDrawBonus: number;
+}
+
+/**
+ * §23 A3：一次挂机「整轮」的逐层计划 —— **永远**包含 1..maxFloor 全部层。
+ *
+ * 与旧的 `idleEncounter`（只回 `min(progress.floor, maxFloor)`，已突破秘境恒为 Boss 层）
+ * 的关键差别：挂机不再钉在最深层，而是按「循环整轮」把总击杀摊到每一层。
+ */
+export interface ZoneIdlePlan {
+  zoneCode: string;
+  zoneName: string;
+  realm: number;
+  maxFloor: number;
+  /** 升序 1..maxFloor；长度 ≥ 1（max_floor 非法时收敛为 1） */
+  floors: ZoneIdleFloor[];
+}
+
 export function progressOf(row: ZoneProgressRow | null): ZoneProgressView {
   if (!row) return { floor: 1, bestFloor: 0, cleared: false, clears: 0 };
   return {

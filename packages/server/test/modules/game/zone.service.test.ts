@@ -5,7 +5,7 @@
  * - 解锁 = 在线打满 max_floor 层 → `clears ≥ 1`（`isUnlocked` 权威判定，不看 cleared 列）；
  * - 突破（breakthrough）准入只看 tier_kind：training 免费放行、special 需道具（ZONE_ITEM_REQUIRED）；
  * - enter 只能进**已突破**秘境（重复挑战）；challenge 降级为开发者工具（无任何解锁闸门）；
- * - 挂机（idleTarget / idleEncounter）= 已突破 ∧ idle_allowed===true；
+ * - 挂机（idleTarget / idlePlan）= 已突破 ∧ idle_allowed===true；idlePlan 回 **1..maxFloor 整轮**（§23 A3）；
  * - 在线战斗 = `game_zone_state` 有行（progress / leave / challenge 无 code 时都依赖它）。
  *
  * 风格：makeChar / zoneRow / zoneDb / makeService 沿用既有脚手架；边界测试纪律见
@@ -758,83 +758,107 @@ describe('ZoneService.inOnlineBattle 边界', () => {
   });
 });
 
-describe('ZoneService.idleEncounter 边界（挂机点遭遇）', () => {
-  test('无 game_idle_state 行 -> null', async () => {
+describe('ZoneService.idlePlan 边界（§23 A3 整轮逐层计划）', () => {
+  const idleState = [{ id: 1, character_id: 11, zone_id: 1 }];
+  /** 挂机点可用的库：已突破（clears=1）+ 指定 zone / progress 覆盖。 */
+  const eligibleDb = (zone: Row = zoneRow(), progress: Row = {}) =>
+    zoneDb({ idle: idleState, byId: [zone], oneProgress: [progressRow({ clears: 1, ...progress })] });
+
+  test('无 game_idle_state 行 -> null（没设挂机点）', async () => {
     const db = zoneDb({ idle: [] });
-    assert.equal(await makeService({ db }).svc.idleEncounter(11), null);
+    assert.equal(await makeService({ db }).svc.idlePlan(11), null);
   });
 
   test('挂机点指向已删秘境 -> null', async () => {
-    const db = zoneDb({ idle: [{ id: 1, character_id: 11, zone_id: 1 }], byId: [] });
-    assert.equal(await makeService({ db }).svc.idleEncounter(11), null);
+    const db = zoneDb({ idle: idleState, byId: [] });
+    assert.equal(await makeService({ db }).svc.idlePlan(11), null);
   });
 
   test('未突破（clears=0）-> 不满足 idleEligible -> null', async () => {
-    const z = zoneRow();
-    const db = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ clears: 0 })],
-    });
-    assert.equal(await makeService({ db }).svc.idleEncounter(11), null);
+    const db = zoneDb({ idle: idleState, byId: [zoneRow()], oneProgress: [progressRow({ clears: 0 })] });
+    assert.equal(await makeService({ db }).svc.idlePlan(11), null);
   });
 
   test('已突破但 idle_allowed=false -> null（安全侧：绝不允许意外可挂机）', async () => {
-    const z = zoneRow({ idle_allowed: false });
-    const db = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ clears: 1 })],
-    });
-    assert.equal(await makeService({ db }).svc.idleEncounter(11), null);
+    const db = eligibleDb(zoneRow({ idle_allowed: false }));
+    assert.equal(await makeService({ db }).svc.idlePlan(11), null);
   });
 
-  test('普通层 -> unit_code；Boss 层 -> boss_code', async () => {
-    const z = zoneRow();
-    const normal = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ floor: 1, best_floor: 0, cleared: false, clears: 1 })],
-    });
-    assert.deepEqual(await makeService({ db: normal }).svc.idleEncounter(11), {
+  test('A3 核心：已打满（floor 停在 max_floor=Boss 层）仍返回 1..3 全部层，不再只回 Boss 层', async () => {
+    // 旧 idleEncounter 在这里只回 floor=3/boss1 ⇒ 挂机永远在打 Boss。A3 必须给出整轮。
+    const db = eligibleDb(zoneRow(), { floor: 3, best_floor: 3, cleared: true, clears: 2 });
+    assert.deepEqual(await makeService({ db }).svc.idlePlan(11), {
       zoneCode: 'z1',
       zoneName: '秘境一',
-      floor: 1,
-      isBoss: false,
-      unitCode: 'u1',
+      realm: 3,
+      maxFloor: 3,
+      floors: [
+        {
+          floor: 1,
+          unitCode: 'u1',
+          isBoss: false,
+          floorRequirement: 100,
+          lingyunBonusFlat: 10,
+          tierOffsetBonus: 0,
+          dropDrawBonus: 0,
+        },
+        {
+          floor: 2,
+          unitCode: 'u1',
+          isBoss: false,
+          floorRequirement: 150,
+          lingyunBonusFlat: 20,
+          tierOffsetBonus: 0,
+          dropDrawBonus: 0,
+        },
+        {
+          floor: 3,
+          unitCode: 'boss1',
+          isBoss: true,
+          floorRequirement: 200,
+          lingyunBonusFlat: 30,
+          tierOffsetBonus: 1,
+          dropDrawBonus: 1 + APP_CONFIG.zoneBossExtraDraws,
+        },
+      ],
     });
-
-    const boss = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ floor: 3, best_floor: 2, cleared: false, clears: 1 })],
-    });
-    const enc = await makeService({ db: boss }).svc.idleEncounter(11);
-    assert.equal(enc?.isBoss, true);
-    assert.equal(enc?.unitCode, 'boss1');
-    assert.equal(enc?.floor, 3);
   });
 
-  test('floor 钳制：0 -> 1；越界 99 -> 上限 maxFloor=3（Boss 层）', async () => {
-    const z = zoneRow();
-    const low = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ floor: 0, best_floor: 0, cleared: false, clears: 1 })],
-    });
-    const lowEnc = await makeService({ db: low }).svc.idleEncounter(11);
-    assert.equal(lowEnc?.floor, 1);
-    assert.equal(lowEnc?.isBoss, false);
+  test('与 progress.floor 无关：半程（floor=1）与越界（floor=99）都给出同一份 1..3', async () => {
+    const half = await makeService({ db: eligibleDb(zoneRow(), { floor: 1, best_floor: 0 }) }).svc.idlePlan(11);
+    const over = await makeService({
+      db: eligibleDb(zoneRow(), { floor: 99, best_floor: 99, cleared: true }),
+    }).svc.idlePlan(11);
+    assert.deepEqual(half?.floors.map((f) => f.floor), [1, 2, 3]);
+    assert.deepEqual(half, over);
+  });
 
-    const high = zoneDb({
-      idle: [{ id: 1, character_id: 11, zone_id: 1 }],
-      byId: [z],
-      oneProgress: [progressRow({ floor: 99, best_floor: 99, cleared: true, clears: 1 })],
-    });
-    const highEnc = await makeService({ db: high }).svc.idleEncounter(11);
-    assert.equal(highEnc?.floor, 3);
-    assert.equal(highEnc?.isBoss, true);
-    assert.equal(highEnc?.unitCode, 'boss1');
+  test('max_floor=1 -> 单层计划（退化为单层，且它不是 Boss 层）', async () => {
+    const plan = await makeService({ db: eligibleDb(zoneRow({ max_floor: 1 })) }).svc.idlePlan(11);
+    assert.equal(plan?.maxFloor, 1);
+    assert.deepEqual(plan?.floors.map((f) => [f.floor, f.isBoss, f.unitCode]), [[1, false, 'u1']]);
+  });
+
+  test('max_floor 非法（0 / null / NaN / 负数）-> 收敛为 1 层，绝不产生空计划', async () => {
+    for (const bad of [0, null, Number.NaN, -3]) {
+      const plan = await makeService({ db: eligibleDb(zoneRow({ max_floor: bad })) }).svc.idlePlan(11);
+      assert.equal(plan?.maxFloor, 1, 'max_floor=' + String(bad));
+      assert.equal(plan?.floors.length, 1, 'max_floor=' + String(bad));
+    }
+  });
+
+  test('无 boss_code -> 全层走 unit_code 且 isBoss 恒 false（Boss 额外判定不生效）', async () => {
+    const plan = await makeService({ db: eligibleDb(zoneRow({ boss_code: null })) }).svc.idlePlan(11);
+    assert.deepEqual(plan?.floors.map((f) => [f.isBoss, f.unitCode, f.dropDrawBonus]), [
+      [false, 'u1', 0],
+      [false, 'u1', 0],
+      [false, 'u1', 1],
+    ]);
+  });
+
+  test('realm 非法（NULL）-> realm=0（不静默回落成合法档位）', async () => {
+    const plan = await makeService({ db: eligibleDb(zoneRow({ realm: null })) }).svc.idlePlan(11);
+    assert.equal(plan?.realm, 0);
   });
 });
 

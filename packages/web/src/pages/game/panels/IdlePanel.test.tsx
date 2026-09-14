@@ -34,7 +34,6 @@ function makeStatus(overrides: Partial<IdleStatusData> = {}): IdleStatusData {
 
 function makeSettle(overrides: Partial<IdleSettleData> = {}): IdleSettleData {
   return {
-    unit: { code: 'wolf', name: '灵狼', realm: 1 },
     kills: 8,
     lingyunGained: 20,
     lingyunTotal: 100,
@@ -47,7 +46,12 @@ function makeSettle(overrides: Partial<IdleSettleData> = {}): IdleSettleData {
     currencies: {},
     essences: {},
     itemsProduced: 2,
-    zone: { code: 'qingyun', name: '青云山', floor: 1, isBoss: false },
+    zone: { code: 'qingyun', name: '青云山', maxFloor: 3 },
+    floors: [
+      { floor: 1, unitCode: 'wolf', unitName: '灵狼', isBoss: false, kills: 4 },
+      { floor: 2, unitCode: 'wolf', unitName: '灵狼', isBoss: false, kills: 3 },
+      { floor: 3, unitCode: 'wolf_boss', unitName: '狼王', isBoss: true, kills: 1 },
+    ],
     offlineHours: 3,
     effectiveHours: 1.5,
     dailyItemsProduced: 7,
@@ -57,7 +61,8 @@ function makeSettle(overrides: Partial<IdleSettleData> = {}): IdleSettleData {
 }
 
 const EMPTY_SETTLE: IdleSettleEmptyData = {
-  unit: null,
+  zone: null,
+  floors: [],
   offlineHours: 0,
   effectiveHours: 0,
   kills: 0,
@@ -194,7 +199,7 @@ describe('IdlePanel · 结算动作与结果', () => {
     );
   });
 
-  it('lastSettle 正常分支展示结算单位/时长/秘境与产出摘要', () => {
+  it('lastSettle 正常分支展示逐层战果、秘境、时长与产出摘要（§23 A3 整轮）', () => {
     const harness = setup((root) => {
       root.idle.status = makeStatus();
       root.idle.lastSettle = makeSettle();
@@ -202,18 +207,25 @@ describe('IdlePanel · 结算动作与结果', () => {
     harness.render(<IdlePanel />);
 
     const settlement = screen.getByTestId('idle-settlement');
-    expect(settlement).toHaveTextContent('灵狼');
-    expect(settlement).toHaveTextContent('击杀 8');
     expect(settlement).toHaveTextContent('青云山');
+    expect(settlement).toHaveTextContent('3 层');
+    expect(settlement).toHaveTextContent('击杀 8');
     expect(settlement).toHaveTextContent('3 小时');
     expect(settlement).toHaveTextContent('1 小时 30 分');
     expect(settlement).toHaveTextContent('7 / 200');
     expect(settlement).toHaveTextContent('保留物品');
     expect(settlement).toHaveTextContent('1 件');
     expect(screen.getByTestId('settlement-lingyun')).toHaveTextContent('+20');
+
+    // §23 A3：逐层清单（第 N 层 · 单位 ×击杀），Boss 层有标注
+    const floors = screen.getByTestId('idle-floor-list');
+    expect(floors).toHaveTextContent('第 1 层');
+    expect(floors).toHaveTextContent('灵狼 ×4');
+    expect(floors).toHaveTextContent('第 3 层（Boss）');
+    expect(floors).toHaveTextContent('狼王 ×1');
   });
 
-  it('lastSettle 空结算分支（unit === null）正常显示且不当作错误', () => {
+  it('lastSettle 空结算分支（kills === 0）正常显示且不当作错误', () => {
     const harness = setup((root) => {
       root.idle.status = makeStatus({ pendingHours: 0 });
       root.idle.lastSettle = EMPTY_SETTLE;
@@ -224,7 +236,19 @@ describe('IdlePanel · 结算动作与结果', () => {
     const settlement = screen.getByTestId('idle-settlement');
     expect(settlement).toHaveTextContent('暂无可结算收益');
     expect(settlement).toHaveTextContent('0 件');
+    expect(screen.queryByTestId('idle-floor-list')).toBeNull();
     expect(screen.queryByTestId('async-boundary-error')).toBeNull();
+  });
+
+  it('调试单单位结算（floors 为空、zone 为 null）不渲染逐层清单、也不崩', () => {
+    const harness = setup((root) => {
+      root.idle.status = makeStatus();
+      root.idle.lastSettle = makeSettle({ zone: null, floors: [] });
+    });
+    harness.render(<IdlePanel />);
+
+    expect(screen.getByTestId('idle-settlement')).toHaveTextContent('击杀 8');
+    expect(screen.queryByTestId('idle-floor-list')).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@ import { IdleService } from '../../../src/modules/logic/idle/internal/idle.servi
 import { APP_CONFIG } from '../../../src/common/config/app-config.js';
 import { fail } from '../../../src/common/kernel/result.js';
 import type { SettleResult, SettlementData } from '../../../src/modules/logic/combat/combat.api.js';
-import type { ZoneEncounter } from '../../../src/modules/logic/zone/internal/zone.service.js';
+import type { ZoneIdleFloor, ZoneIdlePlan } from '../../../src/modules/logic/zone/internal/zone.types.js';
 import { FakeDatabase } from '../../helpers/fake-db.js';
 import { stub } from '../../helpers/stub.js';
 import type { Character } from '../../../src/modules/character/character.service.js';
@@ -55,19 +55,28 @@ function realmLingyun(realm: number): number {
 function makeService(opts: {
   db: FakeDatabase;
   character?: Character | null;
-  encounter?: ZoneEncounter | null;
+  /** §23 A3：挂机点整轮计划（null = 没设挂机点 / 不可挂机）。 */
+  plan?: ZoneIdlePlan | null;
   settle?: SettleResult;
+  /** 逐层结算的返回（按调用次序出队）；给了则优先于 `settle`。 */
+  settleSeq?: SettleResult[];
   /** §22 Q6：是否在线战斗中（game_zone_state 有行）。缺省 false。 */
   inBattle?: boolean;
 }) {
   const character = opts.character === undefined ? makeChar() : opts.character;
   const charStub = { findByUserId: stub(async () => character) };
-  const unitStub = { settleKills: stub(async () => opts.settle ?? okSettle()) };
-  // §22：zone 域供 idle 域复用的两个挂钩。缺省：不在线、无挂机点。
-  // 挂机点「缺失」与「不可挂机」在 zone 域都收敛成 idleEncounter=null，这里一并模拟。
+  const queue = opts.settleSeq === undefined ? null : [...opts.settleSeq];
+  const unitStub = {
+    settleKills: stub(async () => {
+      if (queue && queue.length > 0) return queue.shift() as SettleResult;
+      return opts.settle ?? okSettle();
+    }),
+  };
+  // §22/§23：zone 域供 idle 域复用的两个挂钩。缺省：不在线、无挂机点。
+  // 挂机点「缺失」与「不可挂机」在 zone 域都收敛成 idlePlan=null，这里一并模拟。
   const zoneStub = {
     inOnlineBattle: stub(async () => opts.inBattle ?? false),
-    idleEncounter: stub(async () => opts.encounter ?? null),
+    idlePlan: stub(async () => opts.plan ?? null),
   };
   const svc = new IdleService(
     opts.db as never,
@@ -103,7 +112,30 @@ function failingCode(res: { success: boolean; data?: unknown }): string | undefi
   return (res.data as { code?: string } | undefined)?.code;
 }
 
-const ENCOUNTER: ZoneEncounter = { zoneCode: 'z1', zoneName: '秘境一', floor: 2, isBoss: false, unitCode: 'mob' };
+function floorOf(floor: number, overrides: Partial<ZoneIdleFloor> = {}): ZoneIdleFloor {
+  return {
+    floor,
+    unitCode: 'u' + floor,
+    isBoss: false,
+    floorRequirement: 100 + (floor - 1) * 50,
+    lingyunBonusFlat: floor * 10,
+    tierOffsetBonus: 0,
+    dropDrawBonus: 0,
+    ...overrides,
+  };
+}
+
+/** 默认 3 层整轮计划（第 3 层是 Boss）。 */
+function makePlan(overrides: Partial<ZoneIdlePlan> = {}): ZoneIdlePlan {
+  return {
+    zoneCode: 'z1',
+    zoneName: '秘境一',
+    realm: 3,
+    maxFloor: 3,
+    floors: [floorOf(1), floorOf(2), floorOf(3, { unitCode: 'boss1', isBoss: true, lingyunBonusFlat: 30, dropDrawBonus: 3 })],
+    ...overrides,
+  };
+}
 
 // ===== status =====
 
@@ -300,75 +332,51 @@ describe('IdleService.settle 每日物品上限边界', () => {
   });
 });
 
-// ===== settle: 挂机点与单位来源（§22） =====
+// ===== settle: 挂机点与「循环整轮」分摊（§22 / §23 A3） =====
 
 describe('IdleService.settle 挂机点与单位来源边界（§22）', () => {
-  test('unitCode 为空/纯空白 -> 回落到挂机点遭遇单位，并在 data.zone 回填', async () => {
+  test('unitCode 为空/纯空白 -> 走挂机点整轮计划，并在 data.zone 回填秘境', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, unitStub, zoneStub } = makeService({ db, encounter: ENCOUNTER });
+    const { svc, zoneStub } = makeService({ db, plan: makePlan() });
     const res = await svc.settle(7, '   ', 1);
     assert.equal(res.success, true);
-    assert.equal(unitStub.settleKills.last?.[1], 'mob');
-    assert.deepEqual((res.data as { zone: unknown }).zone, {
-      code: 'z1',
-      name: '秘境一',
-      floor: 2,
-      isBoss: false,
-    });
-    assert.equal(zoneStub.idleEncounter.callCount, 1);
-    assert.deepEqual(zoneStub.idleEncounter.last, [11]);
+    assert.deepEqual((res.data as { zone: unknown }).zone, { code: 'z1', name: '秘境一', maxFloor: 3 });
+    assert.equal(zoneStub.idlePlan.callCount, 1);
+    assert.deepEqual(zoneStub.idlePlan.last, [11]);
   });
 
-  test('unitCode 显式给出 -> 跳过挂机点逻辑，data.zone=null（互斥闸门仍会查询）', async () => {
+  test('unitCode 显式给出 -> 跳过挂机点逻辑（调试单单位路径），data.zone=null、floors=[]', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, zoneStub } = makeService({ db, encounter: ENCOUNTER });
+    const { svc, unitStub, zoneStub } = makeService({ db, plan: makePlan() });
     const res = await svc.settle(7, 'slime', 1);
     assert.equal(res.success, true);
-    assert.equal(zoneStub.idleEncounter.callCount, 0, '显式 unitCode 不得查挂机点');
+    assert.equal(zoneStub.idlePlan.callCount, 0, '显式 unitCode 不得查挂机点');
     assert.equal(zoneStub.inOnlineBattle.callCount, 1, '互斥闸门与 unitCode 无关，始终查询');
     assert.equal((res.data as { zone: unknown }).zone, null);
+    assert.deepEqual((res.data as { floors: unknown[] }).floors, []);
+    assert.equal(unitStub.settleKills.callCount, 1);
+    assert.equal(unitStub.settleKills.last?.[1], 'slime');
   });
 
-  test('挂机点缺失（idleEncounter=null）-> IDLE_TARGET_NOT_SET，不结算、不写库', async () => {
+  test('挂机点缺失（idlePlan=null）-> IDLE_TARGET_NOT_SET，不结算、不写库', async () => {
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc, unitStub, zoneStub } = makeService({ db, encounter: null });
+    const { svc, unitStub, zoneStub } = makeService({ db, plan: null });
     const res = await svc.settle(7, undefined, 1);
     assert.equal(res.success, false);
     assert.equal(failingCode(res), 'IDLE_TARGET_NOT_SET');
     assert.match(res.message, /尚未设置挂机点/);
-    assert.deepEqual(zoneStub.idleEncounter.last, [11]);
+    assert.deepEqual(zoneStub.idlePlan.last, [11]);
     assert.equal(unitStub.settleKills.callCount, 0);
     assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
   });
 
-  test('挂机点不可挂机（未突破 / 特训，同样收敛为 idleEncounter=null）-> 同 IDLE_TARGET_NOT_SET', async () => {
+  test('挂机点不可挂机（未突破 / 特训，同样收敛为 idlePlan=null）-> 同 IDLE_TARGET_NOT_SET', async () => {
     // zone 域把「没设挂机点」与「不再满足挂机资格（未突破 / idle_allowed=false）」都收敛成
-    // idleEncounter=null，idle 域只认这一个 null，不区分原因（§22 §6.2）。
+    // idlePlan=null，idle 域只认这一个 null，不区分原因（§22 §6.2）。
     const db = idleDb({ produced: 0, counter: 0 });
-    const { svc } = makeService({ db, encounter: null });
+    const { svc } = makeService({ db, plan: null });
     assert.equal(failingCode(await svc.settle(7, undefined, 1)), 'IDLE_TARGET_NOT_SET');
-  });
-
-  test('挂机点可用且为 Boss 层 -> 用 encounter 单位结算并回填 zone（挂机打已突破秘境的最深层）', async () => {
-    const boss: ZoneEncounter = {
-      zoneCode: 'z_hundun',
-      zoneName: '混沌秘境',
-      floor: 10,
-      isBoss: true,
-      unitCode: 'u_r13_feishengmo',
-    };
-    const db = idleDb({ produced: 0, counter: 2 });
-    const { svc, unitStub } = makeService({ db, encounter: boss });
-    const res = await svc.settle(7, undefined, 1);
-    assert.equal(res.success, true);
-    assert.equal(unitStub.settleKills.last?.[1], 'u_r13_feishengmo');
-    assert.deepEqual((res.data as { zone: unknown }).zone, {
-      code: 'z_hundun',
-      name: '混沌秘境',
-      floor: 10,
-      isBoss: true,
-    });
   });
 
   test('settleKills 失败 -> 原样返回失败结果', async () => {
@@ -379,6 +387,180 @@ describe('IdleService.settle 挂机点与单位来源边界（§22）', () => {
     assert.equal(failingCode(res), 'UNIT_NOT_FOUND');
     assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
     assert.equal(unitStub.settleKills.callCount, 1);
+  });
+});
+
+describe('IdleService.settle A3 循环整轮（逐层分摊 + 聚合）', () => {
+  /** 逐层返回不同的结算体，便于断言"第 i 层用的是第 i 层的加成"。 */
+  function perFloorSeq(): SettleResult[] {
+    return ['u1', 'u2', 'boss1'].map((code, index) => {
+      const floor = index + 1;
+      return okSettle({
+        unit: { code, name: '单位' + floor, realm: 3 },
+        kills: 1,
+        lingyunGained: floor * 100,
+        lingyunTotal: 100 + floor * 100,
+        itemsProduced: floor,
+        kept: floor,
+      });
+    });
+  }
+
+  test('3 层各结算一次：单位/层灵韵/掉落档逐层取计划值，调用顺序为 1→2→3', async () => {
+    const db = idleDb({ produced: 0, counter: 6 });
+    const { svc, unitStub } = makeService({ db, plan: makePlan(), settleSeq: perFloorSeq() });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, true);
+    // 1 小时 × 60 轮/时 × 60% = 36 击杀 / 3 层 -> 每层 12
+    const kills = Math.floor((1 * APP_CONFIG.idleRoundsPerHour * APP_CONFIG.idleEfficiencyPct) / 100);
+    assert.equal(kills, 36, '前置假设：1 小时 → 36 击杀');
+    assert.equal(unitStub.settleKills.callCount, 3);
+    assert.deepEqual(
+      unitStub.settleKills.calls.map((c) => [c[1], c[2], (c[3] as { lingyunBonusFlat: number }).lingyunBonusFlat, (c[3] as { dropDrawBonus: number }).dropDrawBonus]),
+      [
+        ['u1', 12, 10, 0],
+        ['u2', 12, 20, 0],
+        ['boss1', 12, 30, 3],
+      ],
+    );
+    assert.deepEqual((res.data as { floors: unknown[] }).floors, [
+      { floor: 1, unitCode: 'u1', unitName: '单位1', isBoss: false, kills: 12 },
+      { floor: 2, unitCode: 'u2', unitName: '单位2', isBoss: false, kills: 12 },
+      { floor: 3, unitCode: 'boss1', unitName: '单位3', isBoss: true, kills: 12 },
+    ]);
+    // 聚合：数值累加 / lingyunTotal 取末次 / items 拼接
+    const data = res.data as {
+      kills: number;
+      lingyunGained: number;
+      lingyunTotal: number;
+      itemsProduced: number;
+      kept: number;
+      items: unknown[];
+    };
+    assert.equal(data.kills, 36);
+    assert.equal(data.lingyunGained, 600);
+    assert.equal(data.lingyunTotal, 400, 'lingyunTotal 取最后一次调用的权威余额');
+    assert.equal(data.itemsProduced, 6);
+    assert.equal(data.kept, 6);
+  });
+
+  test('kills=1（不足 3 层）-> 只打第 1 层，不白送第 2/3 层的层灵韵', async () => {
+    // hoursOverride 让 kills 精确可控：1 小时 × 60 轮 × 60% = 36... 用极小值构造 kills=1 不可行，
+    // 因此直接断言分摊函数与「0 杀层不调用」的组合行为：用 maxFloor=3 + 1 小时（60 杀）= 20/层，
+    // 再用 hoursOverride=0.01 → floor(0.01*60*0.6)=0（早退）；因此用 0.05 → floor(1.8)=1。
+    const db = idleDb({ produced: 0, counter: 1 });
+    const { svc, unitStub } = makeService({
+      db,
+      plan: makePlan(),
+      settleSeq: [okSettle({ unit: { code: 'u1', name: '单位1', realm: 3 }, kills: 1, itemsProduced: 0 })],
+    });
+    const res = await svc.settle(7, undefined, 0.05);
+    assert.equal(res.success, true);
+    assert.equal(unitStub.settleKills.callCount, 1, 'kills=1 只结第 1 层');
+    assert.deepEqual(unitStub.settleKills.calls.map((c) => [c[1], c[2]]), [['u1', 1]]);
+    assert.deepEqual(
+      (res.data as { floors: { floor: number; kills: number }[] }).floors.map((f) => [f.floor, f.kills]),
+      [[1, 1]],
+    );
+  });
+
+  test('kills 与层数不整除（7 杀 / 3 层）-> [3,2,2]，余数给前 rest 层', async () => {
+    const db = idleDb({ produced: 0, counter: 1 });
+    const { svc, unitStub } = makeService({
+      db,
+      plan: makePlan(),
+      settleSeq: [okSettle(), okSettle(), okSettle()],
+    });
+    const res = await svc.settle(7, undefined, 0.2); // floor(0.2*60*0.6)=7
+    assert.equal(res.success, true);
+    assert.deepEqual(unitStub.settleKills.calls.map((c) => c[2]), [3, 2, 2]);
+    assert.deepEqual(
+      (res.data as { floors: { kills: number }[] }).floors.map((f) => f.kills),
+      [3, 2, 2],
+    );
+    assert.equal((res.data as { kills: number }).kills, 7, 'kills 用整轮总数而非单层数');
+  });
+
+  test('maxFloor=1（单层秘境）-> 退化为单层：只调一次且 kills 全给第 1 层', async () => {
+    const db = idleDb({ produced: 0, counter: 1 });
+    const { svc, unitStub } = makeService({ db, plan: makePlan({ maxFloor: 1, floors: [floorOf(1)] }) });
+    const res = await svc.settle(7, undefined, 0.2); // 7 杀
+    assert.equal(res.success, true);
+    assert.equal(unitStub.settleKills.callCount, 1);
+    assert.deepEqual(unitStub.settleKills.calls.map((c) => [c[1], c[2]]), [['u1', 7]]);
+    assert.deepEqual((res.data as { zone: unknown }).zone, { code: 'z1', name: '秘境一', maxFloor: 1 });
+  });
+
+  test('每日预算中途耗尽 -> 第 1 层用尽剩余额度、后几层 itemBudget=0，仍照常结算灵韵/通货/精华', async () => {
+    const db = idleDb({ produced: APP_CONFIG.idleDailyItemCap - 2, counter: APP_CONFIG.idleDailyItemCap });
+    const { svc, unitStub } = makeService({
+      db,
+      plan: makePlan(),
+      // 第 1 层拿到全部剩余预算 2 件并用满
+      settleSeq: [
+        okSettle({ unit: { code: 'u1', name: '单位1', realm: 3 }, itemsProduced: 2, lingyunGained: 100 }),
+        okSettle({ unit: { code: 'u2', name: '单位2', realm: 3 }, itemsProduced: 0, lingyunGained: 200, currencies: { chaos: 1 } }),
+        okSettle({ unit: { code: 'boss1', name: '单位3', realm: 3 }, itemsProduced: 0, lingyunGained: 300, essences: { e1: 2 } }),
+      ],
+    });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, true);
+    assert.deepEqual(
+      unitStub.settleKills.calls.map((c) => (c[3] as { itemBudget: number }).itemBudget),
+      [2, 0, 0],
+      '额度逐层递减：第 1 层 2，之后归零且不为负',
+    );
+    const data = res.data as { lingyunGained: number; currencies: Record<string, number>; essences: Record<string, number> };
+    assert.equal(data.lingyunGained, 600);
+    assert.deepEqual(data.currencies, { chaos: 1 });
+    assert.deepEqual(data.essences, { e1: 2 });
+    assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 1);
+  });
+
+  test('聚合口径：salvaged/sold 逐字段相加、currencies/essences 按 key 累加', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc } = makeService({
+      db,
+      plan: makePlan(),
+      settleSeq: [
+        okSettle({ salvaged: { count: 1, lingyun: 10 }, sold: { count: 2, spiritStones: 20 }, currencies: { a: 1, b: 1 } }),
+        okSettle({ salvaged: { count: 3, lingyun: 30 }, sold: { count: 4, spiritStones: 40 }, currencies: { a: 2 }, essences: { e: 5 } }),
+        okSettle({ salvaged: { count: 5, lingyun: 50 }, sold: { count: 6, spiritStones: 60 }, essences: { e: 1, f: 2 } }),
+      ],
+    });
+    const res = await svc.settle(7, undefined, 1);
+    const data = res.data as {
+      salvaged: { count: number; lingyun: number };
+      sold: { count: number; spiritStones: number };
+      currencies: Record<string, number>;
+      essences: Record<string, number>;
+    };
+    assert.deepEqual(data.salvaged, { count: 9, lingyun: 90 });
+    assert.deepEqual(data.sold, { count: 12, spiritStones: 120 });
+    assert.deepEqual(data.currencies, { a: 3, b: 1 });
+    assert.deepEqual(data.essences, { e: 6, f: 2 });
+  });
+
+  test('中途失败 -> 原样返回失败、不刷新锚点、不写计数（已知取舍由本用例钉住）', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc, unitStub } = makeService({
+      db,
+      plan: makePlan(),
+      settleSeq: [okSettle(), { ok: false, result: fail('NOT_KILLABLE', '非敌对单位') }],
+    });
+    const res = await svc.settle(7, undefined, 1);
+    assert.equal(res.success, false);
+    assert.equal(failingCode(res), 'NOT_KILLABLE');
+    assert.equal(unitStub.settleKills.callCount, 2, '第 1 层已结算、第 2 层失败即中止');
+    assert.equal(db.callsMatching(/UPDATE characters SET last_settle_at/).length, 0);
+    assert.equal(db.callsMatching(/INSERT INTO game_idle_counters/).length, 0);
+  });
+
+  test('不写 game_zone_progress（不变式 1：离线时间不换进度）', async () => {
+    const db = idleDb({ produced: 0, counter: 0 });
+    const { svc } = makeService({ db, plan: makePlan(), settleSeq: [okSettle(), okSettle(), okSettle()] });
+    await svc.settle(7, undefined, 1);
+    assert.equal(db.callsMatching(/game_zone_progress/).length, 0);
   });
 });
 
@@ -417,7 +599,7 @@ describe('IdleService.settle 在线互斥闸门边界（§22 Q6）', () => {
     assert.equal(zoneStub.inOnlineBattle.callCount, 1);
     // 闸门拦下后完全不结算、不触达挂机点
     assert.equal(unitStub.settleKills.callCount, 0);
-    assert.equal(zoneStub.idleEncounter.callCount, 0);
+    assert.equal(zoneStub.idlePlan.callCount, 0);
   });
 
   test('顺序：参数校验仍先于闸门（非法 hours 不因为在线而改变失败码）', async () => {

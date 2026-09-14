@@ -3,7 +3,8 @@
  * 秘境图鉴（只回已突破）、突破、进入（重复挑战）、离开、挂机点、在线战斗实况。
  */
 import { Injectable } from '@nestjs/common';
-import { ZoneService, type ZoneEncounter } from './internal/zone.service.js';
+import { ZoneService } from './internal/zone.service.js';
+import type { ZoneIdlePlan } from './zone.api.js';
 import { OnlineExploreService } from './internal/online-explore.service.js';
 
 @Injectable()
@@ -70,8 +71,8 @@ export class ZoneLogicService {
     return this.zoneService.inOnlineBattle(characterId);
   }
 
-  /** 供 idle 域复用：挂机点的遭遇（无挂机点 / 不可挂机返回 null）。 */
-  idleEncounter(characterId: number): Promise<ZoneEncounter | null> {
-    return this.zoneService.idleEncounter(characterId);
+  /** 供 idle 域复用：挂机点的**整轮**逐层计划（无挂机点 / 不可挂机返回 null）。 */
+  idlePlan(characterId: number): Promise<ZoneIdlePlan | null> {
+    return this.zoneService.idlePlan(characterId);
   }
 }

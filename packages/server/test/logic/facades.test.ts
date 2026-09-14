@@ -150,7 +150,23 @@ describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicSe
       catalog: stub(() => 'C'), progress: stub(() => 'P'), enter: stub(() => 'E'),
       breakthrough: stub(() => 'B'), leave: stub(() => 'L'), idleTarget: stub(() => 'T'),
       inOnlineBattle: stub(async () => true),
-      idleEncounter: stub(async () => ({ zoneCode: 'z', zoneName: 'z', floor: 1, isBoss: false, unitCode: 'u' })),
+      idlePlan: stub(async () => ({
+        zoneCode: 'z',
+        zoneName: 'z',
+        realm: 1,
+        maxFloor: 1,
+        floors: [
+          {
+            floor: 1,
+            unitCode: 'u',
+            isBoss: false,
+            floorRequirement: 100,
+            lingyunBonusFlat: 10,
+            tierOffsetBonus: 0,
+            dropDrawBonus: 0,
+          },
+        ],
+      })),
       challenge: stub(() => 'H'),
     };
     const explore = {
@@ -173,8 +189,8 @@ describe('ZoneLogicService / QuestLogicService / StoryLogicService / IdleLogicSe
     // §22 供 idle 域复用的两个挂钩
     assert.equal(await svc.inOnlineBattle(11), true);
     assert.deepEqual(zone.inOnlineBattle.last, [11]);
-    assert.equal((await svc.idleEncounter(11))?.unitCode, 'u');
-    assert.deepEqual(zone.idleEncounter.last, [11]);
+    assert.equal((await svc.idlePlan(11))?.floors[0]?.unitCode, 'u');
+    assert.deepEqual(zone.idlePlan.last, [11]);
     // online：成功信封 + 一帧 data（离线也是成功，不是业务失败）
     const online = await svc.online(1);
     assert.equal(online.success, true);

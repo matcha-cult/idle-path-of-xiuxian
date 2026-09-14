@@ -1,8 +1,9 @@
 /**
- * IdleStore —— 离线挂机状态与结算（07 §2.12）。
+ * IdleStore —— 离线挂机状态与结算（07 §2.12；§23 A3 修订）。
  *
  * `idle.settle` 走 `allowBusinessFailure`（业务失败是预期分支），成功分两支：
- * 正常结算（`unit` 非空）与「无可结算」（`unit === null`，全零体），后者不是错误。
+ * 正常结算与「无可结算」（全零体），后者不是错误。
+ * **判别式是 `kills === 0`**（§23 A3 起整轮挂机没有单一单位，不再用 `unit === null`）。
  */
 import { makeAutoObservable, observable, runInAction } from 'mobx';
 import { businessCodeOf, businessMessageOf } from '@idle-path/ionet-transport';
@@ -72,13 +73,15 @@ export class IdleStore {
       runInAction(() => {
         this.lastSettle = data;
       });
-      if (data.unit === null) {
+      if (data.kills <= 0) {
         // 「无可结算」是正常分支，不是错误。
         this.ctx.toast.info('暂无可结算收益', `离线 ${data.offlineHours} 小时`);
       } else {
+        // §23 A3：整轮挂机打多于一层的秘境时，把「几层」也说出来，别让人以为只打了一层。
+        const scope = data.floors.length > 0 ? `${data.floors.length} 层 · ` : '';
         this.ctx.toast.success(
           '挂机结算完成',
-          `${data.kills} 杀 · 灵韵 +${data.lingyunGained} · 物品 ${data.itemsProduced}`,
+          `${scope}${data.kills} 杀 · 灵韵 +${data.lingyunGained} · 物品 ${data.itemsProduced}`,
         );
       }
       await this.load();

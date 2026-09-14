@@ -555,7 +555,7 @@ export interface UnitSpawnData {
   unit: UnitInstanceView;
 }
 
-/** combat.kill / zone.challenge.rewards / idle.settle 的公共结算体（`unit.service.ts:437-563`）。 */
+/** combat.kill / zone.challenge.rewards 的公共结算体（`unit.service.ts:437-563`）；idle.settle 用 `Omit<…,'unit'>` 复用。 */
 export interface SettlementData {
   unit: { code: string; name: string; realm: number };
   kills: number;
@@ -1191,11 +1191,14 @@ export interface IdleStatusData {
 }
 
 /**
- * idle.settle 正常结算分支（`idle.service.ts:189-200`）：
- * `SettlementData` 展开 + 4 个附加键。
+ * idle.settle 正常结算分支（`idle.service.ts:settle`）：
+ * `SettlementData` 去掉单层语义的 `unit`，换成整轮挂机的 `zone` + `floors`。
  */
-export type IdleSettleData = SettlementData & {
-  zone: { code: string; name: string; floor: number; isBoss: boolean } | null;
+export type IdleSettleData = Omit<SettlementData, 'unit'> & {
+  /** §23 A3：本轮的结算秘境（`maxFloor` = 一整轮的层数）；显式 `unitCode` 的调试结算为 null */
+  zone: IdleSettleZoneView | null;
+  /** §23 A3：逐层战果（升序）；显式 `unitCode` 的调试结算为空数组 */
+  floors: IdleFloorView[];
   offlineHours: number;
   effectiveHours: number;
   dailyItemsProduced: number;
@@ -1203,11 +1206,36 @@ export type IdleSettleData = SettlementData & {
 };
 
 /**
- * idle.settle 「无可结算」分支（kills≤0 且未传 `hours`，`idle.service.ts:132-155`）。
+ * §23 A3：整轮挂机的**单层战果**（`idle.service.ts:settleWholeRound`）。
+ *
+ * A3 起挂机不再有"单一单位"（一轮会依次打第 1..maxFloor 层，Boss 层另有单位），
+ * 因此结算展示必须按层遍历本数组，不能用 `unit.name` 概括。
+ */
+export interface IdleFloorView {
+  floor: number;
+  unitCode: string;
+  /** 该层单位中文名（面板展示用；`unitCode` 不上屏） */
+  unitName: string;
+  isBoss: boolean;
+  /** 该层分摊到的击杀数（恒 > 0；0 杀的层不会出现在数组里） */
+  kills: number;
+}
+
+/** §23 A3：结算秘境（`idle.service.ts:settleWholeRound` 的 zone 回填）。 */
+export interface IdleSettleZoneView {
+  code: string;
+  name: string;
+  /** 一整轮的层数（1..maxFloor） */
+  maxFloor: number;
+}
+
+/**
+ * idle.settle 「无可结算」分支（kills≤0 且未传 `hours`，`idle.service.ts:emptySettleData`）。
  * 逐字段按后端实际下发形状收窄（常量字段用字面量类型）。
  */
 export interface IdleSettleEmptyData {
-  unit: null;
+  zone: null;
+  floors: [];
   offlineHours: number;
   effectiveHours: number;
   kills: 0;
@@ -1226,7 +1254,11 @@ export interface IdleSettleEmptyData {
   dailyItemCap: number;
 }
 
-/** idle.settle 成功 data：正常分支 | 空结算分支（`idle.service.ts:109-201`）。 */
+/**
+ * idle.settle 成功 data：正常分支 | 空结算分支（`idle.service.ts:settle`）。
+ *
+ * 判别式是 **`kills === 0`**（A3 起不再用 `unit === null` —— 整轮挂机本来就没有单一单位）。
+ */
 export type IdleSettleResultData = IdleSettleData | IdleSettleEmptyData;
 
 // ===== WS：system（health.action.ts:14-21）=====
