@@ -1193,6 +1193,11 @@ export interface IdleStatusData {
 /**
  * idle.settle 正常结算分支（`idle.service.ts:settle`）：
  * `SettlementData` 去掉单层语义的 `unit`，换成整轮挂机的 `zone` + `floors`。
+ *
+ * ⚠️ **临时方案（TEMPORARY-OFFLINE-IDLE）**：`zone` + `floors` 这套响应形状只描述
+ * **「离线时间兑产出」**这条临时链路的战果。终态是**战斗逻辑服**在服务端**实时**推进挂机战斗，
+ * 届时响应体会换成实时战斗的结果（不是"按层均分击杀"）。登记表见
+ * `ai-docs/frontend-solution-exploration/23-挂机开发交接.md` §0.1。
  */
 export type IdleSettleData = Omit<SettlementData, 'unit'> & {
   /** §23 A3：本轮的结算秘境（`maxFloor` = 一整轮的层数）；显式 `unitCode` 的调试结算为 null */

@@ -1,6 +1,10 @@
 /**
  * SettlementDetail —— 「最近一次结算」卡片（从 IdlePanel 拆出，控制容器规模）。
  *
+ * ⚠️ **临时方案（TEMPORARY-OFFLINE-IDLE）**：这张卡片展示的是「离线时间兑产出」的
+ * 逐层战果（`zone` + `floors`），随临时链路一起作废；终态由**战斗逻辑服**实时推进挂机战斗。
+ * 标记登记表见 `ai-docs/frontend-solution-exploration/23-挂机开发交接.md` §0.1。
+ *
  * §23 A3：结算结果不再是「一个单位」，而是**整轮逐层**（`zone` + `floors`）：
  * - 空分支（`kills === 0`）单独给一句说明，**不当错误**；
  * - 有战果时先给逐层清单（第 N 层 · 单位 ×击杀），再给 `SettlementSummary` 汇总。

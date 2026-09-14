@@ -235,6 +235,11 @@ export class ZoneService {
   /**
    * §23 A3：挂机点的**整轮计划**（逐层单位 / 门槛 / 层深加成）。
    *
+   * ⚠️ **本方法属临时方案（TEMPORARY-OFFLINE-IDLE）**：只有 `idlePlan` 这一段是过渡实现
+   * （服务于「离线时间兑产出」）；本文件其余部分（catalog / enter / breakthrough / online…）
+   * 是秘境主轴的正式实现。终态由**战斗逻辑服**实时推进挂机战斗，届时本方法应整体删除。
+   * 登记表见 `ai-docs/frontend-solution-exploration/23-挂机开发交接.md` §0.1。
+   *
    * 返回 `null` 只有两种原因（与旧 `idleEncounter` 一致，idle 域不区分）：
    * 没设挂机点 / 挂机点已不满足 `idleEligible`（未突破 ∨ `idle_allowed=false`）。
    *

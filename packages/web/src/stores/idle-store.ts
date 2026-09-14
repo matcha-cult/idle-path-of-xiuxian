@@ -1,6 +1,11 @@
 /**
  * IdleStore —— 离线挂机状态与结算（07 §2.12；§23 A3/B2 修订）。
  *
+ * ⚠️ **临时方案（TEMPORARY-OFFLINE-IDLE）**：本 Store 的 `status` / `settle` / `autoSettle`
+ * 服务于**「离线时间兑产出」**这条**过渡链路**（含 B2 自动结算）。终态由**战斗逻辑服**在服务端
+ * **实时**推进挂机战斗，那时"上线自动结算离线收益"这件事会整体消失。
+ * 标记登记表 / 退出条件见 `ai-docs/frontend-solution-exploration/23-挂机开发交接.md` §0.1。
+ *
  * `idle.settle` 走 `allowBusinessFailure`（业务失败是预期分支），成功分两支：
  * 正常结算与「无可结算」（全零体），后者不是错误。
  * **判别式是 `kills === 0`**（§23 A3 起整轮挂机没有单一单位，不再用 `unit === null`）。

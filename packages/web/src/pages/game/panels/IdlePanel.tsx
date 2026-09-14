@@ -12,6 +12,12 @@
  * 展示判定（规则文案 / 结算文案 / 逐层清单 / 通货译名 / 挂机点选项）全在 `idle/presentation.ts`
  * 与 `zone/presentation.ts`，本文件只做装配。
  * 容器模式：不在挂载时拉取（首屏由 `loadPanel()` 并发加载 zone + idle 两域）；三态交给 `AsyncBoundary`。
+ *
+ * ⚠️ **临时方案（TEMPORARY-OFFLINE-IDLE）的边界**：本面板里
+ *   - **临时**：「挂机」段（离线时长 / 预计收益 / 逐层结算 / B2 自动结算）—— 终态由
+ *     **战斗逻辑服**实时推进，这些都会换成实时战斗；
+ *   - **长期**：「挂机点」段（在哪个秘境挂机）—— 真逻辑服同样需要知道挂在哪。
+ * 标记登记表 / 退出条件见 `ai-docs/frontend-solution-exploration/23-挂机开发交接.md` §0.1。
  */
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
