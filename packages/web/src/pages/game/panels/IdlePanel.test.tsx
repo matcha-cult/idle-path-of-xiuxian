@@ -16,6 +16,7 @@ import type {
   IdleStatusData,
   ZoneView,
 } from '@idle-path/ionet-transport';
+import { businessFail } from '@idle-path/ionet-transport/testing';
 import { createPanelHarness } from '../../../../test/helpers/panel-harness.js';
 import { IdlePanel } from './IdlePanel.js';
 
@@ -441,5 +442,73 @@ describe('IdlePanel · 挂机点入口（§23 ①）', () => {
 
     await userEvent.click(screen.getByTestId('idle-target-pick'));
     expect(await screen.findByTestId('idle-target-option-zone_r1')).toHaveTextContent('当前');
+  });
+});
+
+// ===== §23 B2：进面板自动结算一次 =====
+
+const settleRequests = (harness: { requests: Array<{ cmd: number; subCmd: number }> }) =>
+  harness.requests.filter((r) => r.cmd === IDLE_CMD.cmd && r.subCmd === IDLE_CMD.settle);
+
+/** B2 用例的假服务端：settle 成功、status 成功。 */
+const b2Handler = (request: { cmd: number; subCmd: number }) => {
+  if (request.cmd !== IDLE_CMD.cmd) return null;
+  if (request.subCmd === IDLE_CMD.status) return ok(makeStatus());
+  if (request.subCmd === IDLE_CMD.settle) return ok(makeSettle());
+  return null;
+};
+
+describe('IdlePanel · 进面板自动结算（§23 B2）', () => {
+  it('挂载即静默结算一次：发一次 idle.settle，但不弹「挂机结算完成」', async () => {
+    const harness = createPanelHarness({ handler: b2Handler });
+    harness.seed(() => {
+      harness.root.idle.status = makeStatus();
+    });
+    // 先连上再看面板：面板挂载前未连接的请求不会发出（夹具口径）
+    await harness.connect();
+    harness.render(<IdlePanel />);
+
+    await waitFor(() => expect(settleRequests(harness)).toHaveLength(1));
+    expect(harness.root.idle.lastSettle?.kills).toBe(8);
+    expect(harness.root.toast.toasts.map((item) => item.title)).not.toContain('挂机结算完成');
+  });
+
+  it('重新进入面板不重复结算（一次会话只自动尝试一次）', async () => {
+    const harness = createPanelHarness({ handler: b2Handler });
+    harness.seed(() => {
+      harness.root.idle.status = makeStatus();
+    });
+    await harness.connect();
+    const view = harness.render(<IdlePanel />);
+    await waitFor(() => expect(settleRequests(harness)).toHaveLength(1));
+
+    view.unmount();
+    harness.render(<IdlePanel />);
+    await waitFor(() => expect(harness.root.idle.lastSettle?.kills).toBe(8));
+    expect(settleRequests(harness)).toHaveLength(1);
+  });
+
+  it('战斗中进面板：静默跳过（不弹「在线战斗中」），面板其余内容照常显示', async () => {
+    const harness = createPanelHarness({
+      handler: (request: { cmd: number; subCmd: number }) => {
+        if (request.cmd === IDLE_CMD.cmd && request.subCmd === IDLE_CMD.settle) {
+          return { data: businessFail('ONLINE_BATTLE_ACTIVE', '在线战斗中，离线挂机已暂停（离开秘境后恢复）') };
+        }
+        return b2Handler(request);
+      },
+    });
+    harness.seed(() => {
+      harness.root.idle.status = makeStatus();
+      harness.root.zone.currentZone = 'zone_r1';
+      harness.root.zone.zones = [makeZone()];
+    });
+    await harness.connect();
+    harness.render(<IdlePanel />);
+
+    await waitFor(() => expect(settleRequests(harness)).toHaveLength(1));
+    expect(harness.root.idle.error).toBeNull();
+    const texts = harness.root.toast.toasts.map((item) => `${item.title} ${item.message ?? ''}`);
+    expect(texts.some((text) => text.includes('在线战斗中'))).toBe(false);
+    expect(screen.getByTestId('idle-target-paused')).toBeInTheDocument();
   });
 });

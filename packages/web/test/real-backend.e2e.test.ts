@@ -347,5 +347,29 @@ describe.skipIf(!ENABLED)('真实后端 e2e（IONET_E2E=1）', () => {
     await root.zone.leave();
     await root.zone.loadOnline();
     expect(root.zone.online?.reason).toBe('no_battle');
+
+    //    8g) §23 A3：挂机改「循环整轮」—— 显式给 1 小时离线时长（dev 专用 override），
+    //        真后端必须按 1..maxFloor 逐层结算，而不是把击杀全砸在 Boss 层。
+    //        1 小时 × 60 轮/时 × 60% = 36 杀；3 层 ⇒ 每层 12 杀。
+    await root.idle.settle({ hours: 1 });
+    const settle = root.idle.lastSettle;
+    expect(settle?.kills).toBe(36);
+    expect(settle?.zone).toEqual({ code: 'zone_r4', name: expect.any(String), maxFloor: 3 });
+    expect(settle?.floors.map((entry) => entry.floor)).toEqual([1, 2, 3]);
+    expect(settle?.floors.map((entry) => entry.kills)).toEqual([12, 12, 12]);
+    // 逐层单位各不相同（第 3 层是 Boss 层），单位名必须都能取到
+    expect(settle?.floors.map((entry) => entry.isBoss)).toEqual([false, false, true]);
+    expect(new Set(settle?.floors.map((entry) => entry.unitName)).size).toBeGreaterThanOrEqual(2);
+    expect(root.idle.error).toBeNull();
+    console.log(
+      `[§23 A3 实测] idle.settle(hours=1) ⇒ kills=${settle?.kills} zone=${settle?.zone?.name} ` +
+        `floors=${JSON.stringify(settle?.floors.map((f) => [f.floor, f.unitName, f.isBoss, f.kills]))} ` +
+        `lingyun+${settle?.lingyunGained} items=${settle?.itemsProduced}`,
+    );
+
+    //    8h) §23 B2：自动结算只做一次 —— 本会话早已结算过，再触发不产生新结果
+    const before = root.idle.lastSettle;
+    await root.idle.autoSettle();
+    expect(root.idle.lastSettle).toBe(before);
   }, 300_000);
 });

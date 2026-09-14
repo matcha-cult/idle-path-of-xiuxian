@@ -13,7 +13,7 @@
  * 与 `zone/presentation.ts`，本文件只做装配。
  * 容器模式：不在挂载时拉取（首屏由 `loadPanel()` 并发加载 zone + idle 两域）；三态交给 `AsyncBoundary`。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button, Flex, Typography } from 'antd';
 import {
@@ -47,6 +47,13 @@ export const IdlePanel = observer(function IdlePanel() {
   // §23 G3：`currentZone` 就是服务端 `game_zone_state` 的投影 —— 有值 ⇒ 在线战斗中 ⇒ 挂机暂停。
   const inBattle = zone.currentZone !== null;
   const idleBusy = zone.busyZoneCode !== null;
+
+  // §23 B2：进挂机面板时静默自动结算一次。**这是刻意的例外** —— 面板其余数据仍由
+  // `loadPanel()` 首屏并发加载，这里只是「进面板」这个触发点（也是战斗中错过之后的补做点）。
+  // 幂等 / 战斗中跳过 / 不动 loading 都由 `IdleStore.autoSettle` 保证。
+  useEffect(() => {
+    void idle.autoSettle();
+  }, [idle]);
 
   return (
     <Flex vertical gap={12}>
@@ -137,7 +144,7 @@ export const IdlePanel = observer(function IdlePanel() {
                   title="结算离线收益？"
                   description="结算后离线时长重新起算，该操作不可撤销。"
                   okText="确认结算"
-                  onConfirm={() => idle.settle({})}
+                  onConfirm={() => void idle.settle({})}
                 >
                   <Button type="primary" data-testid="idle-settle">
                     结算离线收益

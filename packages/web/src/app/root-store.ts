@@ -208,6 +208,9 @@ export class RootStore {
    *
    * 说明：`prop` 段没有读接口（只有 discard/generate 两个写 Action），
    * 其 load() 仅复位状态，故不在此列——道具数据由 item 域承担。
+   *
+   * §23 B2：面板拉完后再**静默自动结算一次**离线收益（上线 / 登录 / 建角 / 全量刷新都会
+   * 走到这里）。幂等与「战斗中跳过」由 `IdleStore.autoSettle` 自己保证，本方法不重复判断。
    */
   async loadPanel(): Promise<void> {
     await Promise.all([
@@ -223,6 +226,7 @@ export class RootStore {
       this.combat.load().catch(() => undefined),
       this.map.load().catch(() => undefined),
     ]);
+    await this.idle.autoSettle();
   }
 
   /**
