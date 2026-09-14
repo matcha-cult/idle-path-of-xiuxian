@@ -1,19 +1,18 @@
 /**
  * `MapLabPage` —— **地图交互实践的新入口**（`?mapLab=1`，旧 `MapPanel` 一行不动）。
  *
- * ## 这一页要验证的链路（用户北极星）
- * 「进入大地图 → 看到可交互对象 → 与对象/传送点交互 → 解锁传送与移动」
- * 1. **进入地图**：左侧是 `CanvasGraph`（canvas 画 n×n 点阵与连线 + DOM 放枢纽）；
- * 2. **看到可交互对象**：右侧 `MapLabObjectPanel` 列出**整张图**的传送点 / 秘境入口 / 职能入口；
- * 3. **与传送点交互**：选中「人在此地」的枢纽 → `WaypointInteractCard` 给交互按钮；
- * 4. **解锁传送与移动**：交互后 `unlocked` 加入该节点 → `MapLabTravelCard` 从「暂不可前往」
- *    变为「传送至此」。**未交互则不可传送**（哪怕服务端已 `waypointUnlocked`，见 `waypoint-gate.ts`）。
+ * ## 要验证的链路（用户北极星）
+ * 「进入大地图 → 看到可交互对象 → 与对象/传送点交互 → 解锁传送与移动」：
+ * 左 `CanvasGraph`（canvas 点阵/连线）· 右 `MapLabObjectPanel`（全图可交互对象）·
+ * 选中「人在此地」的枢纽 → `WaypointInteractCard` 交互 → `MapLabTravelCard` 才给「传送至此」。
+ * **未交互则不可传送**，哪怕服务端已 `waypointUnlocked`（见 `waypoint-gate.ts`）。
  *
  * ## 口径
  * - **挂载时拉一次**：本页不在 `GameShellPage` 之下，因此自己触发 `root.loadPanel()`；
  * - **移动期间面板不卸载**：`loading` 只用于首屏 / 整图重载，反馈落在按钮上（旧面板踩过白屏）；
  * - 坐标缺失 / 坐标空间非法 → 降级到既有**列表视图**（复用 `MapNodeList`），不崩；
  * - 主题一键切换：本页自带 `AppThemeToggle`（游戏外壳不在本页之下）；
+ * - **自己补页边距**：`.app--game` 的 `padding: 0` 是留给 `AppShell` 的，本页不在那个壳里必须自己补；
  * - 协议字段不上屏：`code` 只做 key/testid。
  *
  * ⚠️ 「传送点亮」是**会话态**（`unlocked`），刷新即回初始 —— 页面顶部常驻说明；
@@ -21,7 +20,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Col, Flex, Grid, Row } from 'antd';
+import { Col, Flex, Grid, Row, theme } from 'antd';
 import { AsyncBoundary, SectionCard } from '@idle-path/ui-kit';
 import { useRootStore } from '../../app/root-context.js';
 import { AppThemeToggle } from '../../components/AppThemeToggle.js';
@@ -50,6 +49,7 @@ const NO_OBJECTS = [] as const;
 export const MapLabPage = observer(function MapLabPage() {
   const root = useRootStore();
   const { map } = root;
+  const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   /** 本会话已交互点亮的传送点 —— 这就是「交互才解锁传送」的门槛真值。 */
@@ -102,7 +102,7 @@ export const MapLabPage = observer(function MapLabPage() {
   };
 
   return (
-    <Flex vertical gap={12} data-testid="map-lab-page">
+    <Flex vertical gap={12} data-testid="map-lab-page" style={{ padding: token.padding }}>
       <MapLabNotice />
       <SectionCard
         title={`${currentMap?.name ?? '地图'} · 交互实践`}

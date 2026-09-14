@@ -23,6 +23,13 @@ describe('MapLabNotice', () => {
     expect(notice).toHaveTextContent('拖动平移');
   });
 
+  it('说明「画布内滚轮 = 缩放、到边界交回页面」（否则用户会以为页面滚不动）', () => {
+    render(<MapLabNotice />);
+    const notice = screen.getByTestId('map-lab-notice');
+    expect(notice).toHaveTextContent('画布内滚轮即缩放');
+    expect(notice).toHaveTextContent('交回页面');
+  });
+
   it('⭐ 必须写明「点亮是会话态、持久化待后端」—— 不能假装功能已完成', () => {
     render(<MapLabNotice />);
     const notice = screen.getByTestId('map-lab-notice');

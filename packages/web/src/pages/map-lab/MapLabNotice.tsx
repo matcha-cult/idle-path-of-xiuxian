@@ -13,6 +13,7 @@ import { Alert } from 'antd';
 export const MAP_LAB_NOTICE_TITLE = '地图交互实践入口（新链路）';
 export const MAP_LAB_NOTICE_DESCRIPTION =
   'canvas 混合渲染：canvas 画点阵与连线、DOM 放枢纽；滚轮 / 双指捏合缩放、拖动平移、双击空白放大。' +
+  '（画布内滚轮即缩放，因此光标停在画布上时页面不滚动；滚到缩放上下界后滚轮会交回页面。）' +
   '必须与传送点交互后才解锁传送。' +
   '⚠️ 传送点亮为**本次会话**状态（刷新即回初始），持久化解锁需后端 map.interact（下一步）。' +
   '返回旧入口：去掉地址栏的 ?mapLab=1。';

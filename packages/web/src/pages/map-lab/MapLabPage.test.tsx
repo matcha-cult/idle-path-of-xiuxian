@@ -309,6 +309,13 @@ describe('旧契约不被破坏', () => {
     expect(screen.getByTestId('realm-stone-section')).toBeInTheDocument();
   });
 
+  it('页面自带边距（`.app--game` 是 padding:0，本页不在 AppShell 里，不补就顶到视口边缘）', async () => {
+    const { harness } = setup();
+    await renderPage(harness);
+    // 断言的是「不是 0」这条真机可见的缺陷，不锁死具体数值（antd token 可能变）
+    expect(screen.getByTestId('map-lab-page').style.padding).not.toBe('');
+  });
+
   it('主题切换入口在（本页不在游戏外壳之下，必须自带）', async () => {
     const { harness } = setup();
     await renderPage(harness);

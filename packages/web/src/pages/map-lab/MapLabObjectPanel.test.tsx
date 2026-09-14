@@ -84,6 +84,19 @@ describe('MapLabObjectPanel', () => {
     expect(screen.queryByTestId('map-lab-object-list')).toBeNull();
   });
 
+  it('对象多时列表自己滚（真实种子 17 条，全展开会把页面撑到 1100px+）', () => {
+    render(
+      <MapLabObjectPanel
+        objects={[WAYPOINT, REALM, OFFICE]}
+        selectedNodeCode={null}
+        onFocusNode={vi.fn()}
+      />,
+    );
+    const list = screen.getByTestId('map-lab-object-list');
+    expect(list.style.overflowY).toBe('auto');
+    expect(list.style.maxHeight).not.toBe('');
+  });
+
   it('行点击把宿主节点 code 透传给容器（只移焦点）', () => {
     const onFocusNode = vi.fn();
     render(

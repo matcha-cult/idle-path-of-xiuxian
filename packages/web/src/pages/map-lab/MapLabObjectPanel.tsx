@@ -37,7 +37,9 @@ export function MapLabObjectPanel(props: MapLabObjectPanelProps) {
           本图暂无可交互对象。
         </Typography.Text>
       ) : (
-        <Flex vertical gap={10} data-testid="map-lab-object-list">
+        // 真实种子下本图有 17 条对象（4 传送点 + 1 秘境入口 + 12 职能入口），全展开会把页面
+        // 撑到 1100px+ 并让左侧画布与右侧动作区都滑出视野；列表自己滚，页面高度由画布决定。
+        <Flex vertical gap={10} data-testid="map-lab-object-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
           {KIND_ORDER.map((kind) => {
             const group = objects.filter((object) => object.kind === kind);
             if (group.length === 0) return null;
