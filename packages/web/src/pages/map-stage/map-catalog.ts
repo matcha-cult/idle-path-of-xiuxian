@@ -18,7 +18,7 @@
  *    将来后端要下发点位，只需 `{ key, ring, angleDeg, hidden }` 四个数。
  */
 import { ringAngles } from '@idle-path/ui-kit';
-import type { MapPoint, MapRing } from './map-types.js';
+import type { MapLinkRule, MapPoint, MapRing } from './map-types.js';
 
 /** 每轴格子数（地图的几何基础；网格与点位共用这一个数）。 */
 export const MAP_CELLS = 42;
@@ -129,4 +129,18 @@ export const MAP_POINTS: readonly MapPoint[] = [
           hidden: true,
         };
   }),
+];
+
+/**
+ * **连接线规则**（图的拓扑）—— 精确重放旧种子的 32 条边，但写成规则而不是边表。
+ *
+ * 顺序即读数里的分组顺序（由内到外）。改拓扑只改这里：删一条规则就少一类边，
+ * 半径/隐藏位变化时边会自动跟着变（见 `map-links.ts` 的口径说明）。
+ */
+export const MAP_LINK_RULES: readonly MapLinkRule[] = [
+  { kind: 'hub', hub: 'summit', to: 'court', label: '主峰辐条' },
+  { kind: 'ring', ring: 'court', label: '四院方环' },
+  { kind: 'nearest', from: 'peak', to: 'court', label: '峰-院' },
+  { kind: 'ring', ring: 'peak', label: '八峰环' },
+  { kind: 'nearest', from: 'peak', to: 'gate', label: '峰-门' },
 ];

@@ -46,9 +46,9 @@ function recorder(): Recorder {
     fillRect: () => calls.push('fillRect'),
     strokeRect: () => calls.push('strokeRect'),
     beginPath: () => calls.push('beginPath'),
-    moveTo: () => calls.push('moveTo'),
-    lineTo: () => calls.push('lineTo'),
-    stroke: () => calls.push('stroke'),
+    moveTo: (x: number, y: number) => calls.push(`moveTo(${x},${y})`),
+    lineTo: (x: number, y: number) => calls.push(`lineTo(${x},${y})`),
+    stroke: () => calls.push(`stroke@${raw.strokeStyle}`),
     fill: () => calls.push(`fill@${raw.fillStyle}`),
     arc: (x: number, y: number, r: number) => calls.push(`arc(${x},${y},${r})`),
     setLineDash: () => calls.push('dash'),
@@ -97,12 +97,14 @@ function scene(over: Partial<SceneInput> = {}): SceneInput {
     cursorLabelForeground: 'bg',
     rings: [],
     marks: [],
+    links: [],
     palette: PALETTE,
     ...over,
   };
 }
 
 const indexOf = (calls: string[], prefix: string): number => calls.findIndex((c) => c.startsWith(prefix));
+const countOf = (calls: string[], prefix: string): number => calls.filter((c) => c.startsWith(prefix)).length;
 
 describe('位图尺寸与坐标变换', () => {
   it('位图 = CSS 尺寸 × dpr，且绘制前先 setTransform 回 CSS 坐标系', () => {
@@ -125,7 +127,7 @@ describe('位图尺寸与坐标变换', () => {
 });
 
 describe('层序（"谁压在谁上面"的可执行版本）', () => {
-  it('⭐ 网格线 → 悬停高亮 → 轨道环 → 功能点 → 光标标签', () => {
+  it('⭐ 网格线 → 悬停高亮 → 轨道环 → 连接线 → 功能点 → 光标标签', () => {
     const { canvas } = sceneCanvas();
     const { ctx, calls } = recorder();
     paintScene(
@@ -135,25 +137,71 @@ describe('层序（"谁压在谁上面"的可执行版本）', () => {
         hover: { col: 1, row: 1 },
         cursor: { x: 60, y: 60 },
         rings: [{ radiusCells: 1.5 }], // 1.5 格 × 10px = 15px
+        // 世界 (0,0) → (1,1)：屏幕上 (36,36) → (46,26)
+        links: [{ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }],
         marks: [{ at: { x: 0, y: 0 }, radiusCells: 0.5 }], // 0.5 格 × 10px = 5px
       }),
     );
 
-    const firstGridStroke = calls.indexOf('stroke');
+    // 按**颜色**区分各层的 stroke，比按调用序号猜可靠得多
+    const gridStroke = calls.indexOf('stroke@border-2');
     const hover = calls.indexOf('strokeRect');
-    const ring = calls.indexOf('arc(36,36,15)');
-    const mark = calls.indexOf('arc(36,36,5)');
+    const ring = calls.indexOf('stroke@guide');
+    const link = calls.indexOf('stroke@text-3');
+    const mark = calls.findIndex((call) => call.startsWith('fill@'));
     const label = calls.indexOf('fillText:1,1');
 
-    expect(firstGridStroke).toBeGreaterThan(-1);
+    expect(gridStroke).toBeGreaterThan(-1);
     // 悬停高亮压在网格之上（否则会被格线切断）
-    expect(hover).toBeGreaterThan(firstGridStroke);
-    // 内容（轨道、点）压在悬停之上：内容不该被鼠标经过时染色
+    expect(hover).toBeGreaterThan(gridStroke);
+    // 内容（环、线、点）压在悬停之上：内容不该被鼠标经过时染色
     expect(ring).toBeGreaterThan(hover);
-    // 点压在轨道之上（点就落在环上，不能被环的线切成两半）
-    expect(mark).toBeGreaterThan(ring);
+    // 线压在环之上（骨架层次：环 → 线）
+    expect(link).toBeGreaterThan(ring);
+    // 点压在线上（点永远盖住线头，否则线头会戳出圆点之外）
+    expect(mark).toBeGreaterThan(link);
     // 坐标标签压在最上面（视线在格子上时它必须可读）
     expect(label).toBeGreaterThan(mark);
+  });
+});
+
+describe('连接线（图的边）', () => {
+  it('⭐ 两端按世界坐标落到屏幕：世界 (1,1) ⇒ 屏幕 (46,26)（y 向上）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(canvas, ctx, scene({ links: [{ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }] }));
+    // 这条线是该帧最后画的东西（没有环、没有点、没有标签）⇒ 取最后 6 次调用
+    expect(calls.slice(-6)).toEqual([
+      'dash',
+      'beginPath',
+      'moveTo(36,36)',
+      'lineTo(46,26)',
+      'stroke@text-3',
+      'restore',
+    ]);
+  });
+
+  it('多条线各画一次，都是实线（虚线是环的语言，不是线的）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(
+      canvas,
+      ctx,
+      scene({
+        links: [
+          { from: { x: 0, y: 0 }, to: { x: 2, y: 0 } },
+          { from: { x: 0, y: 0 }, to: { x: 0, y: 2 } },
+        ],
+      }),
+    );
+    expect(countOf(calls, 'stroke@text-3')).toBe(2);
+  });
+
+  it('两端重合 ⇒ 不画（那是一个点，由功能点那层负责；这里画了就会多出一个脏点）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(canvas, ctx, scene({ links: [{ from: { x: 1, y: 1 }, to: { x: 1, y: 1 } }] }));
+    expect(countOf(calls, 'stroke@text-3')).toBe(0);
   });
 });
 

@@ -48,8 +48,8 @@ function makeRecorder(): Recorder {
     fillRect: () => calls.push('fillRect'),
     strokeRect: () => calls.push('strokeRect'),
     beginPath: () => calls.push('beginPath'),
-    moveTo: () => calls.push('moveTo'),
-    lineTo: () => calls.push('lineTo'),
+    moveTo: (x: number, y: number) => calls.push(`moveTo(${x},${y})`),
+    lineTo: (x: number, y: number) => calls.push(`lineTo(${x},${y})`),
     stroke: () => calls.push('stroke'),
     fill: () => calls.push('fill'),
     arc: (x: number, y: number, r: number) => calls.push(`arc(${x},${y},${r})`),
@@ -153,6 +153,43 @@ describe('渲染与几何读数', () => {
     // 层序：网格的 stroke 早于轨道/功能点的 arc（"圆在网格之上"）
     expect(rec.calls.indexOf('stroke')).toBeLessThan(rec.calls.indexOf('arc(50,50,24)'));
     expect(rec.calls.indexOf('arc(50,50,24)')).toBeLessThan(rec.calls.indexOf('arc(50,50,12)'));
+  });
+
+  it('⭐ 连接线：两端按世界坐标落位，且夹在轨道与功能点之间（环 → 线 → 点）', () => {
+    render(
+      <CanvasGrid
+        rows={2}
+        cols={2}
+        rings={[{ radiusCells: 2 }]} // 2 格 × 24px = 48px
+        links={[{ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }]}
+        marks={[{ at: { x: 0, y: 0 }, radiusCells: 0.5 }]}
+      />,
+    );
+    // 世界 (0,0) ⇒ 屏幕 (50,50)；世界 (1,1) ⇒ 屏幕 (74,26)
+    expect(rec.calls).toContain('moveTo(50,50)');
+    expect(rec.calls).toContain('lineTo(74,26)');
+
+    const ring = rec.calls.indexOf('arc(50,50,48)');
+    const link = rec.calls.indexOf('lineTo(74,26)');
+    const mark = rec.calls.indexOf('arc(50,50,12)');
+    expect(link).toBeGreaterThan(ring);
+    expect(mark).toBeGreaterThan(link);
+  });
+
+  it('⭐ 一条连接线恰好带来 7 次上下文调用（不会顺手多画东西），且端点落在世界坐标上', () => {
+    const { rerender } = render(<CanvasGrid rows={2} cols={2} />);
+    rerender(<CanvasGrid rows={2} cols={2} links={[{ from: { x: 0, y: 0 }, to: { x: 1, y: 0 } }]} />);
+    // 改 links 会整帧重画，所以看**末尾**那 7 次：没有功能点/标签时，连接线是本帧最后画的东西。
+    // 世界 (0,0) ⇒ (50,50)；世界 (1,0) ⇒ (74,50)
+    expect(rec.calls.slice(-7)).toEqual([
+      'save',
+      'dash',
+      'beginPath',
+      'moveTo(50,50)',
+      'lineTo(74,50)',
+      'stroke',
+      'restore',
+    ]);
   });
 
   it('DPR=2 放大的是位图，不是屏幕尺寸', () => {

@@ -30,7 +30,9 @@ import {
   PEAK_PHASE_DEG,
   adjustableRings,
   defaultRingRadii,
+  resolveMapLinks,
   resolveMapPoints,
+  toGridLinks,
   toGridMarks,
   toGridRings,
   withRingRadii,
@@ -52,6 +54,9 @@ export function MapStagePage() {
   const points = useMemo(() => resolveMapPoints(MAP_POINTS, rings), [rings]);
   const gridRings = useMemo(() => toGridRings(rings), [rings]);
   const marks = useMemo(() => toGridMarks(points), [points]);
+  // 连接线由**规则**算出（`map-links.ts`）：半径/隐藏位一变，边自动跟着变
+  const links = useMemo(() => resolveMapLinks(points), [points]);
+  const gridLinks = useMemo(() => toGridLinks(links), [links]);
 
   const handleRingChange = (ringKey: string, radiusCells: number): void => {
     setRingRadii((prev) => ({ ...prev, [ringKey]: radiusCells }));
@@ -71,7 +76,7 @@ export function MapStagePage() {
     >
       <div>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          地图 · 网格 / 轨道 / 八峰 / 四门
+          地图 · 网格 / 轨道 / 八峰 / 四门 / 连接线
         </Typography.Title>
         <Typography.Text type="secondary">
           每轴 {MAP_CELLS} 个小格子（每轴 {MAP_CELLS + 1} 条网格线）；鼠标移到网格上会高亮，并在光标旁报出坐标。
@@ -79,7 +84,8 @@ export function MapStagePage() {
           ° ⇒ 错开半个扇区，把四个正方向让出来）；外环是宗门大阵圈（虚线），四门在正北/正东/正南/正西；
           内环也是 8 等分，其中<span> </span>
           四正是四院、四隅是**预留位**（数据保留、暂不渲染，读数里能看到它们存在）。
-          下面的滑杆可以直接调各环离中心多少格。
+          连线（灰）按**规则**生成：主峰辐条 · 四院方环 · 峰-院就近 · 八峰环 · 峰-门就近。
+          下面的滑杆可以直接调各环离中心多少格（连线会跟着变）。
         </Typography.Text>
       </div>
 
@@ -101,12 +107,13 @@ export function MapStagePage() {
           onMetrics={setMetrics}
           rings={gridRings}
           marks={marks}
+          links={gridLinks}
           label="地图网格"
         />
       </div>
 
       <MapStageRingSliders rings={adjustableRings(rings)} onChange={handleRingChange} />
-      <MapStageReadout hover={hover} metrics={metrics} points={points} rings={rings} />
+      <MapStageReadout hover={hover} metrics={metrics} points={points} rings={rings} links={links} />
     </div>
   );
 }

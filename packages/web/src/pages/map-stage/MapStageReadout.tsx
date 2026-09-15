@@ -11,8 +11,8 @@
  */
 import { Space, Tag, Typography, theme } from 'antd';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
-import { PEAK_PHASE_DEG, hiddenPoints, visiblePoints } from './map-points.js';
-import type { MapRing, ResolvedMapPoint } from './map-points.js';
+import { PEAK_PHASE_DEG, hiddenPoints, linkBreakdown, visiblePoints } from './map-points.js';
+import type { MapRing, ResolvedMapLink, ResolvedMapPoint } from './map-points.js';
 
 export interface MapStageReadoutProps {
   /** 当前悬停格（受控，来自 `CanvasGrid` 的 `onHoverCell`） */
@@ -23,6 +23,8 @@ export interface MapStageReadoutProps {
   points: readonly ResolvedMapPoint[];
   /** 当前生效的环表（半径可能被滑杆改过 —— 读数必须报**当前值**，不是默认值） */
   rings: readonly MapRing[];
+  /** 当前生效的连接线（由规则算出；半径一改就变） */
+  links: readonly ResolvedMapLink[];
 }
 
 const DASH = '—';
@@ -59,7 +61,7 @@ function Field(props: { name: string; value: string; testId: string }) {
 }
 
 export function MapStageReadout(props: MapStageReadoutProps) {
-  const { hover, metrics, points, rings } = props;
+  const { hover, metrics, points, rings, links } = props;
   const { token } = theme.useToken();
   /** 几何读数只在「量出来且真的画得出网格」时才有意义；否则一律 `—`。 */
   const geom = metrics !== null && metrics.usable ? metrics : null;
@@ -68,6 +70,10 @@ export function MapStageReadout(props: MapStageReadoutProps) {
   /** 渲染的 / 只在数据里的（读数把两类都列出来 —— 隐藏位要"看得见它存在"）。 */
   const shown = visiblePoints(points);
   const hidden = hiddenPoints(points);
+  /** 连接线读数：总数 + 按规则分组（规则名与条数都从当前边上算，滑杆一改跟着变）。 */
+  const linkText = `${links.length} 条（${linkBreakdown(links)
+    .map((item) => `${item.rule} ${item.count}`)
+    .join(' · ')}）`;
   /**
    * 环读数**从当前环表算**（不是硬编码常量）：滑杆一改，这里立刻跟着变 ——
    * 否则读数会在调半径时骗人（那是比没有读数更糟的情况）。隐藏位单独标 `+N隐藏`，
@@ -110,6 +116,7 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         <Field name="DPR" testId="stage-dpr" value={metrics === null ? DASH : String(metrics.dpr)} />
         <Field name="每轴线" testId="stage-lines" value={geom === null ? DASH : `${geom.axisLineCount} 条`} />
         <Field name="环" testId="stage-rings" value={ringText} />
+        <Field name="连接" testId="stage-links" value={linkText} />
       </Space>
 
       <Space wrap data-testid="stage-points">

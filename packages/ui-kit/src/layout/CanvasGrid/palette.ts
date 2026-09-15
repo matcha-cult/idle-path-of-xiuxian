@@ -34,6 +34,14 @@ export interface GridPalette {
    * 层数越叠越多，四种颜色的分工就必须一次定清，否则上屏是一团谁也认不出的线。
    */
   guide: string;
+  /**
+   * **连接线**（图的边）。
+   *
+   * 用中性灰（`colorTextTertiary`）而不是第五种彩色：连接线是"骨架"、数量最多（当前 32 条），
+   * 一上色就会把 9 个功能点（金色）与三层轨道（绿色）全压下去。灰色比网格线深一档，
+   * 于是"结构看得见、又不抢戏"。
+   */
+  link: string;
 }
 
 /** 从 antd global token 里取色（结构类型，便于测试直接喂假 token）。 */
@@ -56,5 +64,6 @@ export function gridPalette(source: GridPaletteSource): GridPalette {
     axisText: source.colorTextTertiary,
     mark: source.colorWarning,
     guide: source.colorSuccess,
+    link: source.colorTextTertiary,
   };
 }

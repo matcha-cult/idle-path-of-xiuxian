@@ -60,3 +60,30 @@ export interface ResolvedMapPoint extends MapPoint {
   /** 派生：数据库格点口径（环上的点大多是小数 —— 这是事实，不要四舍五入掉） */
   lattice: { col: number; row: number };
 }
+
+/**
+ * 连接线（图的边）的**生成规则** —— 数据表里只写规则，**不写几十条边**。
+ *
+ * 三条规则刚好能精确重放旧种子数据（`packages/server/prisma/seeds/game/map-edges.json`，
+ * 共 32 条）的拓扑：`门↔峰 8 · 峰↔峰 8 · 院↔峰 8 · 院↔院 4 · 主峰↔院 4`。
+ *
+ * 为什么用规则而不是边表：调半径、启用预留位、以后加点时边会**自动跟着变**；
+ * 而一张 32 行的边表每次都得手工同步 —— 那正是"数据改了、别处悄悄过期"的温床。
+ */
+export type MapLinkRule =
+  /** 同环相邻相连（含首尾成环）：八峰成八边形、四院成方环 */
+  | { kind: 'ring'; ring: string; label: string }
+  /** from 环上的每个点 → to 环上**角度最近**的点（并列时都连，保证确定性） */
+  | { kind: 'nearest'; from: string; to: string; label: string }
+  /** hub 环上的每个点 → to 环上的**每个**点（主峰 → 每座院，即辐条） */
+  | { kind: 'hub'; hub: string; to: string; label: string };
+
+/** 解析后的连接线：带两端点 key（供查询/测试）与派生世界坐标（供绘制）。 */
+export interface ResolvedMapLink {
+  fromKey: string;
+  toKey: string;
+  /** 规则名（读数里用来分组统计） */
+  rule: string;
+  from: WorldPoint;
+  to: WorldPoint;
+}

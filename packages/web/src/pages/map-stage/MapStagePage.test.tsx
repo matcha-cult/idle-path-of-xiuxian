@@ -34,9 +34,11 @@ function domRect(w: number, h: number): DOMRect {
   } as DOMRect;
 }
 
-/** 记录 arc 与 setLineDash：环/点的位置·半径·线型都在这里被断言。 */
+/** 记录 arc / setLineDash / 线段 / stroke 次数：环、点、连接线都在这里被断言。 */
 let arcs: string[] = [];
 let dashes: number[][] = [];
+let segments: string[] = [];
+let strokeCount = 0;
 
 function fakeContext(): CanvasRenderingContext2D {
   const noop = (): void => {};
@@ -48,12 +50,14 @@ function fakeContext(): CanvasRenderingContext2D {
     fillRect: noop,
     strokeRect: noop,
     beginPath: noop,
-    moveTo: noop,
-    lineTo: noop,
-    stroke: noop,
+    moveTo: (x: number, y: number) => segments.push(`moveTo(${x},${y})`),
+    lineTo: (x: number, y: number) => segments.push(`lineTo(${x},${y})`),
+    stroke: () => {
+      strokeCount += 1;
+    },
     fill: noop,
     arc: (x: number, y: number, r: number) => arcs.push(`arc(${x},${y},${r})`),
-    setLineDash: (segments: number[]) => dashes.push(segments),
+    setLineDash: (segments2: number[]) => dashes.push(segments2),
     fillText: noop,
     measureText: (text: string) => ({ width: text.length * 6 }),
     font: '',
@@ -105,6 +109,8 @@ function hasMark(calls: string[], radiusCells: number, angleDeg = 0, markPx = 5)
 beforeEach(() => {
   arcs = [];
   dashes = [];
+  segments = [];
+  strokeCount = 0;
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     (() => fakeContext()) as unknown as HTMLCanvasElement['getContext'],
   );
@@ -129,7 +135,38 @@ describe('MapStagePage', () => {
     expect(intro).toHaveTextContent('宗门大阵圈');
     expect(intro).toHaveTextContent('四正是四院、四隅是');
     expect(intro).toHaveTextContent('暂不渲染');
+    expect(intro).toHaveTextContent('连线（灰）按**规则**生成');
     expect(intro).toHaveTextContent('滑杆');
+  });
+
+  it('⭐ 连接线：主峰—四院·东 这条边真的画出来了（两端落在世界坐标上）', () => {
+    render(<MapStagePage />);
+    // 主峰 = 世界原点 ⇒ 屏幕 (236,236)；四院·东 = 世界 (COURT_RING_CELLS, 0) ⇒ 屏幕 (236+80, 236)
+    const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
+    expect(segments).toContain(`moveTo(${CENTER},${CENTER})`);
+    expect(segments).toContain(`lineTo(${eastCourtX},${CENTER})`);
+  });
+
+  it('⭐ 笔数对得上：2（细线/主线）+ 3（三条环）+ 32（连接线）= 37 次 stroke', () => {
+    render(<MapStagePage />);
+    // 32 条边的条数由 map-links 的拓扑测试钉死；这里验"页面真的把它们都画了"
+    expect(strokeCount).toBe(2 + 3 + 32);
+  });
+
+  it('⭐ 隐藏位没有连线（不会出现"连着看不见的点"的线）', () => {
+    render(<MapStagePage />);
+    const rad = Math.PI / 4;
+    const hidden = {
+      x: CENTER + COURT_RING_CELLS * Math.cos(rad) * CELL_PX,
+      y: CENTER - COURT_RING_CELLS * Math.sin(rad) * CELL_PX,
+    };
+    const endsAtHidden = segments.some((call) => {
+      const matched = /^(?:moveTo|lineTo)\((-?[\d.]+),(-?[\d.]+)\)$/.exec(call);
+      return matched !== null && near(Number(matched[1]), hidden.x) && near(Number(matched[2]), hidden.y);
+    });
+    expect(endsAtHidden).toBe(false);
+    // 而四院·东（可见）确实在线上
+    expect(segments).toContain(`lineTo(${CENTER + COURT_RING_CELLS * CELL_PX},${CENTER})`);
   });
 
   it('按 42 格算出整数格宽与画布尺寸（500×500 ⇒ 每格 10px、画布 472）', () => {

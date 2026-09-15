@@ -51,6 +51,17 @@ export interface GridMark {
   radiusCells: number;
 }
 
+/**
+ * 连接线（图的边）：两端都是**世界坐标**。
+ *
+ * 组件只负责"把这两点连起来"，完全不认识拓扑 ——「谁连谁」是数据层的事
+ * （web 侧 `map-links.ts` 用规则生成，见那里的说明）。两端重合时绘制层会跳过。
+ */
+export interface GridLink {
+  from: WorldPoint;
+  to: WorldPoint;
+}
+
 export interface CanvasGridProps {
   /** 格子行数（纵向格子数；42 ⇒ 43 条横线） */
   rows: number;
@@ -67,6 +78,8 @@ export interface CanvasGridProps {
   rings?: readonly GridRing[];
   /** 功能点（实心圆点；压在轨道与悬停高亮之上，直径以「格」为单位） */
   marks?: readonly GridMark[];
+  /** 连接线（图的边）：画在轨道之上、功能点之下（点永远盖住线头） */
+  links?: readonly GridLink[];
   /** 主线 / 轴标间隔（格） */
   majorStep?: number;
   /** 是否在光标旁画「列,行」标签 */

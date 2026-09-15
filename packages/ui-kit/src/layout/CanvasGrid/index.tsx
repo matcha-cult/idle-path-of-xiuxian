@@ -35,11 +35,11 @@ import { canvasSize, cellAtPoint, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter,
 import type { GridCell, GridLayout } from './geometry.js';
 import { gridPalette } from './palette.js';
 import { paintScene } from './paint-scene.js';
-import type { CanvasGridProps, GridMark, GridMetrics, GridPoint, GridRing } from './types.js';
+import type { CanvasGridProps, GridLink, GridMark, GridMetrics, GridPoint, GridRing } from './types.js';
 import { readDevicePixelRatio, useElementSize } from './use-element-size.js';
 
 export type { GridCell, GridLayout, GridRect } from './geometry.js';
-export type { CanvasGridProps, GridMark, GridMetrics, GridRing } from './types.js';
+export type { CanvasGridProps, GridLink, GridMark, GridMetrics, GridRing } from './types.js';
 // 世界口径（原点 = 中心、y 向上、单位 = 格）：业务侧用它把「环 + 角度」算成坐标
 export * from './world.js';
 
@@ -48,6 +48,7 @@ const MAJOR_STEP = 5;
 /** 模块级空数组：默认值共用同一个引用，避免每次渲染都造新数组把绘制 effect 打醒。 */
 const NO_RINGS: readonly GridRing[] = [];
 const NO_MARKS: readonly GridMark[] = [];
+const NO_LINKS: readonly GridLink[] = [];
 
 export function CanvasGrid(props: CanvasGridProps) {
   const {
@@ -62,6 +63,7 @@ export function CanvasGrid(props: CanvasGridProps) {
     label = '网格画布',
     rings = NO_RINGS,
     marks = NO_MARKS,
+    links = NO_LINKS,
   } = props;
 
   const { token } = theme.useToken();
@@ -99,9 +101,10 @@ export function CanvasGrid(props: CanvasGridProps) {
       cursorLabelForeground: token.colorBgContainer,
       rings,
       marks,
+      links,
       palette,
     });
-  }, [box, layout, dpr, majorStep, palette, rings, marks, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
+  }, [box, layout, dpr, majorStep, palette, rings, marks, links, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
 
   const metricsRef = useRef(onMetrics);
   useEffect(() => {
