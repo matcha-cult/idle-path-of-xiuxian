@@ -12,7 +12,6 @@ import {
   cellAtPoint,
   cellLabel,
   cellRect,
-  crisp,
   fitCellPx,
   gridCenter,
   isCellInside,
@@ -179,15 +178,6 @@ describe('axisTicks', () => {
     expect(axisTicks(0, 5)).toEqual([]);
     expect(axisTicks(-1, 5)).toEqual([]);
     expect(axisTicks(Number.NaN, 5)).toEqual([]);
-  });
-});
-
-describe('crisp', () => {
-  it('1px 线条走整数 + 0.5（否则奇数线宽会跨像素发虚）', () => {
-    expect(crisp(5)).toBe(5.5);
-    expect(crisp(5.4)).toBe(5.5);
-    expect(crisp(5.6)).toBe(6.5);
-    expect(crisp(-0.2)).toBe(0.5);
   });
 });
 

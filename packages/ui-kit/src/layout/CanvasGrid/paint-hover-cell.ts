@@ -18,10 +18,15 @@ export interface HoverCellInput {
   color: string;
   /** 填充不透明度（默认 0.16） */
   alpha?: number;
+  /**
+   * 描边线宽（**内容空间**单位，默认 2）。调用方按 `1 / scale` 传进来，
+   * 于是**屏幕线宽恒定** —— 线宽恒定策略统一由 `paintScene` 决定，本层不管位姿。
+   */
+  widthPx?: number;
 }
 
 export function paintHoverCell(ctx: GridPaintContext2D, input: HoverCellInput): void {
-  const { cell, layout, color, alpha = 0.16 } = input;
+  const { cell, layout, color, alpha = 0.16, widthPx = 2 } = input;
   const rect = cellRect(cell, layout);
   // 越界格（脏 props）⇒ 忽略，而不是抛错 / 画到网格外
   if (rect === null) return;
@@ -34,8 +39,9 @@ export function paintHoverCell(ctx: GridPaintContext2D, input: HoverCellInput): 
   // 描边前把不透明度还原，否则边界会跟着填充一起变淡
   ctx.globalAlpha = 1;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  // 内缩 1px：2px 描边压在格线上会盖住线，内缩后"格子还是那个格子"
-  ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+  ctx.lineWidth = widthPx;
+  // 内缩半个线宽：描边压在格线上会盖住线，内缩后"格子还是那个格子"
+  const inset = widthPx / 2;
+  ctx.strokeRect(rect.x + inset, rect.y + inset, rect.w - widthPx, rect.h - widthPx);
   ctx.restore();
 }

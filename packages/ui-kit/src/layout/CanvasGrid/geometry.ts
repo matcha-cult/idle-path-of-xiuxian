@@ -143,14 +143,6 @@ export function axisTicks(cells: number, step: number): number[] {
 }
 
 /**
- * 1px 线条的**清晰化**坐标：画在整数 + 0.5 上，奇数线宽才不会跨两个像素发虚。
- * 这是纯 canvas 路线必须自己做、而 SVG/DOM 白送的一步。
- */
-export function crisp(v: number): number {
-  return Math.round(v) + 0.5;
-}
-
-/**
  * **坐标系的中心点**（画布 CSS 像素）—— 网格的几何中心，即格点索引 `(cols/2, rows/2)` 处。
  *
  * 42 格 ⇒ 格子索引 0..42，中心正好落在**第 21 条横线与第 21 条竖线的交点**上：

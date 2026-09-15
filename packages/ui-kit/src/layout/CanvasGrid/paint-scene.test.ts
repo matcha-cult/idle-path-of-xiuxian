@@ -28,10 +28,19 @@ const LAYOUT = { rows: 2, cols: 2, cellPx: 10, pad: 26 };
 interface Recorder {
   ctx: GridPaintContext2D;
   calls: string[];
+  /** 每次 stroke 的线宽（用于"线宽恒定"这类跨缩放比对） */
+  widths: number[];
+  /** 每次 strokeRect 的线宽（悬停格只描边不 stroke 路径） */
+  rectWidths: number[];
+  /** 每次 setLineDash 的节奏 */
+  dashes: number[][];
 }
 
 function recorder(): Recorder {
   const calls: string[] = [];
+  const widths: number[] = [];
+  const rectWidths: number[] = [];
+  const dashes: number[][] = [];
   const raw = {
     font: '',
     textAlign: '',
@@ -45,18 +54,27 @@ function recorder(): Recorder {
     setTransform: (a: number) => calls.push(`setTransform(${a})`),
     clearRect: () => calls.push('clearRect'),
     fillRect: () => calls.push('fillRect'),
-    strokeRect: () => calls.push('strokeRect'),
+    strokeRect: () => {
+      calls.push('strokeRect');
+      rectWidths.push(raw.lineWidth);
+    },
     beginPath: () => calls.push('beginPath'),
     moveTo: (x: number, y: number) => calls.push(`moveTo(${x},${y})`),
     lineTo: (x: number, y: number) => calls.push(`lineTo(${x},${y})`),
-    stroke: () => calls.push(`stroke@${raw.strokeStyle}`),
+    stroke: () => {
+      calls.push(`stroke@${raw.strokeStyle}`);
+      widths.push(raw.lineWidth);
+    },
     fill: () => calls.push(`fill@${raw.fillStyle}`),
     arc: (x: number, y: number, r: number) => calls.push(`arc(${x},${y},${r})`),
-    setLineDash: () => calls.push('dash'),
+    setLineDash: (segments: number[]) => {
+      calls.push('dash');
+      dashes.push([...segments]);
+    },
     fillText: (text: string) => calls.push(`fillText:${text}`),
     measureText: (text: string) => ({ width: text.length * 6 }),
   };
-  return { ctx: raw as unknown as GridPaintContext2D, calls };
+  return { ctx: raw as unknown as GridPaintContext2D, calls, widths, rectWidths, dashes };
 }
 
 /** 假画布：记录 `width/height` 被写了多少次（用于断言「只在变化时写」）。 */
@@ -402,5 +420,71 @@ describe('点的聚焦圈（悬停 / 选中）', () => {
       scene({ marks: [{ at: { x: 0, y: 0 }, radiusCells: 0.5 }], selectedMarkKey: '0' }),
     );
     expect(calls).toContain('arc(36,36,9)');
+  });
+});
+
+describe('线宽恒定（屏幕像素口径，与缩放无关）', () => {
+  /**
+   * 这一条是"放大后线条特别粗"的回归闸门：把所有层（网格 / 悬停格 / 环 / 连线 / 聚焦圈）
+   * 放进同一个场景，在 0.5× / 1× / 8× 下逐次 stroke，线宽序列必须**完全一致**。
+   * 旧实现里 8× 时网格是 8px、悬停格 16px、环/连线 12px。
+   */
+  const WIDE = {
+    layout: { rows: 2, cols: 2, cellPx: 20, pad: 26 }, // 0.5× 时间距仍有 10px，细线不会被自适应砍掉
+    viewW: 3000,
+    viewH: 3000,
+  };
+
+  const widthsAt = (scale: number): { widths: number[]; rectWidths: number[]; dashes: number[][] } => {
+    const { ctx, widths, rectWidths, dashes } = recorder();
+    paintScene(
+      sceneCanvas().canvas,
+      ctx,
+      scene({
+        ...WIDE,
+        pose: { scale, offsetX: 0, offsetY: 0 },
+        rings: [{ radiusCells: 2, dashed: true }],
+        links: [{ from: { x: 0, y: 0 }, to: { x: 1, y: 0 } }],
+        marks: [
+          { key: 'a', at: { x: 0, y: 0 }, radiusCells: 0.5 },
+          { key: 'b', at: { x: 1, y: 0 }, radiusCells: 0.5 },
+        ],
+        hover: { col: 0, row: 0 },
+        hoverMarkKey: 'a',
+        selectedMarkKey: 'b',
+      }),
+    );
+    return { widths, rectWidths, dashes };
+  };
+
+  /** 内容空间的长度 × scale = 屏幕长度（"恒定"必须在**屏幕**口径下比） */
+  const onScreen = (values: number[], scale: number): number[] =>
+    values.map((value) => Math.round(value * scale * 1e6) / 1e6);
+
+  it('⭐ 网格线宽在**屏幕空间**恒定：0.5× / 1× / 8× 下逐次 stroke 都是 1px', () => {
+    // 前两次 stroke 是网格的"细线一遍 + 主线一遍"（层序见 paint-scene 文档）
+    for (const scale of [0.5, 1, 8]) {
+      expect(widthsAt(scale).widths.slice(0, 2)).toEqual([1, 1]);
+    }
+  });
+
+  it('⭐ 内容层（环/连线/聚焦圈）按 1/scale 传线宽 ⇒ 屏幕线宽恒定且 ≤ 2px；悬停格同理', () => {
+    const layer = (scale: number): number[] => widthsAt(scale).widths.slice(2);
+    const base = layer(1);
+    expect(base).toEqual([1.5, 1.5, 1.5, 2]); // 环 1.5 / 连线 1.5 / 聚焦·悬停 1.5 / 聚焦·选中 2
+    // 旧实现里 8× 时这里是 12px / 12px / 12px / 16px
+    for (const scale of [0.5, 8]) expect(onScreen(layer(scale), scale)).toEqual(base);
+    expect(Math.max(...base)).toBeLessThanOrEqual(2);
+    // 悬停格只描边不 stroke 路径：它的线宽单独记
+    for (const scale of [0.5, 1, 8]) expect(onScreen(widthsAt(scale).rectWidths, scale)).toEqual([2]);
+  });
+
+  it('⭐ 虚线节奏也不随缩放变（环的虚线在屏幕上恒定 4/4）', () => {
+    const base = widthsAt(1);
+    expect(base.dashes).toContainEqual([4, 4]);
+    for (const scale of [0.5, 8]) {
+      const screen = widthsAt(scale).dashes.map((segments) => onScreen(segments, scale));
+      expect(screen).toEqual(widthsAt(1).dashes);
+    }
   });
 });

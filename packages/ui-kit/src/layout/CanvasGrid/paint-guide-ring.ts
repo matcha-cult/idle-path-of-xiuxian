@@ -17,6 +17,8 @@ export interface GuideRingInput {
   /** 半径（画布 CSS 像素） */
   radius: number;
   color: string;
+  /** 虚线节奏缩放（内容空间单位；调用方按 `1 / scale` 传，屏幕节奏恒定），默认 1 */
+  dashScale?: number;
   /** 线宽，默认 1.5 */
   widthPx?: number;
   /** 虚线（默认实线） */
@@ -29,7 +31,7 @@ const FULL_TURN = Math.PI * 2;
 const DASH: number[] = [4, 4];
 
 export function paintGuideRing(ctx: GridPaintContext2D, input: GuideRingInput): void {
-  const { cx, cy, radius, color, widthPx = 1.5, dashed = false } = input;
+  const { cx, cy, radius, color, widthPx = 1.5, dashed = false, dashScale = 1 } = input;
   // 半径 ≤ 0 / 非数 ⇒ 不画（"半径 0 的环"= 中心点本身，不该画成一坨）
   if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(radius) || radius <= 0) return;
 
@@ -37,7 +39,8 @@ export function paintGuideRing(ctx: GridPaintContext2D, input: GuideRingInput): 
   ctx.globalAlpha = 1;
   ctx.strokeStyle = color;
   ctx.lineWidth = widthPx;
-  ctx.setLineDash(dashed ? DASH : []);
+  // 虚线节奏也是**渲染属性**：内容空间里按 `1 / scale` 缩放 ⇒ 屏幕上的节奏与缩放无关
+  ctx.setLineDash(dashed ? DASH.map((segment) => segment * dashScale) : []);
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, FULL_TURN);
   ctx.stroke();
