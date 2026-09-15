@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { gridPalette } from './palette.js';
+import { FIT_POSE } from './pose.js';
 import { paintScene } from './paint-scene.js';
 import type { SceneCanvas, SceneInput } from './paint-scene.js';
 import type { GridPaintContext2D } from './paint-grid.js';
@@ -85,8 +86,9 @@ function sceneCanvas(w = 0, h = 0): { canvas: SceneCanvas; writes: string[] } {
 function scene(over: Partial<SceneInput> = {}): SceneInput {
   return {
     layout: LAYOUT,
-    boxW: 72,
-    boxH: 72,
+    viewW: 72,
+    viewH: 72,
+    pose: FIT_POSE,
     dpr: 1,
     hover: null,
     cursor: null,
@@ -172,8 +174,8 @@ describe('连接线（图的边）', () => {
     const { canvas } = sceneCanvas();
     const { ctx, calls } = recorder();
     paintScene(canvas, ctx, scene({ links: [{ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }] }));
-    // 这条线是该帧最后画的东西（没有环、没有点、没有标签）⇒ 取最后 6 次调用
-    expect(calls.slice(-6)).toEqual([
+    // 连接线之后只剩「恢复内容坐标变换」+「切回屏幕坐标」两步 ⇒ 跳过末尾那次 setTransform
+    expect(calls.slice(-7, -1)).toEqual([
       'dash',
       'beginPath',
       'moveTo(36,36)',
@@ -278,20 +280,20 @@ describe('降级路径', () => {
   it('几何不可用 ⇒ 返回 false，且只铺底：不画网格、不画环、不画点（不留脏点）', () => {
     const { canvas } = sceneCanvas();
     const { ctx, calls } = recorder();
-    // 真实调用方在几何不可用时 `canvasSize` 也给 0×0（两个输入是自洽的）
+    // 位图跟着**视口**走：几何不可用时视口照样存在（20×20），只是内容一层都画不出来
     const drew = paintScene(
       canvas,
       ctx,
       scene({
         layout: { ...LAYOUT, cellPx: 0 },
-        boxW: 0,
-        boxH: 0,
+        viewW: 20,
+        viewH: 20,
         rings: [{ radiusCells: 9 }],
         marks: [{ at: { x: 0, y: 0 }, radiusCells: 0.5 }],
       }),
     );
     expect(drew).toBe(false);
-    expect(canvas.width).toBe(0);
+    expect(canvas.width).toBe(20);
     expect(indexOf(calls, 'arc(')).toBe(-1);
     expect(calls).not.toContain('stroke');
     expect(calls).toContain('fillRect'); // 底色仍然铺（否则容器里会留上一帧残影）

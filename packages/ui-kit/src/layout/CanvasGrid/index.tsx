@@ -1,48 +1,45 @@
 /**
- * `CanvasGrid` —— **画布上的等宽格子网格**（地图重做的第一块地基）。
+ * `CanvasGrid` —— **画布上的等宽格子网格 + 地图内容**（坐标系 / 轨道 / 连线 / 功能点 / 交互）。
  *
- * ## 这一步只解决一件事
- * 「纵横 42 个小格子画得出来，鼠标移到哪一格就报出哪一格」。刻意**不含**任何地图业务
- * （无节点、无连线、无对象、无缩放拖拽）：坐标系与绘制没验穿之前，往上叠的每一层都会
- * 把几何错误伪装成「手感问题」。
+ * ## 四套坐标，各有一段唯一的变换
+ * ```
+ * 世界坐标 --worldToScreen--> 内容坐标 --pose--> 屏幕坐标 --dpr--> 位图
+ * (格，y 向上)              (fit 布局，y 向下)        (用户看到的)
+ * ```
+ * 每段只有一处做变换，所以命中测试只要按同一条链**反向**走一遍就必然对得上
+ * （`use-grid-pointers` 里 `toContent` 一次逆变换，之后与没有缩放时完全一样）。
  *
- * ## 为什么是纯 canvas（用户 2026-09-15 定的方向）
- * 网格是「一堆没有身份的线」——不需要被单独点中，也就不需要是 DOM。代价是：
- * **画出来的东西在 DevTools 里没有 DOM，我（看不到浏览器）和你（看不到我画了什么）都失去了
- * 现场**。因此本组件把可读事实**主动交出去**：`onMetrics` 报几何与环境，页面把读数印在屏幕上。
- *
- * ## 层序（在 `paintScene` 里，有单测钉住）
- * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → **轨道环 → 功能点（内容）** → 光标坐标标签。
- * 内容压在交互反馈之上，是为了不让鼠标经过时把地图内容染色。
- * 轨道半径与功能点的位置/大小都走**世界口径**（原点 = 中心、y 向上、单位 = 格，见 `world.ts`），
- * 于是组件不认识「谁是主峰、谁是功能峰」——那是数据（业务侧）的事。
+ * ## 手感（这是本组件最重要的一条工程约束）
+ * 拖动/缩放期间**不提交任何 React 渲染**：位姿在 `poseRef` 里，手势直接改它并命令式重画
+ * （上一轮的 `GraphCanvas` 每帧一次提交，实测 60 帧 = 60 次；改成命令式后是 0 次）。
+ * 位姿只在**手势结束**时通过 `onPose` 汇报给 React（读数用）。
  *
  * ## 契约
- * - **受控绘制**：高亮格由 `value` 决定，组件自己不存「哪一格高亮」这类 UI 状态，
- *   只用一个 ref 记录「上次已上报的格子」用于 hover 去重（同格内不重复上报，移出报 null，
- *   且**只报变化**——父组件不接管 `onHoverCell` 时也不会被刷爆）；
- * - **几何非法 ⇒ 什么都不画**，并把 `usable: false` 报出去，绝不产生 NaN（NaN 会静默白屏）；
- * - **DPR 感知**：位图 = CSS 尺寸 × `devicePixelRatio`，绘制前 `setTransform` 回 CSS 坐标系；
- * - **1px 线走 0.5 偏移**（`crisp`）——纯 canvas 必须自己做的清晰化，否则线会发虚；
+ * - **受控绘制**：高亮格 `value`、悬停点 `hoverKey`、选中点 `selectedKey` 全部由外部决定，
+ *   组件自己不存这些 UI 状态（只有"光标在哪"这种纯内部的瞬时值用 state）；
+ * - **几何非法 ⇒ 什么都不画**，并把 `usable: false` 报出去，绝不产生 NaN；
+ * - **滚轮只在真的能缩放时才被消费**：到上下限就把滚轮还给页面（否则画布变成"滚轮黑洞"）；
  * - `getContext` 返回 null（jsdom / 极端环境）⇒ 静默降级，不抛错；
- * - `touchAction: 'none'`：**现在没用，但必须先在**——后面加捏合缩放时，浏览器默认手势会把
- *   pinch 吃掉（上一轮踩过）。
+ * - `touchAction: 'none'` 先在（捏合缩放要用，PC 端无副作用）。
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { theme } from 'antd';
-import { canvasSize, cellAtPoint, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter, lineCount, sameCell } from './geometry.js';
-import { hitTestMarks, isClickGesture, markKeyOf } from './hit-test.js';
-import type { GridCell, GridLayout } from './geometry.js';
+import { canvasSize, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter, lineCount } from './geometry.js';
+import type { GridLayout } from './geometry.js';
 import { gridPalette } from './palette.js';
 import { paintScene } from './paint-scene.js';
+import { FIT_POSE } from './pose.js';
+import type { Pose } from './pose.js';
 import type { CanvasGridProps, GridLink, GridMark, GridMetrics, GridPoint, GridRing } from './types.js';
-import { readDevicePixelRatio, useElementSize } from './use-element-size.js';
+import { useElementSize, readDevicePixelRatio } from './use-element-size.js';
+import { useGridPointers } from './use-grid-pointers.js';
+import { useViewPose } from './use-view-pose.js';
 
 export type { GridCell, GridLayout, GridRect } from './geometry.js';
 export type { CanvasGridProps, GridLink, GridMark, GridMetrics, GridRing } from './types.js';
-// 世界口径（原点 = 中心、y 向上、单位 = 格）：业务侧用它把「环 + 角度」算成坐标
+// 世界口径（原点 = 中心、y 向上、单位 = 格）与视图位姿（缩放 + 平移）：业务侧读数要用
 export * from './world.js';
+export * from './pose.js';
 
 /** 主线间隔（格）：每 5 格一条深色线（+ 两端），于是「第几条主线 = 刻度值」。 */
 const MAJOR_STEP = 5;
@@ -58,6 +55,8 @@ export function CanvasGrid(props: CanvasGridProps) {
     value = null,
     onHoverCell,
     onMetrics,
+    onPose,
+    resetToken = 0,
     minCellPx,
     majorStep = MAJOR_STEP,
     showCursorLabel = true,
@@ -77,30 +76,28 @@ export function CanvasGrid(props: CanvasGridProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const size = useElementSize(rootRef);
   const [cursor, setCursor] = useState<GridPoint | null>(null);
-  /** 上一次**已上报**的格子（hover 去重；不能用 `value` 代替，见文件头契约）。 */
-  const reportedRef = useRef<GridCell | null>(null);
-  /** 上一次**已上报**的点（同样只报变化，否则上层状态会被 pointermove 刷爆）。 */
-  const reportedMarkRef = useRef<string | null>(null);
-  /** 按下时的位置：用来把"点击"从"拖动"里区分出来（以后加拖动时这里就派上用场）。 */
-  const pressedRef = useRef<GridPoint | null>(null);
 
-  // 整图适配：格子取整数，几何变化才换对象（避免无关重渲染反复重画）
+  // 整图适配：格子取整数 ⇒ `scale = 1` 就是"清晰、刚好铺满"的今天这张网格
   const cellPx = fitCellPx({ availW: size.w, availH: size.h, rows, cols, pad: GRID_PAD_PX, minCellPx });
   const layout = useMemo<GridLayout>(() => ({ rows, cols, cellPx, pad: GRID_PAD_PX }), [rows, cols, cellPx]);
-  const box = useMemo(() => canvasSize(layout), [layout]);
+  const content = useMemo(() => canvasSize(layout), [layout]);
+  const viewport = useMemo(() => ({ w: size.w, h: size.h }), [size.w, size.h]);
   const palette = useMemo(() => gridPalette(token), [token]);
   const dpr = readDevicePixelRatio();
+  const poseRef = useRef<Pose>(FIT_POSE);
 
-  useLayoutEffect(() => {
+  /** 一帧的全部绘制。**命令式**：手势里每帧调它，不经过 React。 */
+  const paint = useCallback((): void => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
     const ctx = canvas.getContext('2d');
     if (ctx === null) return;
     paintScene(canvas, ctx, {
       layout,
-      boxW: box.w,
-      boxH: box.h,
+      viewW: viewport.w,
+      viewH: viewport.h,
       dpr,
+      pose: poseRef.current,
       hover: value,
       cursor,
       majorStep,
@@ -116,7 +113,36 @@ export function CanvasGrid(props: CanvasGridProps) {
       selectedMarkKey: selectedKey,
       palette,
     });
-  }, [box, layout, dpr, majorStep, palette, rings, marks, links, hoverKey, selectedKey, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
+  }, [
+    layout,
+    viewport,
+    dpr,
+    value,
+    cursor,
+    majorStep,
+    showCursorLabel,
+    rings,
+    marks,
+    links,
+    hoverKey,
+    selectedKey,
+    palette,
+    token.fontFamily,
+    token.colorText,
+    token.colorBgContainer,
+  ]);
+
+  const pose = useViewPose({ canvasRef, poseRef, viewport, content, repaint: paint, onPose });
+
+  // React 驱动的重画：任何 props/state 变化都重画一帧（手势驱动的重画由上面那个 hook 负责）
+  useLayoutEffect(() => {
+    paint();
+  }, [paint]);
+
+  // 复位：位姿不在 React state 里，所以用"令牌"这种命令式逃生口触发（复位是低频操作）
+  useEffect(() => {
+    if (resetToken > 0) pose.reset();
+  }, [resetToken, pose]);
 
   const metricsRef = useRef(onMetrics);
   useEffect(() => {
@@ -125,12 +151,12 @@ export function CanvasGrid(props: CanvasGridProps) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    // 中心点口径只写在 `gridCenter` 一处：读数与真正画出来的圆心永远同源
+    // 中心点口径只写在 `gridCenter` 一处（内容是内容坐标；屏幕位置见 `onPose` 汇报的位姿）
     const center = gridCenter(layout);
     metricsRef.current?.({
       cellPx,
-      width: box.w,
-      height: box.h,
+      width: viewport.w,
+      height: viewport.h,
       bitmapWidth: canvas?.width ?? 0,
       bitmapHeight: canvas?.height ?? 0,
       dpr,
@@ -139,71 +165,22 @@ export function CanvasGrid(props: CanvasGridProps) {
       centerY: center?.y ?? 0,
       usable: cellPx > 0,
     });
-  }, [layout, box, cols, cellPx, dpr]);
+  }, [layout, viewport, cols, cellPx, dpr]);
 
-  /** 画布内坐标（CSS 像素）：命中测试、光标标签、点击判定都用它。 */
-  const localPoint = (event: ReactPointerEvent<HTMLCanvasElement>): GridPoint | null => {
-    const canvas = canvasRef.current;
-    if (canvas === null) return null;
-    const rect = canvas.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  };
-
-  /** 命中测试：点在画布坐标上命中了哪个 mark，返回它的 key（没命中 ⇒ null）。 */
-  const markKeyAt = (point: GridPoint): string | null => {
-    const center = gridCenter(layout);
-    if (center === null) return null;
-    const index = hitTestMarks({ ...point, marks, center, cellPx: layout.cellPx, slopPx: markHitSlopPx });
-    if (index === null) return null;
-    const mark = marks[index];
-    return mark === undefined ? null : markKeyOf(mark, index);
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    const point = localPoint(event);
-    if (point === null) return;
-    // 光标每次移动都要更新（标签跟着光标走），但同一格/同一点内**不重复上报**
-    setCursor((prev) => (prev !== null && prev.x === point.x && prev.y === point.y ? prev : point));
-
-    const nextCell = cellAtPoint(point.x, point.y, layout);
-    if (!sameCell(nextCell, reportedRef.current)) {
-      reportedRef.current = nextCell;
-      onHoverCell?.(nextCell);
-    }
-
-    const nextMark = markKeyAt(point);
-    if (nextMark !== reportedMarkRef.current) {
-      reportedMarkRef.current = nextMark;
-      onHoverMark?.(nextMark);
-    }
-  };
-
-  const handlePointerLeave = (): void => {
-    setCursor(null);
-    if (reportedRef.current !== null) {
-      reportedRef.current = null;
-      onHoverCell?.(null);
-    }
-    if (reportedMarkRef.current !== null) {
-      reportedMarkRef.current = null;
-      onHoverMark?.(null);
-    }
-  };
-
-  /** 按下位置留给抬起时判定"这是点击还是拖动"（以后加拖动时这里就派上用场）。 */
-  const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    pressedRef.current = localPoint(event);
-  };
-
-  const handlePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    const up = localPoint(event);
-    const down = pressedRef.current;
-    pressedRef.current = null;
-    // 位移超过阈值 ⇒ 是拖动（不是点击）：现在还没有拖动，但先判好，免得以后加拖动时
-    // "点一下就顺手选中/取消"这种幽灵 bug 混进来。
-    if (up === null || !isClickGesture(down, up)) return;
-    onMarkClick?.(markKeyAt(up));
-  };
+  const pointers = useGridPointers({
+    canvasRef,
+    layout,
+    marks,
+    poseRef,
+    ...(markHitSlopPx === undefined ? {} : { markHitSlopPx }),
+    ...(onHoverCell === undefined ? {} : { onHoverCell }),
+    ...(onHoverMark === undefined ? {} : { onHoverMark }),
+    ...(onMarkClick === undefined ? {} : { onMarkClick }),
+    onCursor: setCursor,
+    onDragStart: pose.onDragStart,
+    onDragMove: pose.onDragMove,
+    onDragEnd: pose.onDragEnd,
+  });
 
   return (
     <div
@@ -224,19 +201,19 @@ export function CanvasGrid(props: CanvasGridProps) {
         ref={canvasRef}
         data-testid="canvas-grid"
         data-hover={value === null ? '' : cellLabel(value)}
-        data-canvas-w={box.w}
-        data-canvas-h={box.h}
+        data-canvas-w={viewport.w}
+        data-canvas-h={viewport.h}
         role="img"
-        aria-label={`${label}：${rows} × ${cols} 格`}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={handlePointerLeave}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
+        aria-label={`${label}：${rows} × ${cols} 格（可滚轮缩放、拖动平移）`}
+        onPointerMove={pointers.onPointerMove}
+        onPointerLeave={pointers.onPointerLeave}
+        onPointerDown={pointers.onPointerDown}
+        onPointerUp={pointers.onPointerUp}
         style={{
           display: 'block',
-          width: box.w,
-          height: box.h,
-          cursor: 'crosshair',
+          width: viewport.w,
+          height: viewport.h,
+          cursor: 'grab',
           touchAction: 'none',
         }}
       />

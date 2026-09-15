@@ -88,6 +88,12 @@ afterEach(() => {
 
 const lastMetrics = (spy: ReturnType<typeof vi.fn>): GridMetrics => spy.mock.calls.at(-1)?.[0] as GridMetrics;
 
+/**
+ * 一帧的全部调用 = 从最后一次 `clearRect` 起（每帧第一件事就是清屏）。
+ * 首帧尺寸为 0、量到尺寸后会再画一帧，所以「每帧恰好 N 次」必须按帧切片，不能全量计数。
+ */
+const lastFrame = (): string[] => rec.calls.slice(rec.calls.lastIndexOf('clearRect'));
+
 describe('渲染与几何读数', () => {
   it('2×2 格 + 容器 100×100 ⇒ 每格 24px、画布 100×100（含两侧 pad 26）', () => {
     render(<CanvasGrid rows={2} cols={2} />);
@@ -106,7 +112,7 @@ describe('渲染与几何读数', () => {
     render(<CanvasGrid rows={2} cols={2} label="地图网格" />);
     const canvas = screen.getByTestId('canvas-grid');
     expect(canvas.getAttribute('role')).toBe('img');
-    expect(canvas.getAttribute('aria-label')).toBe('地图网格：2 × 2 格');
+    expect(canvas.getAttribute('aria-label')).toBe('地图网格：2 × 2 格（可滚轮缩放、拖动平移）');
   });
 
   it('touchAction: none 已经先在（否则后面加捏合缩放时浏览器会把 pinch 吃掉）', () => {
@@ -149,7 +155,7 @@ describe('渲染与几何读数', () => {
     expect(rec.calls).toContain('arc(50,50,12)');
     // 世界 (1,1) ⇒ 屏幕 (74, 26)：y 向上
     expect(rec.calls).toContain('arc(74,26,12)');
-    expect(rec.calls.filter((c) => c === 'fill')).toHaveLength(2);
+    expect(lastFrame().filter((c) => c === 'fill')).toHaveLength(2);
     // 层序：网格的 stroke 早于轨道/功能点的 arc（"圆在网格之上"）
     expect(rec.calls.indexOf('stroke')).toBeLessThan(rec.calls.indexOf('arc(50,50,24)'));
     expect(rec.calls.indexOf('arc(50,50,24)')).toBeLessThan(rec.calls.indexOf('arc(50,50,12)'));
@@ -179,9 +185,9 @@ describe('渲染与几何读数', () => {
   it('⭐ 一条连接线恰好带来 7 次上下文调用（不会顺手多画东西），且端点落在世界坐标上', () => {
     const { rerender } = render(<CanvasGrid rows={2} cols={2} />);
     rerender(<CanvasGrid rows={2} cols={2} links={[{ from: { x: 0, y: 0 }, to: { x: 1, y: 0 } }]} />);
-    // 改 links 会整帧重画，所以看**末尾**那 7 次：没有功能点/标签时，连接线是本帧最后画的东西。
+    // 改 links 会整帧重画，所以看本帧那 8 次：末尾多一次「切回屏幕空间」的 setTransform。
     // 世界 (0,0) ⇒ (50,50)；世界 (1,0) ⇒ (74,50)
-    expect(rec.calls.slice(-7)).toEqual([
+    expect(lastFrame().slice(-8, -1)).toEqual([
       'save',
       'dash',
       'beginPath',
@@ -203,10 +209,10 @@ describe('渲染与几何读数', () => {
     expect(lastMetrics(onMetrics).bitmapWidth).toBe(200);
   });
 
-  it('真的画了：清屏 + 两次 stroke（细线一遍、主线一遍）', () => {
+  it('真的画了：清屏 + 每帧两次 stroke（细线一遍、主线一遍）', () => {
     render(<CanvasGrid rows={2} cols={2} />);
     expect(rec.calls).toContain('clearRect');
-    expect(rec.calls.filter((c) => c === 'stroke')).toHaveLength(2);
+    expect(lastFrame().filter((c) => c === 'stroke')).toHaveLength(2);
   });
 });
 
@@ -376,12 +382,16 @@ describe('降级路径', () => {
     expect(rec.calls).toEqual([]);
   });
 
-  it('空间不足（42 格塞进 20×20）⇒ 画布 0×0、usable=false、一条线都不画', () => {
+  it('空间不足（42 格塞进 20×20）⇒ 内容 0×0（画布仍是 20×20 的视口）、usable=false、一条线都不画', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => domRect(20, 20));
     const onMetrics = vi.fn();
     render(<CanvasGrid rows={42} cols={42} onMetrics={onMetrics} />);
-    expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('0');
-    expect(lastMetrics(onMetrics).usable).toBe(false);
+    // 画布尺寸跟着**视口**（容器），不再跟着内容：内容算不出来时视口照样铺满底色
+    expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('20');
+    const metrics = lastMetrics(onMetrics);
+    expect(metrics.usable).toBe(false);
+    // 内容算不出来 = 格宽 0（`width/height` 报的是**视口**，所以这里看 cellPx）
+    expect(metrics.cellPx).toBe(0);
     expect(rec.calls.filter((c) => c === 'stroke')).toHaveLength(0);
   });
 });

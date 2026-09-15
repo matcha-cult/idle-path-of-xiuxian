@@ -8,19 +8,20 @@
  *    共 13 个点，都画成直径 1 格的实心圆。
  *
  * ## 刻意不做什么
- * 不含任何地图业务数据（节点/连线/可交互对象/缩放拖拽）。用户的方式是「一步步引导」：
- * 地基没验穿之前，往上叠的每一层都会把几何错误伪装成「手感问题」——上一轮就是这么丢的。
+ * 不含任何地图业务数据（节点/连线的真实拓扑来自后端 seed，这里只是"看着对不对"）。用户的方式是
+ * 「一步步引导」：地基没验穿之前，往上叠的每一层都会把几何错误伪装成「手感问题」——上一轮就是这么丢的。
  *
  * ## 口径
  * - 点位的**存放方式**见 `map-points.ts`：环存半径、点存「环 + 角度」，坐标是派生的；
  * - 本页**不依赖任何 store**（无登录态、无面板数据），所以能脱离后端单独打开验证；
- * - 画布**整图适配**容器，格子取整数（半像素会让 1px 线发虚）；
+ * - 画布**整图适配**容器，格子取整数（半像素会让 1px 线发虚）；缩放/平移是**视图位姿**
+ *   （`scale` + 偏移），位姿在手势期间**不进 React**，所以这里只拿到"手势停下时"的快照（读数用）；
  * - 主题切换按钮由 `App.tsx` 挂（本页故意不引 store），亮暗两套 token 都要在画布上各看一遍。
  */
 import { useMemo, useState } from 'react';
-import { Typography, theme } from 'antd';
+import { Button, Space, Typography, theme } from 'antd';
 import { CanvasGrid } from '@idle-path/ui-kit';
-import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
+import type { GridCell, GridMetrics, Pose } from '@idle-path/ui-kit';
 import { MapStageReadout } from './MapStageReadout.js';
 import { MapStageRingSliders } from './MapStageRingSliders.js';
 import {
@@ -42,6 +43,16 @@ export function MapStagePage() {
   const { token } = theme.useToken();
   const [hover, setHover] = useState<GridCell | null>(null);
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
+  /**
+   * 视图位姿（`onPose`）：**只在手势停下时**更新一次（滚轮 300ms 防抖）。
+   * 它只用于读数与「重置视图」的可用性判断 —— 画面上的缩放平移**不经过**它。
+   */
+  const [pose, setPose] = useState<Pose | null>(null);
+  /**
+   * 复位用**令牌**而不是回调：位姿不在 React state 里（那是手感的关键），
+   * 所以"回到整图适配"只能靠这个递增的数字通知画布内部执行一次命令式复位。
+   */
+  const [resetToken, setResetToken] = useState(0);
   /**
    * 点的**悬停 / 选中**都是**会话态**（与环半径同类）：悬停瞬时、选中常驻。
    * 画布是受控的（`hoverKey` / `selectedKey`），所以点空白取消选中、以后从右侧面板
@@ -98,6 +109,18 @@ export function MapStagePage() {
         </Typography.Text>
       </div>
 
+      <Space wrap>
+        <Button type="primary" data-testid="stage-reset-view" onClick={() => setResetToken((value) => value + 1)}>
+          重置视图
+        </Button>
+        <Typography.Text type="secondary" data-testid="stage-view-hint">
+          <Typography.Text strong>滚轮</Typography.Text> = 以鼠标为锚点缩放（0.5×–8×；到上下限就把滚轮
+          还给页面，不会把画布变成滚轮黑洞）；<Typography.Text strong>按住拖动</Typography.Text> =
+          平移（松手有惯性，撞到边界就停）。缩放平移**不**改变点位数据，命中判定跟着视图走；
+          下面的读数里「缩放 / 原点屏幕」就是当前视图。
+        </Typography.Text>
+      </Space>
+
       <div
         style={{
           flex: 1,
@@ -114,6 +137,8 @@ export function MapStagePage() {
           value={hover}
           onHoverCell={setHover}
           onMetrics={setMetrics}
+          onPose={setPose}
+          resetToken={resetToken}
           rings={gridRings}
           marks={marks}
           links={gridLinks}
@@ -129,6 +154,7 @@ export function MapStagePage() {
       <MapStageReadout
         hover={hover}
         metrics={metrics}
+        pose={pose}
         points={points}
         rings={rings}
         links={links}

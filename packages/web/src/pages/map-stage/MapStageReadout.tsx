@@ -10,7 +10,8 @@
  * **绝不显示 NaN / 0×0**（那会让人以为「画布坏了」而不是「窗口太小」）。
  */
 import { Space, Tag, Typography, theme } from 'antd';
-import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
+import { toScreen } from '@idle-path/ui-kit';
+import type { GridCell, GridMetrics, Pose } from '@idle-path/ui-kit';
 import { PEAK_PHASE_DEG, hiddenPoints, linkBreakdown, visiblePoints } from './map-points.js';
 import type { MapRing, ResolvedMapLink, ResolvedMapPoint } from './map-points.js';
 
@@ -19,6 +20,12 @@ export interface MapStageReadoutProps {
   hover: GridCell | null;
   /** 几何与环境读数（来自 `CanvasGrid` 的 `onMetrics`）；尚未量出时为 null */
   metrics: GridMetrics | null;
+  /**
+   * 当前**视图位姿**（来自 `CanvasGrid` 的 `onPose`）；还没汇报过 ⇒ 省略/null。
+   * 位姿在手势期间不进 React（那是手感的关键），所以这里的数字是"手势停下时"的快照 ——
+   * 它同时也是画布上唯一能证明"缩放到哪儿了"的出口（画布里没有 DOM 可查）。
+   */
+  pose?: Pose | null;
   /** 已解析的点位（含派生世界坐标与世界原点的格点口径） */
   points: readonly ResolvedMapPoint[];
   /** 当前生效的环表（半径可能被滑杆改过 —— 读数必须报**当前值**，不是默认值） */
@@ -66,9 +73,17 @@ function Field(props: { name: string; value: string; testId: string }) {
 
 export function MapStageReadout(props: MapStageReadoutProps) {
   const { hover, metrics, points, rings, links, hoverMark, selectedMark } = props;
+  const pose = props.pose ?? null; // 省略 = 还没汇报过（初始状态），读数一律 `—`
   const { token } = theme.useToken();
   /** 几何读数只在「量出来且真的画得出网格」时才有意义；否则一律 `—`。 */
   const geom = metrics !== null && metrics.usable ? metrics : null;
+  /**
+   * 视图读数的口径：`缩放` 是位姿的 scale（1 = 整图适配）；`原点屏幕` 把**世界原点**
+   * 经位姿算到屏幕像素 —— 它随缩放平移动，是"当前视图到底在哪"的那一个数。
+   */
+  const zoomText = pose === null ? DASH : `${Math.round(pose.scale * 100)}%`;
+  const origin = pose === null || geom === null ? null : toScreen(geom.centerX, geom.centerY, pose);
+  const originText = origin === null ? DASH : `(${Math.round(origin.x)}, ${Math.round(origin.y)}) px`;
   const peaks = points.filter((point) => point.kind === 'peak');
   const gates = points.filter((point) => point.kind === 'gate');
   /** 渲染的 / 只在数据里的（读数把两类都列出来 —— 隐藏位要"看得见它存在"）。 */
@@ -119,7 +134,7 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         />
         <Field name="格宽" testId="stage-cell" value={geom === null ? DASH : `${geom.cellPx} px`} />
         <Field
-          name="画布"
+          name="视口"
           testId="stage-canvas"
           value={geom === null ? DASH : `${geom.width} × ${geom.height} CSS`}
         />
@@ -130,6 +145,8 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         />
         <Field name="DPR" testId="stage-dpr" value={metrics === null ? DASH : String(metrics.dpr)} />
         <Field name="每轴线" testId="stage-lines" value={geom === null ? DASH : `${geom.axisLineCount} 条`} />
+        <Field name="缩放" testId="stage-zoom" value={zoomText} />
+        <Field name="原点屏幕" testId="stage-origin-screen" value={originText} />
         <Field name="环" testId="stage-rings" value={ringText} />
         <Field name="连接" testId="stage-links" value={linkText} />
       </Space>

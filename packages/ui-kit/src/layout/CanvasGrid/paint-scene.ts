@@ -2,19 +2,22 @@
  * `paintScene` —— **一帧的全部绘制**，层序从下到上：
  *
  * ```
- * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → 轨道环 → 连接线 → 功能点 → 光标坐标标签
+ * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → 轨道环 → 连接线 → 功能点 → 聚焦圈 → 光标标签
  * ```
  *
- * 为什么把层序收在一个函数里：「谁压在谁上面」是肉眼最先看出、也最容易被重构打乱的性质。
- * 收在纯函数里就能用假上下文直接断言**调用次序**（网格的 `stroke` 必须早于功能点的 `arc`），
- * 而不是等人在浏览器里发现「圆被网格线盖住了」。
+ * ## 两套坐标（与 `pose.ts` 同一口径，别混）
+ * - **内容空间**：网格/环/线/点都按内容坐标绘制，`ctx` 上叠了位姿变换（`scale` + `offset`）
+ *   —— 于是缩放平移**不用改任何 painter**；
+ * - **屏幕空间**：底色（要铺满**视口**，否则缩小时外面会留上一帧残影）与**光标标签**
+ *   （文字必须与缩放无关、永远那么大）在屏幕空间画。
  *
- * 为什么**内容（轨道 / 连接线 / 功能点）压在交互反馈之上**：悬停高亮是"鼠标现在在哪"的瞬时提示，
- * 而轨道、边、点都是地图内容；内容不该被鼠标经过时染上一层色。光标坐标标签再压在最上面。
- * 内容层内部：**环 → 线 → 点**（骨架在下、节点在上，点永远盖住线头）。
+ * ## 为什么层序收在一个函数里
+ * 「谁压在谁上面」是肉眼最先看出、也最容易被重构打乱的性质：收在纯函数里就能用假上下文
+ * 直接断言**调用次序**（而且现在按**颜色**断言，比按调用序号猜可靠得多）。
+ * 内容内部顺序：环 → 线 → 点 → 聚焦圈（骨架在下、节点在上、反馈在最上）。
  *
- * 它同时负责**位图尺寸**：`canvas.width/height = CSS 尺寸 × dpr`，且**只在变化时写**——
- * 写这两个属性会清空画布并重置上下文状态（每帧无脑写会白白丢掉状态、也没有必要）。
+ * 它同时负责**位图尺寸**：`canvas.width/height = 视口 CSS 尺寸 × dpr`，且**只在变化时写**
+ *（写这两个属性会清空画布并重置上下文状态）。
  *
  * 返回是否画出了网格：几何不可用时（尺寸未量出 / 空间不足）只铺底色，其余一概不画。
  */
@@ -30,6 +33,7 @@ import { paintHoverCell } from './paint-hover-cell.js';
 import { paintLink } from './paint-link.js';
 import { paintMarkDot } from './paint-mark-dot.js';
 import { paintMarkFocus } from './paint-mark-focus.js';
+import type { Pose } from './pose.js';
 import type { GridLink, GridMark, GridPoint, GridRing } from './types.js';
 import { worldToScreen } from './world.js';
 
@@ -44,13 +48,15 @@ export interface SceneCanvas {
 
 export interface SceneInput {
   layout: GridLayout;
-  /** 画布 CSS 尺寸 */
-  boxW: number;
-  boxH: number;
+  /** 视口（画布 CSS 尺寸）；底色与光标标签都按它算 */
+  viewW: number;
+  viewH: number;
   dpr: number;
+  /** 视图位姿：内容坐标 → 屏幕坐标 */
+  pose: Pose;
   /** 受控高亮格 */
   hover: GridCell | null;
-  /** 光标位置（画布内 CSS 像素）；null = 不画坐标标签 */
+  /** 光标位置（**屏幕空间** CSS 像素）；null = 不画坐标标签 */
   cursor: GridPoint | null;
   majorStep: number;
   showCursorLabel: boolean;
@@ -77,9 +83,10 @@ export function paintScene(
 ): boolean {
   const {
     layout,
-    boxW,
-    boxH,
+    viewW,
+    viewH,
     dpr,
+    pose,
     hover,
     cursor,
     majorStep,
@@ -95,16 +102,28 @@ export function paintScene(
     palette,
   } = input;
 
-  const bitmapW = Math.round(boxW * dpr);
-  const bitmapH = Math.round(boxH * dpr);
+  const bitmapW = Math.round(viewW * dpr);
+  const bitmapH = Math.round(viewH * dpr);
   if (canvas.width !== bitmapW) canvas.width = bitmapW;
   if (canvas.height !== bitmapH) canvas.height = bitmapH;
 
-  // 位图放大了 dpr 倍 → 之后一律用 CSS 像素坐标绘制
+  // 屏幕空间：底色要铺满**视口**（缩小时内容比视口小，没铺到的地方会留上一帧残影）
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, viewW, viewH);
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = palette.background;
+  ctx.fillRect(0, 0, viewW, viewH);
+  ctx.restore();
+
+  // 内容空间：位姿变换一次搞定缩放 + 平移，之后的 painter 全都不认识位姿
+  ctx.setTransform(dpr * pose.scale, 0, 0, dpr * pose.scale, dpr * pose.offsetX, dpr * pose.offsetY);
 
   const drew = paintGrid(ctx, { layout, palette, majorStep, fontPx: FONT_PX, fontFamily });
-  if (!drew) return false;
+  if (!drew) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return false;
+  }
 
   // 交互反馈层：悬停格（压在底图之上、内容之下）
   if (hover !== null) {
@@ -139,7 +158,7 @@ export function paintScene(
       });
     }
 
-    // 聚焦圈画在**所有点之后**：圈是"套在点外面"的，不该被相邻的点盖住。
+    // 聚焦圈画在**所有点之后**：圈套在点外面，不该被相邻的点盖住。
     // 先悬停（细）后选中（粗）：两者同时存在时看到的是双圈，语义清楚。
     const focusOn = (key: string | null, widthPx: number): void => {
       if (key === null) return;
@@ -159,18 +178,20 @@ export function paintScene(
     focusOn(selectedMarkKey, 2);
   }
 
-  // 光标标签：悬停到点了就报**名字**（想知道"这是哪儿"），否则报格坐标
+  // 屏幕空间：光标标签。文字**不随缩放变大**（它是读数，不是地图内容），也不受位姿平移影响
+  // —— 所以这里显式把变换重置回屏幕空间。
   const hoveredMark = hoverMarkKey === null
     ? undefined
     : marks[marks.findIndex((mark, position) => markKeyOf(mark, position) === hoverMarkKey)];
   const labelText = hoveredMark?.label ?? (hover === null ? null : cellLabel(hover));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (showCursorLabel && labelText !== null && cursor !== null) {
     paintCursorLabel(ctx, {
       text: labelText,
       x: cursor.x,
       y: cursor.y,
-      width: boxW,
-      height: boxH,
+      width: viewW,
+      height: viewH,
       fontPx: FONT_PX,
       fontFamily,
       background: cursorLabelBackground,

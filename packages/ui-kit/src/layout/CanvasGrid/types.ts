@@ -6,6 +6,7 @@
  * 几何与环境报出来 —— 这不是可选日志，是这个渲染方案的**必要接口**。
  */
 import type { GridCell } from './geometry.js';
+import type { Pose } from './pose.js';
 import type { WorldPoint } from './world.js';
 
 /** 画布内的指针位置（CSS 像素，相对画布左上角）。 */
@@ -99,6 +100,18 @@ export interface CanvasGridProps {
   onMarkClick?: (key: string | null) => void;
   /** 命中半径下限（CSS 像素）：太小的点也要点得着 */
   markHitSlopPx?: number;
+  /**
+   * 位姿汇报（**手势结束时**，不是每帧）：读数 / 排查用。
+   * 拖动与缩放期间位姿在 ref 里、命令式重画，所以这里**不会**每帧触发 React 渲染。
+   */
+  onPose?: (pose: Pose) => void;
+  /**
+   * 复位触发器：**递增这个数**就把视图复位成整图适配。
+   *
+   * 为什么用令牌而不是受控 `pose` + `onPoseChange`：受控意味着每帧都要回写 React
+   *（正是要避免的"60 帧 60 次提交"）。复位是低频操作，命令式逃生口最划算。
+   */
+  resetToken?: number;
   /** 主线 / 轴标间隔（格） */
   majorStep?: number;
   /** 是否在光标旁画「列,行」标签 */

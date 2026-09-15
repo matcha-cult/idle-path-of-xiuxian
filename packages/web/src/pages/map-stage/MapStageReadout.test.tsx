@@ -16,6 +16,7 @@ import {
   withRingRadii,
 } from './map-points.js';
 import type { GridMetrics } from '@idle-path/ui-kit';
+import { toScreen } from '@idle-path/ui-kit';
 
 const METRICS: GridMetrics = {
   cellPx: 16,
@@ -45,6 +46,22 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-bitmap')).toHaveTextContent('1448 × 1448');
     expect(screen.getByTestId('stage-dpr')).toHaveTextContent('2');
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
+  });
+
+  it('⭐ 视图读数：还没汇报过位姿 ⇒ 缩放/原点屏幕都是 —（不显示 NaN）', () => {
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
+    expect(screen.getByTestId('stage-zoom')).toHaveTextContent('—');
+    expect(screen.getByTestId('stage-origin-screen')).toHaveTextContent('—');
+  });
+
+  it('⭐ 视图读数：缩放报百分比；原点屏幕 = 世界原点经位姿算到屏幕（由 toScreen 独立算，不写死）', () => {
+    const pose = { scale: 2, offsetX: -100, offsetY: 40 };
+    render(
+      <MapStageReadout hover={null} metrics={METRICS} pose={pose} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />,
+    );
+    expect(screen.getByTestId('stage-zoom')).toHaveTextContent('200%');
+    const at = toScreen(METRICS.centerX, METRICS.centerY, pose);
+    expect(screen.getByTestId('stage-origin-screen')).toHaveTextContent(`(${Math.round(at.x)}, ${Math.round(at.y)}) px`);
   });
 
   it('⭐ 环读数用用户口径的名字 + 每个环挂几个点（外环/二环/内环/中心，虚实与隐藏都标出来）', () => {

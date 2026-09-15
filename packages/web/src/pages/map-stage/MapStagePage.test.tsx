@@ -7,7 +7,7 @@
  * 而"环到底画没画、点落在哪"只能靠这一类调用次序/坐标断言兜住 —— 否则就要靠人在浏览器里数。
  * jsdom 没有 2D 上下文，这里用最小的假上下文 + 继承 MouseEvent 的 PointerEvent 补上。
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapStagePage } from './MapStagePage.js';
 import {
@@ -39,6 +39,25 @@ let arcs: string[] = [];
 let dashes: number[][] = [];
 let segments: string[] = [];
 let strokeCount = 0;
+/** 每帧起点（`clearRect` 处）的记录：挂载时尺寸未知的那一帧什么都不画，量出后才真画。 */
+let frames: { arcs: number; dashes: number; segments: number; strokes: number }[] = [];
+
+/**
+ * 最后一帧的全部调用（从最后一次清屏算起）。
+ *
+ * 为什么必须按帧看：画布**铺满视口**、内容在视口里居中，挂载时会经历"尺寸未知（0×0）→ 量出"
+ * 两次绘制，而假上下文是**只追加的日志**（它不模拟"重画会清空画布"）。全量计数会把两帧加在一起，
+ * 于是"37 次 stroke"会变成 74 —— 那是断言写错了，不是页面画错了。
+ */
+function lastFrame(): { arcs: string[]; dashes: number[][]; segments: string[]; strokes: number } {
+  const mark = frames.at(-1) ?? { arcs: 0, dashes: 0, segments: 0, strokes: 0 };
+  return {
+    arcs: arcs.slice(mark.arcs),
+    dashes: dashes.slice(mark.dashes),
+    segments: segments.slice(mark.segments),
+    strokes: strokeCount - mark.strokes,
+  };
+}
 
 function fakeContext(): CanvasRenderingContext2D {
   const noop = (): void => {};
@@ -46,7 +65,9 @@ function fakeContext(): CanvasRenderingContext2D {
     save: noop,
     restore: noop,
     setTransform: noop,
-    clearRect: noop,
+    clearRect: () => {
+      frames.push({ arcs: arcs.length, dashes: dashes.length, segments: segments.length, strokes: strokeCount });
+    },
     fillRect: noop,
     strokeRect: noop,
     beginPath: noop,
@@ -76,6 +97,13 @@ const handles = (): Element[] => [...document.querySelectorAll('[role="slider"]'
 /** 容器 500×500 ⇒ 每格 floor((500 − 2×26)/42) = 10px；世界原点 = pad + 半幅×格宽 = 236。 */
 const CELL_PX = 10;
 const CENTER = 26 + 21 * CELL_PX;
+
+/**
+ * 整图适配把内容**居中**：画布铺满视口 500，而内容只有 472（42×10 + 两侧 pad）⇒ 屏幕 = 内容 + 14。
+ * 指针事件的坐标是**屏幕**坐标，绘制调用的坐标是**内容**坐标 —— 这两者不再相等，别再混用。
+ */
+const FIT = SIZE / 2 - CENTER;
+const screenOf = (content: number): number => content + FIT;
 
 /** 把 arc 调用解析成数字：浮点位置不适合字符串相等，按容差比较。 */
 function arcsOf(calls: string[]): { x: number; y: number; r: number }[] {
@@ -111,6 +139,7 @@ beforeEach(() => {
   dashes = [];
   segments = [];
   strokeCount = 0;
+  frames = [];
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     (() => fakeContext()) as unknown as HTMLCanvasElement['getContext'],
   );
@@ -150,7 +179,7 @@ describe('MapStagePage', () => {
   it('⭐ 笔数对得上：2（细线/主线）+ 3（三条环）+ 32（连接线）= 37 次 stroke', () => {
     render(<MapStagePage />);
     // 32 条边的条数由 map-links 的拓扑测试钉死；这里验"页面真的把它们都画了"
-    expect(strokeCount).toBe(2 + 3 + 32);
+    expect(lastFrame().strokes).toBe(2 + 3 + 32);
   });
 
   it('⭐ 隐藏位没有连线（不会出现"连着看不见的点"的线）', () => {
@@ -174,10 +203,10 @@ describe('MapStagePage', () => {
     const canvas = screen.getByTestId('canvas-grid');
     const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
 
-    fireEvent.pointerMove(canvas, { clientX: eastCourtX, clientY: CENTER });
+    fireEvent.pointerMove(canvas, { clientX: screenOf(eastCourtX), clientY: screenOf(CENTER) });
     expect(screen.getByTestId('stage-hover-mark')).toHaveTextContent('四院·东 [court_1]');
 
-    fireEvent.pointerMove(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
+    fireEvent.pointerMove(canvas, { clientX: screenOf(CENTER + 5), clientY: screenOf(CENTER + 150) });
     expect(screen.getByTestId('stage-hover-mark')).toHaveTextContent('—');
   });
 
@@ -187,15 +216,15 @@ describe('MapStagePage', () => {
     const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
 
     const before = arcs.length;
-    fireEvent.pointerDown(canvas, { clientX: eastCourtX, clientY: CENTER });
-    fireEvent.pointerUp(canvas, { clientX: eastCourtX, clientY: CENTER });
+    fireEvent.pointerDown(canvas, { clientX: screenOf(eastCourtX), clientY: screenOf(CENTER) });
+    fireEvent.pointerUp(canvas, { clientX: screenOf(eastCourtX), clientY: screenOf(CENTER) });
     expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('四院·东 [court_1]');
     // 点半径 5px ⇒ 选中圈 5 + 3 + 1 = 9
     expect(arcs.slice(before)).toContain(`arc(${eastCourtX},${CENTER},9)`);
 
     // 点空白 ⇒ 取消选中（这是"点空白取消"的唯一入口）
-    fireEvent.pointerDown(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
-    fireEvent.pointerUp(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
+    fireEvent.pointerDown(canvas, { clientX: screenOf(CENTER + 5), clientY: screenOf(CENTER + 150) });
+    fireEvent.pointerUp(canvas, { clientX: screenOf(CENTER + 5), clientY: screenOf(CENTER + 150) });
     expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('—');
   });
 
@@ -203,15 +232,17 @@ describe('MapStagePage', () => {
     render(<MapStagePage />);
     const canvas = screen.getByTestId('canvas-grid');
     const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
-    fireEvent.pointerDown(canvas, { clientX: eastCourtX, clientY: CENTER });
-    fireEvent.pointerUp(canvas, { clientX: eastCourtX + 30, clientY: CENTER + 30 });
+    fireEvent.pointerDown(canvas, { clientX: screenOf(eastCourtX), clientY: screenOf(CENTER) });
+    fireEvent.pointerUp(canvas, { clientX: screenOf(eastCourtX + 30), clientY: screenOf(CENTER + 30) });
     expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('—');
   });
 
-  it('按 42 格算出整数格宽与画布尺寸（500×500 ⇒ 每格 10px、画布 472）', () => {
+  it('按 42 格算出整数格宽；画布铺满**视口**（500），格阵内容 472 居中', () => {
     render(<MapStagePage />);
     expect(screen.getByTestId('canvas-grid-root').getAttribute('data-cell-px')).toBe('10');
-    expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('472');
+    // 画布 = 视口（缩放平移的对象是它）；内容 = 42×10 + 两侧 26 = 472，多出来的 28 是"整格取整"的余量
+    expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('500');
+    expect(screen.getByTestId('stage-canvas')).toHaveTextContent('500 × 500 CSS');
   });
 
   it('⭐ 三条轨道：都以世界原点为心、半径 = 格数 × 格宽；只有外环（宗门大阵圈）是虚线', () => {
@@ -221,13 +252,13 @@ describe('MapStagePage', () => {
     expect(hasRing(arcs, GATE_RING_CELLS)).toBe(true);
     // 中心那条 r=0 的"环"不该被画出来
     expect(hasRing(arcs, 0)).toBe(false);
-    expect(dashes.filter((segments) => segments.length > 0)).toHaveLength(1);
+    expect(lastFrame().dashes.filter((segments) => segments.length > 0)).toHaveLength(1);
   });
 
   it('⭐ 17 个**渲染**点位都画出来（直径 1 格 ⇒ 半径 5px），位置按世界坐标 + y 向上', () => {
     render(<MapStagePage />);
-    // 3 条环 + 17 个点
-    expect(arcs).toHaveLength(3 + 17);
+    // 3 条环 + 17 个点（只看最后一帧）
+    expect(lastFrame().arcs).toHaveLength(3 + 17);
     expect(hasMark(arcs, 0)).toBe(true); // 主峰
     expect(hasMark(arcs, GATE_RING_CELLS, 0)).toBe(true); // 宗门·东门
     expect(hasMark(arcs, GATE_RING_CELLS, 90)).toBe(true); // 宗门·北门（屏幕 y 更小 ⇒ y 向上）
@@ -291,7 +322,7 @@ describe('MapStagePage', () => {
     render(<MapStagePage />);
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('10 px');
     expect(screen.getByTestId('stage-origin')).toHaveTextContent('(236, 236) px');
-    expect(screen.getByTestId('stage-canvas')).toHaveTextContent('472 × 472 CSS');
+    expect(screen.getByTestId('stage-canvas')).toHaveTextContent('500 × 500 CSS');
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
     // 环读数用用户口径的名字（相位在下面的说明里）
     expect(screen.getByTestId('stage-rings')).toHaveTextContent(`外环 · 四门 r${GATE_RING_CELLS}（虚线）×4`);
@@ -314,11 +345,33 @@ describe('MapStagePage', () => {
     const canvas = screen.getByTestId('canvas-grid');
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('—');
 
-    fireEvent.pointerMove(canvas, { clientX: 100, clientY: 60 });
+    fireEvent.pointerMove(canvas, { clientX: screenOf(100), clientY: screenOf(60) });
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('列 07 / 行 03');
 
     fireEvent.pointerLeave(canvas);
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('—');
+  });
+
+  it('⭐ 视图：滚轮缩放后读数里的「缩放」跟着变，点「重置视图」回到 100%（整图适配）', async () => {
+    render(<MapStagePage />);
+    const canvas = screen.getByTestId('canvas-grid');
+    expect(screen.getByTestId('stage-zoom')).toHaveTextContent('100%');
+    expect(screen.getByTestId('stage-view-hint')).toHaveTextContent('滚轮');
+    for (let i = 0; i < 3; i += 1) {
+      act(() => {
+        canvas.dispatchEvent(
+          new WheelEvent('wheel', { deltaY: -100, clientX: 250, clientY: 250, bubbles: true, cancelable: true }),
+        );
+      });
+    }
+    // 滚轮停手 300ms 才汇报位姿 —— 用真时钟等（假时钟在 antd 页面上会卡住动画计时器）
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(screen.getByTestId('stage-zoom')).not.toHaveTextContent('100%');
+
+    fireEvent.click(screen.getByTestId('stage-reset-view'));
+    expect(screen.getByTestId('stage-zoom')).toHaveTextContent('100%');
   });
 
   it('窗口太小（容器 0×0）⇒ 读数 —、画布 0×0、一个 arc 都不画，且不抛错', () => {
