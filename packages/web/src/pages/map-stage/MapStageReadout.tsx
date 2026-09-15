@@ -11,6 +11,7 @@
  */
 import { Space, Tag, Typography, theme } from 'antd';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
+import { GATE_COUNT, GATE_RING_CELLS, PEAK_COUNT, PEAK_PHASE_DEG, PEAK_RING_CELLS } from './map-points.js';
 import type { ResolvedMapPoint } from './map-points.js';
 
 export interface MapStageReadoutProps {
@@ -51,6 +52,7 @@ export function MapStageReadout(props: MapStageReadoutProps) {
   /** 几何读数只在「量出来且真的画得出网格」时才有意义；否则一律 `—`。 */
   const geom = metrics !== null && metrics.usable ? metrics : null;
   const peaks = points.filter((point) => point.kind === 'peak');
+  const gates = points.filter((point) => point.kind === 'gate');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: token.paddingXS }}>
@@ -78,6 +80,11 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         />
         <Field name="DPR" testId="stage-dpr" value={metrics === null ? DASH : String(metrics.dpr)} />
         <Field name="每轴线" testId="stage-lines" value={geom === null ? DASH : `${geom.axisLineCount} 条`} />
+        <Field
+          name="环"
+          testId="stage-rings"
+          value={`主峰 r0 · 功能峰 r${PEAK_RING_CELLS} ×${PEAK_COUNT}（相位 ${PEAK_PHASE_DEG}°）· 宗门门 r${GATE_RING_CELLS} ×${GATE_COUNT}`}
+        />
       </Space>
 
       <Space wrap data-testid="stage-points">
@@ -89,9 +96,11 @@ export function MapStageReadout(props: MapStageReadoutProps) {
       </Space>
 
       <Typography.Text type="secondary" data-testid="stage-points-note">
-        共 {points.length} 个点位；{peaks.length} 个功能峰在半径 9 格的环上、8 等分，每个点画成直径 1
-        格的实心圆。坐标是**世界口径**（原点 = 主峰、y 向上、单位 = 格），由「环 + 角度」算出来、不落库：
-        斜向峰的格点坐标含小数（如 列 27.36 / 行 14.64），这正是它们不能被存成整数格点的原因。
+        共 {points.length} 个点位（{peaks.length} 峰在 r={PEAK_RING_CELLS} 的环上按 8 等分、相位 {PEAK_PHASE_DEG}
+        ° ⇒ 错开半个扇区，把四个正方向让给 {gates.length} 座宗门门，门在 r={GATE_RING_CELLS}
+        的正方向上）；每个点都画成直径 1 格的实心圆。坐标是**世界口径**（原点 = 主峰、y 向上、单位 = 格），
+        由「环 + 角度」算出来、不落库：8 颗峰的格点坐标**全是小数**（如 列 29.31 / 行 17.56），
+        这正是它们不能被存成整数格点的原因。
       </Typography.Text>
     </div>
   );

@@ -22,8 +22,10 @@ import { CanvasGrid } from '@idle-path/ui-kit';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
 import { MapStageReadout } from './MapStageReadout.js';
 import {
+  GATE_RING_CELLS,
   MAP_CELLS,
   PEAK_COUNT,
+  PEAK_PHASE_DEG,
   PEAK_RING_CELLS,
   resolveMapPoints,
   toGridMarks,
@@ -55,11 +57,13 @@ export function MapStagePage() {
     >
       <div>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          地图 · 网格 / 轨道 / 功能峰
+          地图 · 网格 / 轨道 / 功能峰 / 四门
         </Typography.Title>
         <Typography.Text type="secondary">
           每轴 {MAP_CELLS} 个小格子（每轴 {MAP_CELLS + 1} 条网格线）；鼠标移到网格上会高亮，并在光标旁报出坐标。
-          主峰在中心，外面一圈半径 {PEAK_RING_CELLS} 格的轨道，按 8 等分定出 {PEAK_COUNT} 个功能峰。
+          主峰在中心；外面一圈半径 {PEAK_RING_CELLS} 格的轨道上按 8 等分排出 {PEAK_COUNT} 个功能峰（相位{' '}
+          {PEAK_PHASE_DEG}°，即错开半个扇区）；再外面一圈<span> </span>
+          {GATE_RING_CELLS} 格的虚线轨道是宗门大阵圈，四门在正北/正东/正南/正西。
         </Typography.Text>
       </div>
 
