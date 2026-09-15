@@ -52,6 +52,8 @@ export * from './layout/GraphCanvasLinks/index.js';
 export * from './layout/GraphCanvasGrid/index.js';
 // canvas 混合渲染版（canvas 画网格/连线 + DOM 放枢纽）：与 GraphCanvas 同语义、可换路线
 export * from './layout/CanvasGraph/index.js';
+// 纯 canvas 重做版（第一步：42×42 网格 + 坐标读数）：渲染无关的手感层尚未接入
+export * from './layout/CanvasGrid/index.js';
 
 // ===== pluggable =====
 export * from './pluggable/panel-registry/index.js';
