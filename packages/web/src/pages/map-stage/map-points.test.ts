@@ -35,7 +35,7 @@ import {
   visiblePoints,
   withRingRadii,
 } from './map-points.js';
-import type { MapPoint, MapRing } from './map-points.js';
+import type { MapPoint, MapRing, ResolvedMapPoint } from './map-points.js';
 
 const RESOLVED = resolveMapPoints();
 const find = (key: string) => RESOLVED.find((p) => p.key === key);
@@ -46,6 +46,18 @@ const gates = RESOLVED.filter((p) => p.kind === 'gate');
 function angularGap(a: number, b: number): number {
   const d = (((a - b) % 360) + 360) % 360;
   return Math.min(d, 360 - d);
+}
+
+/**
+ * 用**显式夹具**验证「极坐标 → 坐标」这条数学：半径与角度都是**输入**，
+ * 所以断言里的字面量（8.315 / 29.315 …）永远有效，不会因为数据表调半径而失效。
+ * （数据表当前的半径属于"数据"，不该被几何测试钉死 —— 见文件末尾的派生断言。）
+ */
+function resolveOne(radiusCells: number, angleDeg: number): ResolvedMapPoint {
+  return resolveMapPoints(
+    [{ key: 'p', kind: 'peak', label: 'P', ring: 'r', angleDeg }],
+    [{ key: 'r', label: 'R', radiusCells }],
+  )[0] as ResolvedMapPoint;
 }
 
 describe('环定义（半径只写一处）', () => {
@@ -132,13 +144,13 @@ describe('四门（四个正方向）与「错开 22.5°」', () => {
     }
   });
 
-  it('四门的坐标就是四个正方向（整数）', () => {
-    expect(find('gate_1')?.world).toEqual({ x: 10, y: 0 });
-    expect(find('gate_2')?.world).toEqual({ x: 0, y: 10 });
-    expect(find('gate_3')?.world).toEqual({ x: -10, y: 0 });
-    expect(find('gate_4')?.world).toEqual({ x: 0, y: -10 });
-    expect(find('gate_1')?.lattice).toEqual({ col: 31, row: 21 });
-    expect(find('gate_2')?.lattice).toEqual({ col: 21, row: 11 });
+  it('四门的坐标就是四个正方向（整数，半径 = 数据表当前值）', () => {
+    expect(find('gate_1')?.world).toEqual({ x: GATE_RING_CELLS, y: 0 });
+    expect(find('gate_2')?.world).toEqual({ x: 0, y: GATE_RING_CELLS });
+    expect(find('gate_3')?.world).toEqual({ x: -GATE_RING_CELLS, y: 0 });
+    expect(find('gate_4')?.world).toEqual({ x: 0, y: -GATE_RING_CELLS });
+    expect(find('gate_1')?.lattice).toEqual({ col: 21 + GATE_RING_CELLS, row: 21 });
+    expect(find('gate_2')?.lattice).toEqual({ col: 21, row: 21 - GATE_RING_CELLS });
   });
 
   it('⭐ 门与峰错开 22.5°：每颗峰到最近的门，角距恰好 22.5°', () => {
@@ -149,8 +161,9 @@ describe('四门（四个正方向）与「错开 22.5°」', () => {
     }
   });
 
-  it('门环比峰环靠外 1 格（10 > 9），两条轨道不会重叠', () => {
+  it('门环比峰环**靠外**（两条轨道不会重叠）', () => {
     expect(GATE_RING_CELLS).toBeGreaterThan(PEAK_RING_CELLS);
+    expect(PEAK_RING_CELLS).toBeGreaterThan(COURT_RING_CELLS);
   });
 });
 
@@ -161,9 +174,9 @@ describe('派生坐标（逐点核对）', () => {
     expect(summit?.lattice).toEqual({ col: 21, row: 21 });
   });
 
-  it('第一颗峰 22.5°：世界 (8.315, 3.444)（= 9·cos/sin 22.5°）', () => {
-    expect(find('peak_1')?.world.x).toBeCloseTo(8.314915793, 9);
-    expect(find('peak_1')?.world.y).toBeCloseTo(3.444150891, 9);
+  it('⭐ 极坐标 → 世界坐标：r=9、22.5° ⇒ (8.315, 3.444) = 9·cos/sin 22.5°（夹具输入，与数据表当前值无关）', () => {
+    expect(resolveOne(9, 22.5).world.x).toBeCloseTo(8.314915793, 9);
+    expect(resolveOne(9, 22.5).world.y).toBeCloseTo(3.444150891, 9);
   });
 
   it('8 个峰两两关于主峰中心对称（8 等分 + 单一相位的必然结果）', () => {
@@ -179,8 +192,11 @@ describe('派生坐标（逐点核对）', () => {
       expect(Number.isInteger(peak.lattice.col)).toBe(false);
       expect(Number.isInteger(peak.lattice.row)).toBe(false);
     }
-    expect(find('peak_1')?.lattice.col).toBeCloseTo(29.314915793, 6);
-    expect(find('peak_1')?.lattice.row).toBeCloseTo(17.555849109, 6);
+  });
+
+  it('⭐ 极坐标 → 格点口径：r=9、22.5° ⇒ 列 29.315 / 行 17.556（小数，格索引存不下）', () => {
+    expect(resolveOne(9, 22.5).lattice.col).toBeCloseTo(29.314915793, 6);
+    expect(resolveOne(9, 22.5).lattice.row).toBeCloseTo(17.555849109, 6);
   });
 
   it('四门反而落在整数格点上 —— 两类点口径不同，正好说明为什么要分开建模', () => {
@@ -220,11 +236,11 @@ describe('交给绘制层的最小形状', () => {
     expect(hiddenPoints(RESOLVED)).toHaveLength(4);
     // 顺序：marks[0]=主峰，[1..8]=八峰，[9..12]=四门，[13..16]=四院（预留位被滤掉）
     expect(marks[0]?.at).toEqual({ x: 0, y: 0 });
-    expect(marks[9]?.at).toEqual({ x: 10, y: 0 });
-    expect(marks[13]?.at).toEqual({ x: 5, y: 0 });
+    expect(marks[9]?.at).toEqual({ x: GATE_RING_CELLS, y: 0 });
+    expect(marks[13]?.at).toEqual({ x: COURT_RING_CELLS, y: 0 });
   });
 
-  it('rings 带半径 + 线型：外环 r10 虚线、二环 r9、内环 r5、中心 r0（r0 由绘制层跳过）', () => {
+  it('rings 带半径 + 线型：外环虚线、二环/内环实线、中心 r0（由绘制层跳过）', () => {
     expect(toGridRings()).toEqual([
       { radiusCells: GATE_RING_CELLS, dashed: true },
       { radiusCells: PEAK_RING_CELLS, dashed: false },
@@ -267,10 +283,11 @@ describe('内环（四院）与「是否隐藏」字段', () => {
     for (const point of courts) {
       expect(point.hidden).toBeUndefined();
     }
-    const ne = reserved[0];
-    expect(ne?.world.x).toBeCloseTo(3.535533906, 9);
-    expect(ne?.world.y).toBeCloseTo(3.535533906, 9);
-    expect(ne?.lattice.col).toBeCloseTo(24.535533906, 6);
+    // 坐标那部分用夹具（r=5、45°）验证，与数据表当前半径无关
+    const ne = resolveOne(5, 45);
+    expect(ne.world.x).toBeCloseTo(3.535533906, 9);
+    expect(ne.world.y).toBeCloseTo(3.535533906, 9);
+    expect(ne.lattice.col).toBeCloseTo(24.535533906, 6);
   });
 
   it('⭐ 隐藏只影响渲染：去掉一个 hidden 就多画一个点（这就是"启用预留位"的动作）', () => {
@@ -279,11 +296,11 @@ describe('内环（四院）与「是否隐藏」字段', () => {
     expect(toGridMarks(enabled)).toHaveLength(18);
   });
 
-  it('四院落在整数格点上（5 格 + 四正 ⇒ 列 26/21/16/21）', () => {
-    expect(courts[0]?.lattice).toEqual({ col: 26, row: 21 });
-    expect(courts[1]?.lattice).toEqual({ col: 21, row: 16 });
-    expect(courts[2]?.lattice).toEqual({ col: 16, row: 21 });
-    expect(courts[3]?.lattice).toEqual({ col: 21, row: 26 });
+  it('四正方向 + **整数半径** ⇒ 落在整数格点上（首尾对齐，格索引存得下）', () => {
+    expect(resolveOne(5, 0).lattice).toEqual({ col: 26, row: 21 });
+    expect(resolveOne(5, 90).lattice).toEqual({ col: 21, row: 16 });
+    expect(resolveOne(5, 180).lattice).toEqual({ col: 16, row: 21 });
+    expect(resolveOne(5, 270).lattice).toEqual({ col: 21, row: 26 });
   });
 });
 
@@ -303,14 +320,20 @@ describe('滑杆：环半径可调（会话态，不动数据表）', () => {
   });
 
   it('默认半径表 = 数据表里的值（刷新回到这里）', () => {
-    expect(defaultRingRadii()).toEqual({ gate: 10, peak: 9, court: 5, summit: 0 });
+    expect(defaultRingRadii()).toEqual({
+      gate: GATE_RING_CELLS,
+      peak: PEAK_RING_CELLS,
+      court: COURT_RING_CELLS,
+      summit: 0,
+    });
   });
 
   it('⭐ 覆盖生效且**不改原表**（纯函数，滑杆调多久数据表都不动）', () => {
     const overridden = withRingRadii({ peak: 12.5 });
     expect(overridden.find((ring) => ring.key === 'peak')?.radiusCells).toBe(12.5);
-    expect(overridden.find((ring) => ring.key === 'gate')?.radiusCells).toBe(10);
-    expect(MAP_RINGS.find((ring) => ring.key === 'peak')?.radiusCells).toBe(9); // 原表没被改
+    expect(overridden.find((ring) => ring.key === 'gate')?.radiusCells).toBe(GATE_RING_CELLS);
+    // 原表没被改
+    expect(MAP_RINGS.find((ring) => ring.key === 'peak')?.radiusCells).toBe(PEAK_RING_CELLS);
     expect(overridden).not.toBe(MAP_RINGS);
   });
 
@@ -320,9 +343,10 @@ describe('滑杆：环半径可调（会话态，不动数据表）', () => {
   });
 
   it('未知 key / 非数 ⇒ 该环保持默认（不猜、不拖到 0）', () => {
-    expect(withRingRadii({ nope: 5 }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
-    expect(withRingRadii({ peak: Number.NaN }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
-    expect(withRingRadii({ peak: Number.POSITIVE_INFINITY }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
+    const defaults = [GATE_RING_CELLS, PEAK_RING_CELLS, COURT_RING_CELLS, 0];
+    expect(withRingRadii({ nope: 5 }).map((r) => r.radiusCells)).toEqual(defaults);
+    expect(withRingRadii({ peak: Number.NaN }).map((r) => r.radiusCells)).toEqual(defaults);
+    expect(withRingRadii({ peak: Number.POSITIVE_INFINITY }).map((r) => r.radiusCells)).toEqual(defaults);
   });
 
   it('半径夹在滑杆范围内（0 … 半幅）：越界值不会画出网格外的环', () => {

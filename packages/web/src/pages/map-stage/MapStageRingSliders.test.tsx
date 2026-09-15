@@ -9,7 +9,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MapStageRingSliders } from './MapStageRingSliders.js';
-import { RING_RADIUS_LIMITS, adjustableRings } from './map-points.js';
+import {
+  COURT_RING_CELLS,
+  GATE_RING_CELLS,
+  PEAK_RING_CELLS,
+  RING_RADIUS_LIMITS,
+  adjustableRings,
+} from './map-points.js';
 
 const RINGS = adjustableRings(); // 外环（门）、二环（峰）；中心固定，不给滑杆
 
@@ -24,9 +30,9 @@ describe('MapStageRingSliders', () => {
 
   it('可调的环每个一行：显示名 + 当前半径（值来自环表，不硬编码）', () => {
     render(<MapStageRingSliders rings={RINGS} onChange={vi.fn()} />);
-    expect(screen.getByTestId('ring-value-gate')).toHaveTextContent('10 格');
-    expect(screen.getByTestId('ring-value-peak')).toHaveTextContent('9 格');
-    expect(screen.getByTestId('ring-value-court')).toHaveTextContent('5 格');
+    expect(screen.getByTestId('ring-value-gate')).toHaveTextContent(`${GATE_RING_CELLS} 格`);
+    expect(screen.getByTestId('ring-value-peak')).toHaveTextContent(`${PEAK_RING_CELLS} 格`);
+    expect(screen.getByTestId('ring-value-court')).toHaveTextContent(`${COURT_RING_CELLS} 格`);
     expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('外环 · 四门');
     expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('二环 · 八峰');
     expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('内环 · 四院');
@@ -43,7 +49,7 @@ describe('MapStageRingSliders', () => {
     const [gate] = handles(container);
     expect(gate?.getAttribute('aria-valuemin')).toBe(String(RING_RADIUS_LIMITS.min));
     expect(gate?.getAttribute('aria-valuemax')).toBe(String(RING_RADIUS_LIMITS.max));
-    expect(gate?.getAttribute('aria-valuenow')).toBe('10');
+    expect(gate?.getAttribute('aria-valuenow')).toBe(String(GATE_RING_CELLS));
     expect(handles(container)).toHaveLength(3);
   });
 
@@ -52,7 +58,7 @@ describe('MapStageRingSliders', () => {
     const { container } = render(<MapStageRingSliders rings={RINGS} onChange={onChange} />);
     const [, peak] = handles(container);
     fireEvent.keyDown(peak as Element, { key: 'ArrowRight', keyCode: 39, which: 39 });
-    expect(onChange).toHaveBeenCalledWith('peak', 9 + RING_RADIUS_LIMITS.step);
+    expect(onChange).toHaveBeenCalledWith('peak', PEAK_RING_CELLS + RING_RADIUS_LIMITS.step);
   });
 
   it('键盘左方向键同理（下调）', () => {
@@ -60,7 +66,7 @@ describe('MapStageRingSliders', () => {
     const { container } = render(<MapStageRingSliders rings={RINGS} onChange={onChange} />);
     const [gate] = handles(container);
     fireEvent.keyDown(gate as Element, { key: 'ArrowLeft', keyCode: 37, which: 37 });
-    expect(onChange).toHaveBeenCalledWith('gate', 10 - RING_RADIUS_LIMITS.step);
+    expect(onChange).toHaveBeenCalledWith('gate', GATE_RING_CELLS - RING_RADIUS_LIMITS.step);
   });
 
   it('上报的是**环的 key**，调用方据此写回 state（组件本身不存半径）', () => {

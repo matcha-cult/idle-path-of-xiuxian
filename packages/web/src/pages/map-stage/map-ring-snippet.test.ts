@@ -6,7 +6,7 @@
  * 每个**可调**环都必须标了 `radiusConst`；固定环（中心）则必须没有。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MAP_RINGS, withRingRadii } from './map-points.js';
+import { COURT_RING_CELLS, GATE_RING_CELLS, MAP_RINGS, PEAK_RING_CELLS, withRingRadii } from './map-points.js';
 import type { MapRing } from './map-points.js';
 import { copyText, formatRadius, ringRadiusSnippet } from './map-ring-snippet.js';
 
@@ -21,10 +21,11 @@ describe('ringRadiusSnippet', () => {
   });
 
   it('顺序沿用环表（外环 → 二环 → 内环），常量名与数据表一一对应', () => {
+    // 期望值从数据表派生 ⇒ 以后调半径只改 map-catalog.ts，这里不会拦路
     expect(exportLines(ringRadiusSnippet())).toEqual([
-      'export const GATE_RING_CELLS = 10;',
-      'export const PEAK_RING_CELLS = 9;',
-      'export const COURT_RING_CELLS = 5;',
+      `export const GATE_RING_CELLS = ${GATE_RING_CELLS};`,
+      `export const PEAK_RING_CELLS = ${PEAK_RING_CELLS};`,
+      `export const COURT_RING_CELLS = ${COURT_RING_CELLS};`,
     ]);
   });
 
@@ -32,7 +33,8 @@ describe('ringRadiusSnippet', () => {
     const snippet = ringRadiusSnippet(withRingRadii({ gate: 14, court: 6.5 }));
     expect(snippet).toContain('export const GATE_RING_CELLS = 14;');
     expect(snippet).toContain('export const COURT_RING_CELLS = 6.5;');
-    expect(snippet).toContain('export const PEAK_RING_CELLS = 9;');
+    // 没被覆盖的环照样导出**数据表当前值**
+    expect(snippet).toContain(`export const PEAK_RING_CELLS = ${PEAK_RING_CELLS};`);
   });
 
   it('固定环（中心）与没有 radiusConst 的环被跳过 —— 不往数据表里塞没用的行', () => {

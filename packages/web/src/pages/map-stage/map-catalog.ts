@@ -23,14 +23,18 @@ import type { MapPoint, MapRing } from './map-types.js';
 /** 每轴格子数（地图的几何基础；网格与点位共用这一个数）。 */
 export const MAP_CELLS = 42;
 
-/** 内环（四院）环半径（格）—— 初值 5，看着不合适就用滑杆拖。 */
-export const COURT_RING_CELLS = 5;
+/**
+ * 三层环的半径（格）—— **2026-09-15 由用户在 `?mapStage=1` 的滑杆上定稿**，
+ * 用面板上的「复制环半径」按钮导出后写回这里（三个数：外环 19 / 二环 14 / 内环 9）。
+ *
+ * 为什么比初值（10/9/5）好：三层真正拉开了（层间距 5 格），一眼能看出"外环—二环—内环"的层次；
+ * 外环 19 格仍在网格内（±21 的内接圆以内），四门落在格点 (40,21)/(21,2)/(2,21)/(21,40)。
+ */
+export const COURT_RING_CELLS = 9;
 
-/** 二环（八峰）环半径（格）。 */
-export const PEAK_RING_CELLS = 9;
+export const PEAK_RING_CELLS = 14;
 
-/** 外环（宗门大阵圈）环半径（格）—— 沿用旧种子数据 `outer` 环 r=10 的口径。 */
-export const GATE_RING_CELLS = 10;
+export const GATE_RING_CELLS = 19;
 
 /**
  * 环定义，**从外到内**排列（与用户报环顺序一致：外环 → 二环 → 内环 → 中心）。

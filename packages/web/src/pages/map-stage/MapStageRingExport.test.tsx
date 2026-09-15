@@ -13,7 +13,7 @@ import { App } from 'antd';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapStageRingExport } from './MapStageRingExport.js';
-import { MAP_RINGS, withRingRadii } from './map-points.js';
+import { GATE_RING_CELLS, MAP_RINGS, PEAK_RING_CELLS, withRingRadii } from './map-points.js';
 import type { MapRing } from './map-points.js';
 
 function renderExport(rings: readonly MapRing[] = MAP_RINGS) {
@@ -58,17 +58,17 @@ describe('MapStageRingExport', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const clipboardText = writeText.mock.calls[0]?.[0] as string;
-    expect(clipboardText).toContain('export const PEAK_RING_CELLS = 9;');
+    expect(clipboardText).toContain(`export const PEAK_RING_CELLS = ${PEAK_RING_CELLS};`);
     // 控制台的第二个参数就是同一段文本（前缀 + 换行 + 内容）
     expect(logged).toHaveLength(1);
-    expect(String(logged[0]?.[1])).toContain('export const PEAK_RING_CELLS = 9;');
+    expect(String(logged[0]?.[1])).toContain(`export const PEAK_RING_CELLS = ${PEAK_RING_CELLS};`);
   });
 
   it('⭐ 剪贴板不可用时：不炸、不吞，内容仍打到控制台（退路必须存在）', async () => {
     renderExport();
     fireEvent.click(screen.getByTestId('ring-export-button'));
     await waitFor(() => expect(logged).toHaveLength(1));
-    expect(String(logged[0]?.[1])).toContain('export const GATE_RING_CELLS = 10;');
+    expect(String(logged[0]?.[1])).toContain(`export const GATE_RING_CELLS = ${GATE_RING_CELLS};`);
   });
 
   it('导出的是当前（滑杆调过的）值，不是默认值', async () => {

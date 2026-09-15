@@ -6,7 +6,14 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MapStageReadout } from './MapStageReadout.js';
-import { MAP_RINGS, resolveMapPoints, withRingRadii } from './map-points.js';
+import {
+  COURT_RING_CELLS,
+  GATE_RING_CELLS,
+  MAP_RINGS,
+  PEAK_RING_CELLS,
+  resolveMapPoints,
+  withRingRadii,
+} from './map-points.js';
 import type { GridMetrics } from '@idle-path/ui-kit';
 
 const METRICS: GridMetrics = {
@@ -41,10 +48,11 @@ describe('MapStageReadout', () => {
   it('⭐ 环读数用用户口径的名字 + 每个环挂几个点（外环/二环/内环/中心，虚实与隐藏都标出来）', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     const rings = screen.getByTestId('stage-rings');
-    expect(rings).toHaveTextContent('外环 · 四门 r10（虚线）×4');
-    expect(rings).toHaveTextContent('二环 · 八峰 r9（实线）×8');
+    // 半径从数据表派生 ⇒ 以后调参不会让这条断言变红（读数要验的是"报的是当前值"，不是"值是多少"）
+    expect(rings).toHaveTextContent(`外环 · 四门 r${GATE_RING_CELLS}（虚线）×4`);
+    expect(rings).toHaveTextContent(`二环 · 八峰 r${PEAK_RING_CELLS}（实线）×8`);
     // 内环 8 个位置里只有 4 个渲染，另外 4 个是预留位 —— 必须标出来，否则像丢数据
-    expect(rings).toHaveTextContent('内环 · 四院 r5（实线）×4+4隐藏');
+    expect(rings).toHaveTextContent(`内环 · 四院 r${COURT_RING_CELLS}（实线）×4+4隐藏`);
     expect(rings).toHaveTextContent('中心 · 主峰 r0（实线）×1');
   });
 
@@ -64,19 +72,21 @@ describe('MapStageReadout', () => {
   it('⭐ 17 个渲染点位上屏（1 主峰 + 8 八峰 + 4 宗门门 + 4 四院），坐标是世界口径', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     expect(screen.getByTestId('stage-point-summit')).toHaveTextContent('主峰 (0, 0)');
-    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent('八峰·一 (8.3, 3.4)');
-    expect(screen.getByTestId('stage-point-peak_3')).toHaveTextContent('八峰·三 (-3.4, 8.3)');
-    expect(screen.getByTestId('stage-point-gate_1')).toHaveTextContent('宗门·东门 (10, 0)');
-    expect(screen.getByTestId('stage-point-gate_2')).toHaveTextContent('宗门·北门 (0, 10)');
-    expect(screen.getByTestId('stage-point-court_1')).toHaveTextContent('四院·东 (5, 0)');
+    // 正方向点用数据表半径派生（整数，格式化不会变）；斜向点的浮点坐标由 map-points 的夹具测试钉死，
+    // 这里只验"标签 + 括号里的数值格式"
+    expect(screen.getByTestId('stage-point-gate_1')).toHaveTextContent(`宗门·东门 (${GATE_RING_CELLS}, 0)`);
+    expect(screen.getByTestId('stage-point-gate_2')).toHaveTextContent(`宗门·北门 (0, ${GATE_RING_CELLS})`);
+    expect(screen.getByTestId('stage-point-court_1')).toHaveTextContent(`四院·东 (${COURT_RING_CELLS}, 0)`);
+    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent('八峰·一 (');
+    expect(screen.getByTestId('stage-point-peak_3')).toHaveTextContent('八峰·三 (');
     expect(screen.getByTestId('stage-points').children).toHaveLength(17);
   });
 
   it('⭐ 4 个隐藏位单独一行：数据里在、但不渲染（读数是"看得见它存在"的唯一地方）', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     expect(screen.getByTestId('stage-hidden-points')).toHaveTextContent('隐藏');
-    expect(screen.getByTestId('stage-hidden-inner_1')).toHaveTextContent('预留·东北 (3.5, 3.5)');
-    expect(screen.getByTestId('stage-hidden-inner_4')).toHaveTextContent('预留·东南 (3.5, -3.5)');
+    expect(screen.getByTestId('stage-hidden-inner_1')).toHaveTextContent('预留·东北 (');
+    expect(screen.getByTestId('stage-hidden-inner_4')).toHaveTextContent('预留·东南 (');
     // 同一个 key 不会既在渲染行又在隐藏行
     expect(screen.queryByTestId('stage-point-inner_1')).toBeNull();
     expect(screen.queryByTestId('stage-hidden-court_1')).toBeNull();
@@ -84,9 +94,11 @@ describe('MapStageReadout', () => {
 
   it('⭐ 四门落在四个正方向、八峰落在两个方位之间（相位 22.5° 的直观体现）', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
-    expect(screen.getByTestId('stage-point-gate_3')).toHaveTextContent('宗门·西门 (-10, 0)');
-    expect(screen.getByTestId('stage-point-gate_4')).toHaveTextContent('宗门·南门 (0, -10)');
-    expect(screen.getByTestId('stage-point-peak_5')).toHaveTextContent('八峰·五 (-8.3, -3.4)');
+    expect(screen.getByTestId('stage-point-gate_3')).toHaveTextContent(`宗门·西门 (-${GATE_RING_CELLS}, 0)`);
+    expect(screen.getByTestId('stage-point-gate_4')).toHaveTextContent(`宗门·南门 (0, -${GATE_RING_CELLS})`);
+    // 八峰的坐标**两个分量都不为零**（错开正方向的直接证据）；具体数值由夹具测试钉死
+    expect(screen.getByTestId('stage-point-peak_5')).toHaveTextContent('八峰·五 (');
+    expect(screen.getByTestId('stage-point-peak_5')).not.toHaveTextContent('(0,');
   });
 
   it('说明里点明「环 + 角度」的存放口径、小数格点、隐藏位、以及滑杆只改会话', () => {
