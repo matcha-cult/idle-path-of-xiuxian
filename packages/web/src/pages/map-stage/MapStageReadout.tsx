@@ -8,6 +8,9 @@
  *
  * 口径：读数只在 `metrics.usable` 时给数字，空间不足一律显示 `—`，
  * **绝不显示 NaN / 0×0**（那会让人以为「画布坏了」而不是「窗口太小」）。
+ *
+ * `中心圆` 那一项是给这一轮的验收用的：它把「圆心在哪、直径多少」直接印出来，
+ * 于是「直径 = 1 格」这条要求能在屏幕上被核对，而不是靠肉眼估。
  */
 import { Space, Typography } from 'antd';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
@@ -48,6 +51,11 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         name="悬停格"
         testId="stage-hover"
         value={hover === null ? DASH : `列 ${pad2(hover.col)} / 行 ${pad2(hover.row)}`}
+      />
+      <Field
+        name="中心圆"
+        testId="stage-mark"
+        value={geom === null ? DASH : `(${geom.centerX}, ${geom.centerY}) · Ø ${geom.cellPx} px`}
       />
       <Field name="格宽" testId="stage-cell" value={geom === null ? DASH : `${geom.cellPx} px`} />
       <Field

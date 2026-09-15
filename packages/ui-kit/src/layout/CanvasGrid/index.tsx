@@ -11,6 +11,11 @@
  * **画出来的东西在 DevTools 里没有 DOM，我（看不到浏览器）和你（看不到我画了什么）都失去了
  * 现场**。因此本组件把可读事实**主动交出去**：`onMetrics` 报几何与环境，页面把读数印在屏幕上。
  *
+ * ## 层序（在 `paintScene` 里，有单测钉住）
+ * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → **中心圆（内容）** → 光标坐标标签。
+ * 圆心在 `(cols/2, rows/2)` 那个**格线交点**上，直径 = **1 格**（口径见 `centerMarkRadius`）；
+ * 内容压在交互反馈之上，是为了不让鼠标经过时把地图内容染色。
+ *
  * ## 契约
  * - **受控绘制**：高亮格由 `value` 决定，组件自己不存「哪一格高亮」这类 UI 状态，
  *   只用一个 ref 记录「上次已上报的格子」用于 hover 去重（同格内不重复上报，移出报 null，
@@ -25,27 +30,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { theme } from 'antd';
-import {
-  canvasSize,
-  cellAtPoint,
-  cellLabel,
-  fitCellPx,
-  GRID_PAD_PX,
-  lineCount,
-  sameCell,
-} from './geometry.js';
+import { canvasSize, cellAtPoint, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter, lineCount, sameCell } from './geometry.js';
 import type { GridCell, GridLayout } from './geometry.js';
 import { gridPalette } from './palette.js';
-import { paintCursorLabel } from './paint-cursor-label.js';
-import { paintGrid } from './paint-grid.js';
-import type { CanvasGridProps, GridPoint } from './types.js';
+import { paintScene } from './paint-scene.js';
+import type { CanvasGridProps, GridMetrics, GridPoint } from './types.js';
 import { readDevicePixelRatio, useElementSize } from './use-element-size.js';
 
 export type { GridCell, GridLayout, GridRect } from './geometry.js';
 export type { CanvasGridProps, GridMetrics } from './types.js';
 
-/** 轴标字号（CSS 像素）。 */
-const FONT_PX = 10;
 /** 主线间隔（格）：每 5 格一条深色线（+ 两端），于是「第几条主线 = 刻度值」。 */
 const MAJOR_STEP = 5;
 
@@ -74,43 +68,30 @@ export function CanvasGrid(props: CanvasGridProps) {
   const cellPx = fitCellPx({ availW: size.w, availH: size.h, rows, cols, pad: GRID_PAD_PX, minCellPx });
   const layout = useMemo<GridLayout>(() => ({ rows, cols, cellPx, pad: GRID_PAD_PX }), [rows, cols, cellPx]);
   const box = useMemo(() => canvasSize(layout), [layout]);
+  const palette = useMemo(() => gridPalette(token), [token]);
   const dpr = readDevicePixelRatio();
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
-    const bitmapW = Math.round(box.w * dpr);
-    const bitmapH = Math.round(box.h * dpr);
-    // 只在尺寸真的变了才写 width/height：写它会清空画布，也会重置上下文状态
-    if (canvas.width !== bitmapW) canvas.width = bitmapW;
-    if (canvas.height !== bitmapH) canvas.height = bitmapH;
     const ctx = canvas.getContext('2d');
     if (ctx === null) return;
-    // 位图放大了 dpr 倍 → 之后一律用 CSS 像素坐标绘制
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const drew = paintGrid(ctx, {
+    paintScene(canvas, ctx, {
       layout,
+      boxW: box.w,
+      boxH: box.h,
+      dpr,
       hover: value,
-      palette: gridPalette(token),
+      cursor,
       majorStep,
-      fontPx: FONT_PX,
+      showCursorLabel,
       fontFamily: token.fontFamily,
+      // 反色：亮暗主题自动都对（不需要为暗色另写一份配色）
+      cursorLabelBackground: token.colorText,
+      cursorLabelForeground: token.colorBgContainer,
+      palette,
     });
-    if (drew && showCursorLabel && value !== null && cursor !== null) {
-      paintCursorLabel(ctx, {
-        text: cellLabel(value),
-        x: cursor.x,
-        y: cursor.y,
-        width: box.w,
-        height: box.h,
-        fontPx: FONT_PX,
-        fontFamily: token.fontFamily,
-        // 反色：亮暗主题自动都对（不需要为暗色另写一份配色）
-        background: token.colorText,
-        foreground: token.colorBgContainer,
-      });
-    }
-  }, [box, layout, dpr, majorStep, showCursorLabel, value, cursor, token]);
+  }, [box, layout, dpr, majorStep, palette, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
 
   const metricsRef = useRef(onMetrics);
   useEffect(() => {
@@ -119,6 +100,8 @@ export function CanvasGrid(props: CanvasGridProps) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    // 中心点口径只写在 `gridCenter` 一处：读数与真正画出来的圆心永远同源
+    const center = gridCenter(layout);
     metricsRef.current?.({
       cellPx,
       width: box.w,
@@ -127,9 +110,11 @@ export function CanvasGrid(props: CanvasGridProps) {
       bitmapHeight: canvas?.height ?? 0,
       dpr,
       axisLineCount: lineCount(cols),
+      centerX: center?.x ?? 0,
+      centerY: center?.y ?? 0,
       usable: cellPx > 0,
     });
-  }, [cellPx, box, cols, dpr]);
+  }, [layout, box, cols, cellPx, dpr]);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
     const canvas = canvasRef.current;

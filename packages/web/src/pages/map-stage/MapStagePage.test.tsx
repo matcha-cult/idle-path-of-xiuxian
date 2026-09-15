@@ -39,6 +39,8 @@ function fakeContext(): CanvasRenderingContext2D {
     moveTo: noop,
     lineTo: noop,
     stroke: noop,
+    fill: noop,
+    arc: noop,
     fillText: noop,
     measureText: (text: string) => ({ width: text.length * 6 }),
     font: '',
@@ -85,6 +87,11 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('10 px');
     expect(screen.getByTestId('stage-canvas')).toHaveTextContent('472 × 472 CSS');
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
+  });
+
+  it('⭐ 中心圆读数：42 格的中心在 (236, 236)，直径 = 1 格 = 10px', () => {
+    render(<MapStagePage />);
+    expect(screen.getByTestId('stage-mark')).toHaveTextContent('(236, 236) · Ø 10 px');
   });
 
   it('⭐ 鼠标移到某格 ⇒ 读数报出那一格；移出 ⇒ 回到 —', () => {

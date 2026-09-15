@@ -21,6 +21,12 @@ export interface GridPalette {
   accent: string;
   /** 轴标文字 */
   axisText: string;
+  /**
+   * **内容标记**（如坐标系中心的圆）。
+   *
+   * 刻意与 `accent`（悬停高亮）用不同色系：一眼要能分清「这是地图内容」和「这是鼠标的位置」。
+   */
+  mark: string;
 }
 
 /** 从 antd global token 里取色（结构类型，便于测试直接喂假 token）。 */
@@ -30,6 +36,7 @@ export interface GridPaletteSource {
   colorBorder: string;
   colorPrimary: string;
   colorTextTertiary: string;
+  colorWarning: string;
 }
 
 export function gridPalette(source: GridPaletteSource): GridPalette {
@@ -39,5 +46,6 @@ export function gridPalette(source: GridPaletteSource): GridPalette {
     major: source.colorBorder,
     accent: source.colorPrimary,
     axisText: source.colorTextTertiary,
+    mark: source.colorWarning,
   };
 }

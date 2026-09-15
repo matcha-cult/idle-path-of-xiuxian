@@ -20,6 +20,7 @@ const PALETTE = gridPalette({
   colorBorder: 'border-1',
   colorPrimary: 'primary',
   colorTextTertiary: 'text-3',
+  colorWarning: 'mark',
 });
 
 /**
@@ -66,7 +67,7 @@ function recorder(): Recorder {
 }
 
 function input(over: Partial<GridPaintInput> = {}): GridPaintInput {
-  return { layout: LAYOUT, hover: null, palette: PALETTE, majorStep: 5, fontPx: 10, fontFamily: 'sans', ...over };
+  return { layout: LAYOUT, palette: PALETTE, majorStep: 5, fontPx: 10, fontFamily: 'sans', ...over };
 }
 
 const countOf = (calls: string[], prefix: string): number => calls.filter((c) => c.startsWith(prefix)).length;
@@ -153,31 +154,13 @@ describe('轴标', () => {
   });
 });
 
-describe('悬停高亮', () => {
-  it('受控高亮格：淡填充 + 内缩 1px 的 2px 描边（描边压住格线不外溢）', () => {
+describe('只画底图（交互与内容不在本层）', () => {
+  it('不画悬停框、不画圆：这些层由 paintScene 按层序调用', () => {
     const { ctx, calls } = recorder();
-    paintGrid(ctx, input({ hover: { col: 1, row: 1 } }));
-    expect(calls).toContain('fillRect(36,36,10,10)@primary|0.16');
-    expect(calls).toContain('strokeRect(37,37,8,8)@primary|2');
-  });
-
-  it('hoverAlpha 可调，且描边前把不透明度还原（否则描边会跟着变淡）', () => {
-    const { ctx, calls } = recorder();
-    paintGrid(ctx, input({ hover: { col: 0, row: 0 }, hoverAlpha: 0.4 }));
-    expect(calls).toContain('fillRect(26,26,10,10)@primary|0.4');
-    expect(calls).toContain('strokeRect(27,27,8,8)@primary|2');
-  });
-
-  it('hover = null ⇒ 不高亮（不画悬停框，也不留下高亮痕迹）', () => {
-    const { ctx, calls } = recorder();
-    paintGrid(ctx, input({ hover: null }));
+    paintGrid(ctx, input());
     expect(countOf(calls, 'strokeRect')).toBe(0);
-  });
-
-  it('越界 hover（脏 props）⇒ 忽略而不是抛错 / 画到网格外', () => {
-    const { ctx, calls } = recorder();
-    const drew = paintGrid(ctx, input({ hover: { col: 99, row: -1 } }));
-    expect(drew).toBe(true);
-    expect(countOf(calls, 'strokeRect')).toBe(0);
+    expect(countOf(calls, 'arc')).toBe(0);
+    // 精确匹配 `fill`：`fillRect` / `fillText` 是底图自己的调用，不算"填充路径"
+    expect(calls).not.toContain('fill');
   });
 });

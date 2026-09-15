@@ -26,6 +26,9 @@ export interface GridMetrics {
   dpr: number;
   /** 每轴网格线数量（42 格 ⇒ 43 条） */
   axisLineCount: number;
+  /** 坐标系中心（画布 CSS 像素）；几何不可用时为 0，调用方应据 `usable` 判断 */
+  centerX: number;
+  centerY: number;
   /** 是否画出了网格 */
   usable: boolean;
 }

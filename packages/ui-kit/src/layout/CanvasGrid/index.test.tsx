@@ -51,6 +51,8 @@ function makeRecorder(): Recorder {
     moveTo: () => calls.push('moveTo'),
     lineTo: () => calls.push('lineTo'),
     stroke: () => calls.push('stroke'),
+    fill: () => calls.push('fill'),
+    arc: (x: number, y: number, r: number) => calls.push(`arc(${x},${y},${r})`),
     fillText: (text: string) => calls.push(`fillText:${text}`),
     measureText: (text: string) => ({ width: text.length * 6 }),
     font: '',
@@ -122,8 +124,19 @@ describe('渲染与几何读数', () => {
       bitmapHeight: 100,
       dpr: 1,
       axisLineCount: 3,
+      centerX: 50,
+      centerY: 50,
       usable: true,
     });
+  });
+
+  it('⭐ 坐标系中心画一个「直径 = 1 格」的圆，且压在网格线之上', () => {
+    render(<CanvasGrid rows={2} cols={2} />);
+    // 2 格 + pad 26 + 格宽 24 ⇒ 圆心 (26 + 24, 26 + 24) = (50,50)，半径 24 / 2 = 12
+    expect(rec.calls).toContain('arc(50,50,12)');
+    expect(rec.calls.filter((c) => c === 'fill')).toHaveLength(1);
+    // 层序：网格的 stroke 早于中心圆的 arc（"圆在网格之上"）
+    expect(rec.calls.lastIndexOf('stroke')).toBeLessThan(rec.calls.indexOf('arc(50,50,12)'));
   });
 
   it('DPR=2 放大的是位图，不是屏幕尺寸', () => {

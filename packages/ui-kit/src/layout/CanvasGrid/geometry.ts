@@ -151,6 +151,33 @@ export function crisp(v: number): number {
 }
 
 /**
+ * **坐标系的中心点**（画布 CSS 像素）—— 网格的几何中心，即格点索引 `(cols/2, rows/2)` 处。
+ *
+ * 42 格 ⇒ 格子索引 0..42，中心正好落在**第 21 条横线与第 21 条竖线的交点**上：
+ * 它不是某一格的中心，也不是某一格的四角，而是四条格线围出的那个交点（偶数格才会这么"正"）。
+ * 奇数格时中心落在两条格线之间的半个格子上（如 3 格 ⇒ 1.5），这也是对的。
+ *
+ * 不可用几何 ⇒ null（调用方据此不画，而不是把圆心画到 (0,0)）。
+ */
+export function gridCenter(layout: GridLayout): { x: number; y: number } | null {
+  if (!isLayoutUsable(layout)) return null;
+  return {
+    x: layout.pad + (layout.cols / 2) * layout.cellPx,
+    y: layout.pad + (layout.rows / 2) * layout.cellPx,
+  };
+}
+
+/**
+ * 中心圆的半径 —— 口径是「**直径 = 当前 1 格**」，所以半径 = 格宽 / 2。
+ *
+ * 刻意用「格」而不是写死像素：窗口变化 ⇒ 格宽变化 ⇒ 圆跟着网格一起缩放，
+ * 才叫「和坐标系同一把尺子」。不可用几何 ⇒ 0（不画）。
+ */
+export function centerMarkRadius(layout: GridLayout): number {
+  return isLayoutUsable(layout) ? layout.cellPx / 2 : 0;
+}
+
+/**
  * 两个格子是否同一格 —— hover 去重用。
  *
  * `null`（不在任何格子上）与越界值都归一成「没有格子」，因此 `null == null` 为真：

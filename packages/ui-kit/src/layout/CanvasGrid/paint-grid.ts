@@ -1,18 +1,20 @@
 /**
  * `paintGrid` —— 把网格画到 2D 上下文上（**纯函数**：给什么画什么，不读 DOM、不读时间）。
  *
- * 绘制顺序（后画的压前面的）：
+ * 绘制顺序（都是"底层"）：
  * 1. 清屏 + 铺底色（**总是执行**，即使几何不可用 —— 否则容器里会留着上一帧的残影）；
  * 2. 全部细格线（一条 path、一次 stroke：42×42 也只有 86 条线段）；
  * 3. 主线（每 `majorStep` 格 + 两端，颜色更深，用来数格子）；
- * 4. 轴标（`0, 5, 10, …, 42`，压在网格外侧的 pad 里）；
- * 5. 悬停格（淡填充 + 2px 描边）。
+ * 4. 轴标（`0, 5, 10, …, 42`，压在网格外侧的 pad 里）。
+ *
+ * **悬停高亮 / 中心圆 / 光标标签都不在这里**：它们各自一层，由 `paintScene` 按层序调用。
+ * 本函数只负责"底图"，因此签名里没有 `hover` 这类交互状态。
  *
  * 依赖的是从 `CanvasRenderingContext2D` 里 `Pick` 出来的**最小结构**，所以单测给个普通对象
  * 就够了（不必安装原生 `canvas` 包、也不要求 jsdom 支持 `getContext`）。
  */
-import { axisTicks, canvasSize, cellRect, crisp, lineCount, worldSize } from './geometry.js';
-import type { GridCell, GridLayout } from './geometry.js';
+import { axisTicks, canvasSize, crisp, lineCount, worldSize } from './geometry.js';
+import type { GridLayout } from './geometry.js';
 import type { GridPalette } from './palette.js';
 
 /** 绘制所需的最小 2D 上下文（方法与属性都是 `CanvasRenderingContext2D` 的真子集）。 */
@@ -20,6 +22,7 @@ export type GridPaintContext2D = Pick<
   CanvasRenderingContext2D,
   | 'save'
   | 'restore'
+  | 'setTransform'
   | 'clearRect'
   | 'fillRect'
   | 'strokeRect'
@@ -27,6 +30,8 @@ export type GridPaintContext2D = Pick<
   | 'moveTo'
   | 'lineTo'
   | 'stroke'
+  | 'fill'
+  | 'arc'
   | 'fillText'
   | 'measureText'
   | 'font'
@@ -40,16 +45,12 @@ export type GridPaintContext2D = Pick<
 
 export interface GridPaintInput {
   layout: GridLayout;
-  /** 受控高亮格；`null` = 不高亮，越界值会被忽略（不高亮、不抛错） */
-  hover: GridCell | null;
   palette: GridPalette;
   /** 主线间隔（格）；`≤ 0` / 非数 ⇒ 只画两端 */
   majorStep: number;
   /** 轴标字号（CSS 像素）；`≤ 0` ⇒ 不画轴标 */
   fontPx: number;
   fontFamily: string;
-  /** 悬停格填充的不透明度 */
-  hoverAlpha?: number;
 }
 
 /**
@@ -57,7 +58,7 @@ export interface GridPaintInput {
  *   调用方据此可以显示「空间不足」而不是让用户对着一张白图猜。
  */
 export function paintGrid(ctx: GridPaintContext2D, input: GridPaintInput): boolean {
-  const { layout, hover, palette, majorStep, fontPx, fontFamily, hoverAlpha = 0.16 } = input;
+  const { layout, palette, majorStep, fontPx, fontFamily } = input;
   const { w, h } = canvasSize(layout);
 
   ctx.save();
@@ -70,7 +71,6 @@ export function paintGrid(ctx: GridPaintContext2D, input: GridPaintInput): boole
   if (usable) {
     paintLines(ctx, layout, palette, majorStep);
     if (fontPx > 0) paintAxisLabels(ctx, layout, palette, majorStep, fontPx, fontFamily);
-    paintHover(ctx, layout, hover, palette, hoverAlpha);
   }
 
   ctx.restore();
@@ -143,26 +143,4 @@ function paintAxisLabels(
   for (const i of axisTicks(layout.rows, majorStep)) {
     ctx.fillText(String(i), layout.pad - 7, crisp(layout.pad + i * layout.cellPx));
   }
-}
-
-/** 悬停格：淡填充定「哪一格」，描边定「边界在哪」——只填充在浅色主题下几乎看不见。 */
-function paintHover(
-  ctx: GridPaintContext2D,
-  layout: GridLayout,
-  hover: GridCell | null,
-  palette: GridPalette,
-  alpha: number,
-): void {
-  if (hover === null) return;
-  const rect = cellRect(hover, layout);
-  if (rect === null) return;
-
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = palette.accent;
-  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = palette.accent;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
 }

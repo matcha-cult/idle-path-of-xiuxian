@@ -15,6 +15,8 @@ const METRICS: GridMetrics = {
   bitmapHeight: 1448,
   dpr: 2,
   axisLineCount: 43,
+  centerX: 362,
+  centerY: 362,
   usable: true,
 };
 
@@ -29,6 +31,11 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
   });
 
+  it('⭐ 中心圆可核对：「圆心 (x, y) · Ø 格宽」—— 让"直径 = 1 格"在屏幕上可验', () => {
+    render(<MapStageReadout hover={null} metrics={METRICS} />);
+    expect(screen.getByTestId('stage-mark')).toHaveTextContent('(362, 362) · Ø 16 px');
+  });
+
   it('没有悬停 ⇒ 显示 —，而不是 0 / NaN / 空白', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} />);
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('—');
@@ -40,6 +47,7 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-canvas')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-bitmap')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('—');
+    expect(screen.getByTestId('stage-mark')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-dpr')).toHaveTextContent('—');
   });
 
@@ -47,6 +55,7 @@ describe('MapStageReadout', () => {
     render(<MapStageReadout hover={null} metrics={{ ...METRICS, cellPx: 0, width: 0, height: 0, usable: false }} />);
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-canvas')).toHaveTextContent('—');
+    expect(screen.getByTestId('stage-mark')).toHaveTextContent('—');
   });
 
   it('列/行都是两位补零（0 显示为 00，便于和轴标对齐着读）', () => {
