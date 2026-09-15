@@ -10,6 +10,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapStagePage } from './MapStagePage.js';
+import { MAP_OBJECTS } from './map-objects.js';
 import {
   COURT_RING_CELLS,
   GATE_RING_CELLS,
@@ -326,6 +327,9 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
     // 环读数用用户口径的名字（相位在下面的说明里）
     expect(screen.getByTestId('stage-rings')).toHaveTextContent(`外环 · 四门 r${GATE_RING_CELLS}（虚线）×4`);
+    // 对象读数：总数从对象表派生（改表不会让断言变红）
+    expect(screen.getByTestId('stage-objects')).toHaveTextContent(`${MAP_OBJECTS.length} 个`);
+    expect(screen.getByTestId('stage-objects')).toHaveTextContent('传送点 4');
   });
 
   it('⭐ 17 个点位坐标上屏 + 4 个隐藏位单独一行（可从页面直接核对相位与 8 等分）', () => {
@@ -380,5 +384,58 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('0');
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('—');
     expect(arcs).toEqual([]);
+  });
+});
+
+describe('右侧「地图内可交互对象」面板', () => {
+  /** 世界坐标 → 屏幕：整图适配把内容居中，所以屏幕 = 内容 + (SIZE/2 − CENTER)。 */
+  const at = (contentX: number, contentY: number) => ({ clientX: screenOf(contentX), clientY: screenOf(contentY) });
+  const NORTH_GATE = { x: CENTER, y: CENTER - GATE_RING_CELLS * CELL_PX };
+
+  it('⭐ 默认加载全部对象（进地图就能看到有什么可交互）', () => {
+    render(<MapStagePage />);
+    expect(screen.getByTestId('object-panel-count')).toHaveTextContent(`${MAP_OBJECTS.length} 个`);
+    expect(screen.getByTestId('object-qy_gate_n')).toHaveTextContent('在 宗门·北门');
+    expect(screen.getByTestId('object-qy_peak_xunlian')).toHaveTextContent('秘境入口');
+  });
+
+  it('⭐ 双向联动：点画布上的点 ⇒ 面板只剩它的对象；点对象名 ⇒ 画布选中该点位', () => {
+    render(<MapStagePage />);
+    const canvas = screen.getByTestId('canvas-grid');
+
+    fireEvent.pointerDown(canvas, at(NORTH_GATE.x, NORTH_GATE.y));
+    fireEvent.pointerUp(canvas, at(NORTH_GATE.x, NORTH_GATE.y));
+    expect(screen.getByTestId('object-panel-selected')).toHaveTextContent('宗门·北门');
+    expect(screen.queryByTestId('object-qy_peak_xunlian')).toBeNull(); // 别的点位对象不混进来
+
+    // 点「取消选择」⇒ 回到全部
+    fireEvent.click(screen.getByTestId('object-panel-clear'));
+    expect(screen.getByTestId('object-panel-hint')).toBeTruthy();
+
+    // 反向：点秘境入口的名字 ⇒ 画布选中第八峰·后山
+    fireEvent.click(screen.getByTestId('object-goto-qy_peak_xunlian'));
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('八峰·八 [peak_8]');
+    expect(screen.getByTestId('object-panel-selected')).toHaveTextContent('八峰·八');
+  });
+
+  it('⭐ 门槛：未与传送点交互 ⇒ 传送禁用；交互后解锁并真的能"传送"（前端门控）', () => {
+    render(<MapStagePage />);
+    expect(screen.getByTestId('object-travel-qy_gate_n')).toBeDisabled();
+    expect(screen.getByTestId('object-locked-qy_gate_n')).toHaveTextContent('须先与传送点交互');
+
+    fireEvent.click(screen.getByTestId('object-interact-qy_gate_n'));
+    expect(screen.getByTestId('object-done-qy_gate_n')).toHaveTextContent('已交互');
+    expect(screen.getByTestId('object-panel-notice')).toHaveTextContent('传送已解锁');
+    expect(screen.getByTestId('object-travel-qy_gate_n')).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId('object-travel-qy_gate_n'));
+    expect(screen.getByTestId('object-panel-notice')).toHaveTextContent('已传送至「北门」');
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('宗门·北门');
+  });
+
+  it('非传送点不提供传送（秘境入口只有交互）', () => {
+    render(<MapStagePage />);
+    expect(screen.queryByTestId('object-travel-qy_peak_xunlian')).toBeNull();
+    expect(screen.queryByTestId('object-locked-qy_peak_xunlian')).toBeNull(); // 没有传送按钮，也就没有"须先交互"这句
   });
 });

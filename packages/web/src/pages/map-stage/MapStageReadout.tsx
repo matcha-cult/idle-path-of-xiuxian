@@ -12,6 +12,7 @@
 import { Space, Tag, Typography, theme } from 'antd';
 import { toScreen } from '@idle-path/ui-kit';
 import type { GridCell, GridMetrics, Pose } from '@idle-path/ui-kit';
+import { objectCounts } from './map-objects.js';
 import { PEAK_PHASE_DEG, hiddenPoints, linkBreakdown, visiblePoints } from './map-points.js';
 import type { MapRing, ResolvedMapLink, ResolvedMapPoint } from './map-points.js';
 
@@ -100,6 +101,12 @@ export function MapStageReadout(props: MapStageReadoutProps) {
     const lattice = `列 ${round2(point.lattice.col)} 行 ${round2(point.lattice.row)}`;
     return `${point.label} [${point.key}] · 世界 ${world} · 格点 ${lattice} · 环 ${point.ring}`;
   };
+  /**
+   * 对象读数：本地图加载了多少可交互对象（照搬后端节点表）。
+   * 它是**静态事实**（不像环半径会被滑杆改），所以直接算、不依赖 props。
+   */
+  const counts = objectCounts();
+  const objectText = `${counts.total} 个（${counts.kinds.map((item) => `${item.label} ${item.count}`).join(' · ')}）`;
   /** 连接线读数：总数 + 按规则分组（规则名与条数都从当前边上算，滑杆一改跟着变）。 */
   const linkText = `${links.length} 条（${linkBreakdown(links)
     .map((item) => `${item.rule} ${item.count}`)
@@ -149,6 +156,7 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         <Field name="原点屏幕" testId="stage-origin-screen" value={originText} />
         <Field name="环" testId="stage-rings" value={ringText} />
         <Field name="连接" testId="stage-links" value={linkText} />
+        <Field name="对象" testId="stage-objects" value={objectText} />
       </Space>
 
       <Space wrap separator={<Typography.Text type="secondary">|</Typography.Text>}>

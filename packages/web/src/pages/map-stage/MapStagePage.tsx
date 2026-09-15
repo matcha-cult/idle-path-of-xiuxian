@@ -1,6 +1,9 @@
 /**
  * `MapStagePage` —— **地图重做的入口页**（`?mapStage=1`）。
  *
+ * ## 布局（北极星：PC 端「左边地图网格，右边地图内可交互对象」）
+ * 上面标题 + 视图工具条；中间一行是**左画布 / 右对象面板**；下面滑杆与读数。
+ *
  * ## 这一页到目前画了什么
  * 1. 纵横 `MAP_CELLS` 个小格子的网格（鼠标移到哪一格就报出那一格）；
  * 2. 以中心为圆心、半径可**用滑杆调**的轨道环（外环 = 宗门大阵圈虚线 · 二环 = 八峰轨道）；
@@ -8,7 +11,9 @@
  *    共 13 个点，都画成直径 1 格的实心圆。
  *
  * ## 刻意不做什么
- * 不含任何地图业务数据（节点/连线的真实拓扑来自后端 seed，这里只是"看着对不对"）。用户的方式是
+ * 不含任何地图业务数据（节点/连线/可交互对象都照搬后端 seed；后端接口接入前，对象表是本地镜像）。
+ * 「与传送点交互才解锁传送」目前是**前端门控**（可见、可测），真正的解锁与移动归后端 `map.interact`。
+ * 用户的方式是
  * 「一步步引导」：地基没验穿之前，往上叠的每一层都会把几何错误伪装成「手感问题」——上一轮就是这么丢的。
  *
  * ## 口径
@@ -22,8 +27,10 @@ import { useMemo, useState } from 'react';
 import { Button, Space, Typography, theme } from 'antd';
 import { CanvasGrid } from '@idle-path/ui-kit';
 import type { GridCell, GridMetrics, Pose } from '@idle-path/ui-kit';
+import { MapStageObjectPanel } from './MapStageObjectPanel.js';
 import { MapStageReadout } from './MapStageReadout.js';
 import { MapStageRingSliders } from './MapStageRingSliders.js';
+import { MAP_OBJECTS, OBJECT_KIND_LABEL, canTravel } from './map-objects.js';
 import {
   MAP_CELLS,
   MAP_POINTS,
@@ -54,6 +61,13 @@ export function MapStagePage() {
    */
   const [resetToken, setResetToken] = useState(0);
   /**
+   * **已交互的对象 key**（会话态，与环半径同类）：北极星的门槛「必须和传送点交互之后才可解锁传送」
+   * 在前端先做成可见、可测的门控；真正的解锁由后端 `map.interact` 决定（本次不改后端）。
+   */
+  const [interacted, setInteracted] = useState<readonly string[]>([]);
+  /** 最近一次交互/传送的结果（印在面板上，免得只有一个 toast 一闪而过） */
+  const [notice, setNotice] = useState<string | null>(null);
+  /**
    * 点的**悬停 / 选中**都是**会话态**（与环半径同类）：悬停瞬时、选中常驻。
    * 画布是受控的（`hoverKey` / `selectedKey`），所以点空白取消选中、以后从右侧面板
    * 反向选中某个点，都只是改这两个 state 之一。
@@ -78,6 +92,26 @@ export function MapStagePage() {
 
   const handleRingChange = (ringKey: string, radiusCells: number): void => {
     setRingRadii((prev) => ({ ...prev, [ringKey]: radiusCells }));
+  };
+
+  /** 与对象交互：记进会话态，并把结果写进面板（传送点顺带说清"已解锁"）。 */
+  const handleInteract = (objectKey: string): void => {
+    const object = MAP_OBJECTS.find((item) => item.key === objectKey);
+    setInteracted((prev) => (prev.includes(objectKey) ? prev : [...prev, objectKey]));
+    if (object === undefined) return;
+    setNotice(
+      object.travel
+        ? `已与传送点「${object.label}」交互 ⇒ 传送已解锁（前端门控；真正的解锁由后端 map.interact 决定）`
+        : `已与「${object.label}」交互（${OBJECT_KIND_LABEL[object.kind]}）`,
+    );
+  };
+
+  /** 传送：只有"已交互的传送点"能走（UI 禁用之外再判一次，门控口径只有 `canTravel` 一处）。 */
+  const handleTravel = (objectKey: string): void => {
+    const object = MAP_OBJECTS.find((item) => item.key === objectKey);
+    if (object === undefined || !canTravel(object, interacted)) return;
+    setSelectedMark(object.pointKey); // 传送 = 站到那个点位上（前端演示；移动仍归后端）
+    setNotice(`（前端演示）已传送至「${object.label}」——真正的移动到点由后端 map.interact 执行`);
   };
 
   return (
@@ -105,6 +139,12 @@ export function MapStagePage() {
           连线（灰）按**规则**生成：主峰辐条 · 四院方环 · 峰-院就近 · 八峰环 · 峰-门就近。
           <span> </span>
           <Typography.Text strong>点可以交互</Typography.Text>：鼠标移到点上会亮出名字，点一下选中（点亮常驻圈），点空白取消。
+          <span> </span>
+          <Typography.Text strong>右边</Typography.Text>是「地图内可交互对象」（照搬后端节点表：四门 =
+          传送点、第八峰·后山 = 秘境入口、四院 = 功法/灵田/丹房/执法、主峰 = 任务）：
+          先<span> </span>
+          <Typography.Text code>交互</Typography.Text>过传送点，<Typography.Text code>传送</Typography.Text>
+          按钮才会解锁（真正的解锁由后端 map.interact 决定，这里先做前端门控）。
           下面的滑杆可以直接调各环离中心多少格（连线会跟着变）。
         </Typography.Text>
       </div>
@@ -121,33 +161,48 @@ export function MapStagePage() {
         </Typography.Text>
       </Space>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadiusLG,
-          background: token.colorBgLayout,
-          overflow: 'hidden',
-        }}
-      >
-        <CanvasGrid
-          rows={MAP_CELLS}
-          cols={MAP_CELLS}
-          value={hover}
-          onHoverCell={setHover}
-          onMetrics={setMetrics}
-          onPose={setPose}
-          resetToken={resetToken}
-          rings={gridRings}
-          marks={marks}
-          links={gridLinks}
-          hoverKey={hoverMark}
-          selectedKey={selectedMark}
-          onHoverMark={setHoverMark}
-          onMarkClick={setSelectedMark}
-          label="地图网格"
-        />
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: token.padding }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadiusLG,
+            background: token.colorBgLayout,
+            overflow: 'hidden',
+          }}
+        >
+          <CanvasGrid
+            rows={MAP_CELLS}
+            cols={MAP_CELLS}
+            value={hover}
+            onHoverCell={setHover}
+            onMetrics={setMetrics}
+            onPose={setPose}
+            resetToken={resetToken}
+            rings={gridRings}
+            marks={marks}
+            links={gridLinks}
+            hoverKey={hoverMark}
+            selectedKey={selectedMark}
+            onHoverMark={setHoverMark}
+            onMarkClick={setSelectedMark}
+            label="地图网格"
+          />
+        </div>
+
+        {/* 右列：地图内可交互对象。PC 优先（北极星口径），窄屏时它先被挤掉 */}
+        <div style={{ width: 340, flexShrink: 0, overflow: 'auto' }} data-testid="stage-object-column">
+          <MapStageObjectPanel
+            points={points}
+            selectedKey={selectedMark}
+            interacted={interacted}
+            notice={notice}
+            onSelectPoint={setSelectedMark}
+            onInteract={handleInteract}
+            onTravel={handleTravel}
+          />
+        </div>
       </div>
 
       <MapStageRingSliders rings={adjustableRings(rings)} onChange={handleRingChange} />
