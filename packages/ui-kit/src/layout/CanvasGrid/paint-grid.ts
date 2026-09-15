@@ -32,6 +32,7 @@ export type GridPaintContext2D = Pick<
   | 'stroke'
   | 'fill'
   | 'arc'
+  | 'setLineDash'
   | 'fillText'
   | 'measureText'
   | 'font'

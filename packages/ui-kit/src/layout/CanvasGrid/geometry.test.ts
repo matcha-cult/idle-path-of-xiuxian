@@ -12,7 +12,6 @@ import {
   cellAtPoint,
   cellLabel,
   cellRect,
-  centerMarkRadius,
   crisp,
   fitCellPx,
   gridCenter,
@@ -192,7 +191,7 @@ describe('crisp', () => {
   });
 });
 
-describe('gridCenter / centerMarkRadius', () => {
+describe('gridCenter', () => {
   it('42 格 ⇒ 中心落在第 21 条横线与第 21 条竖线的交点（不是某一格的中心）', () => {
     expect(gridCenter({ rows: 42, cols: 42, cellPx: 10, pad: 26 })).toEqual({ x: 236, y: 236 });
   });
@@ -204,12 +203,6 @@ describe('gridCenter / centerMarkRadius', () => {
   it('不可用几何 ⇒ null（不把圆心偷偷退到 (0,0)，那是网格外的角落）', () => {
     expect(gridCenter({ rows: 42, cols: 42, cellPx: 0, pad: 26 })).toBeNull();
     expect(gridCenter({ rows: 0, cols: 42, cellPx: 10, pad: 26 })).toBeNull();
-  });
-
-  it('中心圆半径 = 格宽 / 2（口径：直径 = 1 格）；不可用 ⇒ 0', () => {
-    expect(centerMarkRadius({ rows: 42, cols: 42, cellPx: 16, pad: 26 })).toBe(8);
-    expect(centerMarkRadius({ rows: 42, cols: 42, cellPx: 10, pad: 26 })).toBe(5);
-    expect(centerMarkRadius({ rows: 42, cols: 42, cellPx: 0, pad: 26 })).toBe(0);
   });
 });
 

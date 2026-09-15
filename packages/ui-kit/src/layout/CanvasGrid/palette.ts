@@ -22,11 +22,18 @@ export interface GridPalette {
   /** 轴标文字 */
   axisText: string;
   /**
-   * **内容标记**（如坐标系中心的圆）。
+   * **内容标记**（主峰 / 功能峰 / 以后的四院四门）。
    *
    * 刻意与 `accent`（悬停高亮）用不同色系：一眼要能分清「这是地图内容」和「这是鼠标的位置」。
    */
   mark: string;
+  /**
+   * **参考圆 / 轨道**（功能点所在的环）。
+   *
+   * 第四种颜色：网格线（border 系）· 悬停（primary）· 功能点（warning）· 轨道（success）。
+   * 层数越叠越多，四种颜色的分工就必须一次定清，否则上屏是一团谁也认不出的线。
+   */
+  guide: string;
 }
 
 /** 从 antd global token 里取色（结构类型，便于测试直接喂假 token）。 */
@@ -37,6 +44,7 @@ export interface GridPaletteSource {
   colorPrimary: string;
   colorTextTertiary: string;
   colorWarning: string;
+  colorSuccess: string;
 }
 
 export function gridPalette(source: GridPaletteSource): GridPalette {
@@ -47,5 +55,6 @@ export function gridPalette(source: GridPaletteSource): GridPalette {
     accent: source.colorPrimary,
     axisText: source.colorTextTertiary,
     mark: source.colorWarning,
+    guide: source.colorSuccess,
   };
 }

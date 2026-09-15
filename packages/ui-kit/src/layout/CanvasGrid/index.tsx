@@ -12,9 +12,10 @@
  * 现场**。因此本组件把可读事实**主动交出去**：`onMetrics` 报几何与环境，页面把读数印在屏幕上。
  *
  * ## 层序（在 `paintScene` 里，有单测钉住）
- * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → **中心圆（内容）** → 光标坐标标签。
- * 圆心在 `(cols/2, rows/2)` 那个**格线交点**上，直径 = **1 格**（口径见 `centerMarkRadius`）；
+ * 底色 → 细格线 → 主线 → 轴标 → 悬停格（交互反馈） → **轨道环 → 功能点（内容）** → 光标坐标标签。
  * 内容压在交互反馈之上，是为了不让鼠标经过时把地图内容染色。
+ * 轨道半径与功能点的位置/大小都走**世界口径**（原点 = 中心、y 向上、单位 = 格，见 `world.ts`），
+ * 于是组件不认识「谁是主峰、谁是功能峰」——那是数据（业务侧）的事。
  *
  * ## 契约
  * - **受控绘制**：高亮格由 `value` 决定，组件自己不存「哪一格高亮」这类 UI 状态，
@@ -34,14 +35,19 @@ import { canvasSize, cellAtPoint, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter,
 import type { GridCell, GridLayout } from './geometry.js';
 import { gridPalette } from './palette.js';
 import { paintScene } from './paint-scene.js';
-import type { CanvasGridProps, GridMetrics, GridPoint } from './types.js';
+import type { CanvasGridProps, GridMark, GridMetrics, GridPoint, GridRing } from './types.js';
 import { readDevicePixelRatio, useElementSize } from './use-element-size.js';
 
 export type { GridCell, GridLayout, GridRect } from './geometry.js';
-export type { CanvasGridProps, GridMetrics } from './types.js';
+export type { CanvasGridProps, GridMark, GridMetrics, GridRing } from './types.js';
+// 世界口径（原点 = 中心、y 向上、单位 = 格）：业务侧用它把「环 + 角度」算成坐标
+export * from './world.js';
 
 /** 主线间隔（格）：每 5 格一条深色线（+ 两端），于是「第几条主线 = 刻度值」。 */
 const MAJOR_STEP = 5;
+/** 模块级空数组：默认值共用同一个引用，避免每次渲染都造新数组把绘制 effect 打醒。 */
+const NO_RINGS: readonly GridRing[] = [];
+const NO_MARKS: readonly GridMark[] = [];
 
 export function CanvasGrid(props: CanvasGridProps) {
   const {
@@ -54,6 +60,8 @@ export function CanvasGrid(props: CanvasGridProps) {
     majorStep = MAJOR_STEP,
     showCursorLabel = true,
     label = '网格画布',
+    rings = NO_RINGS,
+    marks = NO_MARKS,
   } = props;
 
   const { token } = theme.useToken();
@@ -89,9 +97,11 @@ export function CanvasGrid(props: CanvasGridProps) {
       // 反色：亮暗主题自动都对（不需要为暗色另写一份配色）
       cursorLabelBackground: token.colorText,
       cursorLabelForeground: token.colorBgContainer,
+      rings,
+      marks,
       palette,
     });
-  }, [box, layout, dpr, majorStep, palette, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
+  }, [box, layout, dpr, majorStep, palette, rings, marks, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
 
   const metricsRef = useRef(onMetrics);
   useEffect(() => {

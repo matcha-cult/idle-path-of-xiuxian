@@ -53,6 +53,7 @@ function makeRecorder(): Recorder {
     stroke: () => calls.push('stroke'),
     fill: () => calls.push('fill'),
     arc: (x: number, y: number, r: number) => calls.push(`arc(${x},${y},${r})`),
+    setLineDash: () => calls.push('dash'),
     fillText: (text: string) => calls.push(`fillText:${text}`),
     measureText: (text: string) => ({ width: text.length * 6 }),
     font: '',
@@ -130,13 +131,28 @@ describe('渲染与几何读数', () => {
     });
   });
 
-  it('⭐ 坐标系中心画一个「直径 = 1 格」的圆，且压在网格线之上', () => {
-    render(<CanvasGrid rows={2} cols={2} />);
-    // 2 格 + pad 26 + 格宽 24 ⇒ 圆心 (26 + 24, 26 + 24) = (50,50)，半径 24 / 2 = 12
+  it('⭐ 功能点：按世界坐标落位、半径由数据给（2 格布局 ⇒ 世界原点 (50,50)、0.5 格 = 12px）', () => {
+    render(
+      <CanvasGrid
+        rows={2}
+        cols={2}
+        rings={[{ radiusCells: 1 }]}
+        marks={[
+          { at: { x: 0, y: 0 }, radiusCells: 0.5 },
+          { at: { x: 1, y: 1 }, radiusCells: 0.5 },
+        ]}
+      />,
+    );
+    // 轨道：1 格 × 24px = 24px
+    expect(rec.calls).toContain('arc(50,50,24)');
+    // 主峰（世界原点）
     expect(rec.calls).toContain('arc(50,50,12)');
-    expect(rec.calls.filter((c) => c === 'fill')).toHaveLength(1);
-    // 层序：网格的 stroke 早于中心圆的 arc（"圆在网格之上"）
-    expect(rec.calls.lastIndexOf('stroke')).toBeLessThan(rec.calls.indexOf('arc(50,50,12)'));
+    // 世界 (1,1) ⇒ 屏幕 (74, 26)：y 向上
+    expect(rec.calls).toContain('arc(74,26,12)');
+    expect(rec.calls.filter((c) => c === 'fill')).toHaveLength(2);
+    // 层序：网格的 stroke 早于轨道/功能点的 arc（"圆在网格之上"）
+    expect(rec.calls.indexOf('stroke')).toBeLessThan(rec.calls.indexOf('arc(50,50,24)'));
+    expect(rec.calls.indexOf('arc(50,50,24)')).toBeLessThan(rec.calls.indexOf('arc(50,50,12)'));
   });
 
   it('DPR=2 放大的是位图，不是屏幕尺寸', () => {

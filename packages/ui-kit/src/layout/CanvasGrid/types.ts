@@ -6,6 +6,7 @@
  * 几何与环境报出来 —— 这不是可选日志，是这个渲染方案的**必要接口**。
  */
 import type { GridCell } from './geometry.js';
+import type { WorldPoint } from './world.js';
 
 /** 画布内的指针位置（CSS 像素，相对画布左上角）。 */
 export interface GridPoint {
@@ -33,6 +34,23 @@ export interface GridMetrics {
   usable: boolean;
 }
 
+/** 参考圆 / 轨道（世界口径：半径以「格」为单位，原点在中心）。 */
+export interface GridRing {
+  /** 半径（格单位）；`≤ 0` ⇒ 不画（主峰那种"半径 0 的环"因此天然安全） */
+  radiusCells: number;
+  /** 线宽（CSS 像素），默认 1.5 */
+  widthPx?: number;
+  /** 虚线（默认实线） */
+  dashed?: boolean;
+}
+
+/** 功能点（世界口径：位置以「格」为单位，原点在中心，y 向上）。 */
+export interface GridMark {
+  at: WorldPoint;
+  /** 点半径（格单位）。口径「直径 = 1 格」⇒ `0.5` —— 口径在数据里，不在组件里 */
+  radiusCells: number;
+}
+
 export interface CanvasGridProps {
   /** 格子行数（纵向格子数；42 ⇒ 43 条横线） */
   rows: number;
@@ -45,6 +63,10 @@ export interface CanvasGridProps {
   onMetrics?: (metrics: GridMetrics) => void;
   /** 每格像素下限（低于它判定「空间不足」而不画） */
   minCellPx?: number;
+  /** 参考圆 / 轨道（画在网格之上、功能点之下） */
+  rings?: readonly GridRing[];
+  /** 功能点（实心圆点；压在轨道与悬停高亮之上，直径以「格」为单位） */
+  marks?: readonly GridMark[];
   /** 主线 / 轴标间隔（格） */
   majorStep?: number;
   /** 是否在光标旁画「列,行」标签 */
