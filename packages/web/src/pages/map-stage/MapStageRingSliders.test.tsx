@@ -20,13 +20,15 @@ describe('MapStageRingSliders', () => {
     render(<MapStageRingSliders rings={RINGS} onChange={vi.fn()} />);
     expect(screen.getByTestId('ring-value-gate')).toHaveTextContent('10 格');
     expect(screen.getByTestId('ring-value-peak')).toHaveTextContent('9 格');
+    expect(screen.getByTestId('ring-value-court')).toHaveTextContent('5 格');
     expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('外环 · 四门');
     expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('二环 · 八峰');
+    expect(screen.getByTestId('stage-ring-sliders')).toHaveTextContent('内环 · 四院');
   });
 
   it('中心（主峰）不给滑杆 —— 地图原点不该被拖走', () => {
     render(<MapStageRingSliders rings={RINGS} onChange={vi.fn()} />);
-    expect(RINGS.map((ring) => ring.key)).toEqual(['gate', 'peak']);
+    expect(RINGS.map((ring) => ring.key)).toEqual(['gate', 'peak', 'court']);
     expect(screen.queryByTestId('ring-value-summit')).toBeNull();
   });
 
@@ -36,6 +38,7 @@ describe('MapStageRingSliders', () => {
     expect(gate?.getAttribute('aria-valuemin')).toBe(String(RING_RADIUS_LIMITS.min));
     expect(gate?.getAttribute('aria-valuemax')).toBe(String(RING_RADIUS_LIMITS.max));
     expect(gate?.getAttribute('aria-valuenow')).toBe('10');
+    expect(handles(container)).toHaveLength(3);
   });
 
   it('⭐ 键盘右方向键：按环上报「当前值 + 一步」（这就是拖动会走的那条回调）', () => {

@@ -38,11 +38,13 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
   });
 
-  it('⭐ 环读数用用户口径的名字 + 每个环挂几个点（外环/二环/中心，虚实也标出来）', () => {
+  it('⭐ 环读数用用户口径的名字 + 每个环挂几个点（外环/二环/内环/中心，虚实与隐藏都标出来）', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     const rings = screen.getByTestId('stage-rings');
     expect(rings).toHaveTextContent('外环 · 四门 r10（虚线）×4');
     expect(rings).toHaveTextContent('二环 · 八峰 r9（实线）×8');
+    // 内环 8 个位置里只有 4 个渲染，另外 4 个是预留位 —— 必须标出来，否则像丢数据
+    expect(rings).toHaveTextContent('内环 · 四院 r5（实线）×4+4隐藏');
     expect(rings).toHaveTextContent('中心 · 主峰 r0（实线）×1');
   });
 
@@ -59,14 +61,25 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-rings')).toHaveTextContent('二环 · 八峰 r12.5（实线）×8');
   });
 
-  it('⭐ 13 个点位全部上屏（1 主峰 + 8 八峰 + 4 宗门门），坐标是世界口径', () => {
+  it('⭐ 17 个渲染点位上屏（1 主峰 + 8 八峰 + 4 宗门门 + 4 四院），坐标是世界口径', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     expect(screen.getByTestId('stage-point-summit')).toHaveTextContent('主峰 (0, 0)');
     expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent('八峰·一 (8.3, 3.4)');
     expect(screen.getByTestId('stage-point-peak_3')).toHaveTextContent('八峰·三 (-3.4, 8.3)');
     expect(screen.getByTestId('stage-point-gate_1')).toHaveTextContent('宗门·东门 (10, 0)');
     expect(screen.getByTestId('stage-point-gate_2')).toHaveTextContent('宗门·北门 (0, 10)');
-    expect(screen.getByTestId('stage-points').children).toHaveLength(13);
+    expect(screen.getByTestId('stage-point-court_1')).toHaveTextContent('四院·东 (5, 0)');
+    expect(screen.getByTestId('stage-points').children).toHaveLength(17);
+  });
+
+  it('⭐ 4 个隐藏位单独一行：数据里在、但不渲染（读数是"看得见它存在"的唯一地方）', () => {
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
+    expect(screen.getByTestId('stage-hidden-points')).toHaveTextContent('隐藏');
+    expect(screen.getByTestId('stage-hidden-inner_1')).toHaveTextContent('预留·东北 (3.5, 3.5)');
+    expect(screen.getByTestId('stage-hidden-inner_4')).toHaveTextContent('预留·东南 (3.5, -3.5)');
+    // 同一个 key 不会既在渲染行又在隐藏行
+    expect(screen.queryByTestId('stage-point-inner_1')).toBeNull();
+    expect(screen.queryByTestId('stage-hidden-court_1')).toBeNull();
   });
 
   it('⭐ 四门落在四个正方向、八峰落在两个方位之间（相位 22.5° 的直观体现）', () => {
@@ -76,13 +89,15 @@ describe('MapStageReadout', () => {
     expect(screen.getByTestId('stage-point-peak_5')).toHaveTextContent('八峰·五 (-8.3, -3.4)');
   });
 
-  it('说明里点明「环 + 角度」的存放口径、小数格点、以及滑杆只改会话', () => {
+  it('说明里点明「环 + 角度」的存放口径、小数格点、隐藏位、以及滑杆只改会话', () => {
     render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} />);
     const note = screen.getByTestId('stage-points-note');
     expect(note).toHaveTextContent('8 等分');
     expect(note).toHaveTextContent('错开半个扇区');
     expect(note).toHaveTextContent('29.31');
     expect(note).toHaveTextContent('不落库');
+    expect(note).toHaveTextContent('21 个点位 = 17 个渲染 + 4 个隐藏');
+    expect(note).toHaveTextContent('四正是四院、四隅是预留位');
     expect(note).toHaveTextContent('滑杆只改本次会话');
   });
 

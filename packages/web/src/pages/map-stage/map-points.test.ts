@@ -2,14 +2,18 @@
  * `map-points` 单测 —— 点位是"地图的数据"，错了会在浏览器里以"看起来歪了一点"的方式表现。
  * 因此这里逐点核对坐标，并且专门守住三条**结构性**性质：
  *
- * 1. 8 等分：相邻夹角恒为 45°、半径恒为 9（不是"目测差不多"）；
+ * 1. 8 等分：相邻夹角恒为 45°、半径恒为环半径（不是"目测差不多"）；
  * 2. 四门在四个**正方向**、八峰**错开 22.5°**（相位口径，一眼能看出的正确性）；
- * 3. 环上的点的**格点坐标是小数** —— 这正是它们不能被存成整数格点的原因（老地图的歪斜根因）。
+ * 3. 内环 8 等分里四正 = 四院、四隅 = 预留位，且预留位带 `hidden`（**数据在、不渲染**）；
+ * 4. 环上的点的**格点坐标是小数** —— 这正是它们不能被存成整数格点的原因（老地图的歪斜根因）。
  *
  * 另外加一条数据完整性守卫：每个点引用的环都必须存在（打字错误在测试期就炸，而不是运行期静默掉到原点）。
  */
 import { describe, expect, it } from 'vitest';
 import {
+  COURT_COUNT,
+  COURT_RING_CELLS,
+  COURT_SLOT_COUNT,
   GATE_COUNT,
   GATE_RING_CELLS,
   MAP_CELLS,
@@ -23,10 +27,12 @@ import {
   adjustableRings,
   clampRadius,
   defaultRingRadii,
+  hiddenPoints,
   resolveMapPoints,
   ringRadiusCells,
   toGridMarks,
   toGridRings,
+  visiblePoints,
   withRingRadii,
 } from './map-points.js';
 import type { MapPoint, MapRing } from './map-points.js';
@@ -43,8 +49,9 @@ function angularGap(a: number, b: number): number {
 }
 
 describe('环定义（半径只写一处）', () => {
-  it('主峰环 0 格、功能峰环 9 格、宗门门环 10 格（虚线）', () => {
+  it('主峰环 0 格、内环 5 格、二环 9 格、外环 10 格（外环虚线）', () => {
     expect(ringRadiusCells('summit')).toBe(0);
+    expect(ringRadiusCells('court')).toBe(COURT_RING_CELLS);
     expect(ringRadiusCells('peak')).toBe(PEAK_RING_CELLS);
     expect(ringRadiusCells('gate')).toBe(GATE_RING_CELLS);
     expect(MAP_RINGS.find((r) => r.key === 'gate')?.dashed).toBe(true);
@@ -60,10 +67,12 @@ describe('环定义（半径只写一处）', () => {
     }
   });
 
-  it('点位数量 = 1 主峰 + 8 功能峰 + 4 宗门门', () => {
-    expect(MAP_POINTS).toHaveLength(1 + PEAK_COUNT + GATE_COUNT);
+  it('点位数量 = 1 主峰 + 8 八峰 + 4 宗门门 + 内环 8 个位置（其中 4 个隐藏）', () => {
+    expect(MAP_POINTS).toHaveLength(1 + PEAK_COUNT + GATE_COUNT + COURT_SLOT_COUNT);
     expect(peaks).toHaveLength(PEAK_COUNT);
     expect(gates).toHaveLength(GATE_COUNT);
+    expect(MAP_POINTS.filter((point) => point.ring === 'court')).toHaveLength(COURT_SLOT_COUNT);
+    expect(MAP_POINTS.filter((point) => point.hidden === true)).toHaveLength(COURT_SLOT_COUNT - COURT_COUNT);
   });
 });
 
@@ -203,36 +212,98 @@ describe('交给绘制层的最小形状', () => {
     }
   });
 
-  it('marks 的位置就是派生的世界坐标（绘制层不懂业务）', () => {
+  it('⭐ marks **不含隐藏点**：21 个点位里只有 17 个会被渲染', () => {
     const marks = toGridMarks(RESOLVED);
-    expect(marks).toHaveLength(1 + PEAK_COUNT + GATE_COUNT);
-    // 顺序：marks[0]=主峰，[1..8]=八峰，[9..12]=四门
+    expect(RESOLVED).toHaveLength(21);
+    expect(marks).toHaveLength(17);
+    expect(visiblePoints(RESOLVED)).toHaveLength(17);
+    expect(hiddenPoints(RESOLVED)).toHaveLength(4);
+    // 顺序：marks[0]=主峰，[1..8]=八峰，[9..12]=四门，[13..16]=四院（预留位被滤掉）
     expect(marks[0]?.at).toEqual({ x: 0, y: 0 });
     expect(marks[9]?.at).toEqual({ x: 10, y: 0 });
-    expect(marks[10]?.at).toEqual({ x: 0, y: 10 });
+    expect(marks[13]?.at).toEqual({ x: 5, y: 0 });
   });
 
-  it('rings 带半径 + 线型：外环 r10 虚线、二环 r9 实线、中心 r0（绘制层跳过）', () => {
+  it('rings 带半径 + 线型：外环 r10 虚线、二环 r9、内环 r5、中心 r0（r0 由绘制层跳过）', () => {
     expect(toGridRings()).toEqual([
       { radiusCells: GATE_RING_CELLS, dashed: true },
       { radiusCells: PEAK_RING_CELLS, dashed: false },
+      { radiusCells: COURT_RING_CELLS, dashed: false },
       { radiusCells: 0, dashed: false },
     ]);
   });
 });
 
+describe('内环（四院）与「是否隐藏」字段', () => {
+  const courts = RESOLVED.filter((point) => point.kind === 'court');
+  const reserved = RESOLVED.filter((point) => point.kind === 'reserved');
+
+  it('⭐ 内环也是 8 等分：四正 = 四院，四隅 = 预留位', () => {
+    const slots = RESOLVED.filter((point) => point.ring === 'court');
+    expect(slots).toHaveLength(COURT_SLOT_COUNT);
+    expect(courts).toHaveLength(COURT_COUNT);
+    expect(reserved).toHaveLength(COURT_SLOT_COUNT - COURT_COUNT);
+    for (const slot of slots) {
+      expect(slot.radiusCells).toBe(COURT_RING_CELLS);
+    }
+  });
+
+  it('四院在四个正方向（0/90/180/270），命名按方位', () => {
+    expect(courts.map((point) => point.angleDeg)).toEqual([0, 90, 180, 270]);
+    expect(courts.map((point) => point.label)).toEqual(['四院·东', '四院·北', '四院·西', '四院·南']);
+    expect(courts.map((point) => point.key)).toEqual(['court_1', 'court_2', 'court_3', 'court_4']);
+  });
+
+  it('预留位在四个对角方向（45/135/225/315），且**都带 hidden**', () => {
+    expect(reserved.map((point) => point.angleDeg)).toEqual([45, 135, 225, 315]);
+    expect(reserved.map((point) => point.label)).toEqual(['预留·东北', '预留·西北', '预留·西南', '预留·东南']);
+    expect(reserved.map((point) => point.key)).toEqual(['inner_1', 'inner_2', 'inner_3', 'inner_4']);
+    for (const point of reserved) {
+      expect(point.hidden).toBe(true);
+    }
+  });
+
+  it('⭐ 四院**没有** hidden（要渲染）；隐藏位仍能算出坐标（数据完整，只是不画）', () => {
+    for (const point of courts) {
+      expect(point.hidden).toBeUndefined();
+    }
+    const ne = reserved[0];
+    expect(ne?.world.x).toBeCloseTo(3.535533906, 9);
+    expect(ne?.world.y).toBeCloseTo(3.535533906, 9);
+    expect(ne?.lattice.col).toBeCloseTo(24.535533906, 6);
+  });
+
+  it('⭐ 隐藏只影响渲染：去掉一个 hidden 就多画一个点（这就是"启用预留位"的动作）', () => {
+    const enabled = RESOLVED.map((point) => (point.key === 'inner_1' ? { ...point, hidden: undefined } : point));
+    expect(toGridMarks(RESOLVED)).toHaveLength(17);
+    expect(toGridMarks(enabled)).toHaveLength(18);
+  });
+
+  it('四院落在整数格点上（5 格 + 四正 ⇒ 列 26/21/16/21）', () => {
+    expect(courts[0]?.lattice).toEqual({ col: 26, row: 21 });
+    expect(courts[1]?.lattice).toEqual({ col: 21, row: 16 });
+    expect(courts[2]?.lattice).toEqual({ col: 16, row: 21 });
+    expect(courts[3]?.lattice).toEqual({ col: 21, row: 26 });
+  });
+});
+
 describe('滑杆：环半径可调（会话态，不动数据表）', () => {
-  it('环表从外到内排列，且带用户口径的显示名（外环/二环/中心）', () => {
-    expect(MAP_RINGS.map((ring) => ring.key)).toEqual(['gate', 'peak', 'summit']);
-    expect(MAP_RINGS.map((ring) => ring.label)).toEqual(['外环 · 四门', '二环 · 八峰', '中心 · 主峰']);
+  it('环表从外到内排列，且带用户口径的显示名（外环/二环/内环/中心）', () => {
+    expect(MAP_RINGS.map((ring) => ring.key)).toEqual(['gate', 'peak', 'court', 'summit']);
+    expect(MAP_RINGS.map((ring) => ring.label)).toEqual([
+      '外环 · 四门',
+      '二环 · 八峰',
+      '内环 · 四院',
+      '中心 · 主峰',
+    ]);
   });
 
   it('只有可调的环给滑杆：中心（主峰）被排除', () => {
-    expect(adjustableRings().map((ring) => ring.key)).toEqual(['gate', 'peak']);
+    expect(adjustableRings().map((ring) => ring.key)).toEqual(['gate', 'peak', 'court']);
   });
 
   it('默认半径表 = 数据表里的值（刷新回到这里）', () => {
-    expect(defaultRingRadii()).toEqual({ gate: 10, peak: 9, summit: 0 });
+    expect(defaultRingRadii()).toEqual({ gate: 10, peak: 9, court: 5, summit: 0 });
   });
 
   it('⭐ 覆盖生效且**不改原表**（纯函数，滑杆调多久数据表都不动）', () => {
@@ -249,9 +320,9 @@ describe('滑杆：环半径可调（会话态，不动数据表）', () => {
   });
 
   it('未知 key / 非数 ⇒ 该环保持默认（不猜、不拖到 0）', () => {
-    expect(withRingRadii({ nope: 5 }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
-    expect(withRingRadii({ peak: Number.NaN }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
-    expect(withRingRadii({ peak: Number.POSITIVE_INFINITY }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
+    expect(withRingRadii({ nope: 5 }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
+    expect(withRingRadii({ peak: Number.NaN }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
+    expect(withRingRadii({ peak: Number.POSITIVE_INFINITY }).map((r) => r.radiusCells)).toEqual([10, 9, 5, 0]);
   });
 
   it('半径夹在滑杆范围内（0 … 半幅）：越界值不会画出网格外的环', () => {

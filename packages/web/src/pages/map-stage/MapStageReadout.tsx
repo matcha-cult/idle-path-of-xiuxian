@@ -11,7 +11,7 @@
  */
 import { Space, Tag, Typography, theme } from 'antd';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
-import { PEAK_PHASE_DEG } from './map-points.js';
+import { PEAK_PHASE_DEG, hiddenPoints, visiblePoints } from './map-points.js';
 import type { MapRing, ResolvedMapPoint } from './map-points.js';
 
 export interface MapStageReadoutProps {
@@ -55,15 +55,21 @@ export function MapStageReadout(props: MapStageReadoutProps) {
   const geom = metrics !== null && metrics.usable ? metrics : null;
   const peaks = points.filter((point) => point.kind === 'peak');
   const gates = points.filter((point) => point.kind === 'gate');
+  /** 渲染的 / 只在数据里的（读数把两类都列出来 —— 隐藏位要"看得见它存在"）。 */
+  const shown = visiblePoints(points);
+  const hidden = hiddenPoints(points);
   /**
    * 环读数**从当前环表算**（不是硬编码常量）：滑杆一改，这里立刻跟着变 ——
-   * 否则读数会在调半径时骗人（那是比没有读数更糟的情况）。
+   * 否则读数会在调半径时骗人（那是比没有读数更糟的情况）。隐藏位单独标 `+N隐藏`，
+   * 免得"内环 8 个位置只报了 4 个"看起来像丢数据。
    */
   const ringText = rings
     .map((ring) => {
-      const count = points.filter((point) => point.ring === ring.key).length;
+      const count = shown.filter((point) => point.ring === ring.key).length;
+      const hiddenCount = hidden.filter((point) => point.ring === ring.key).length;
       const style = ring.dashed === true ? '虚线' : '实线';
-      return `${ring.label} r${round1(ring.radiusCells)}（${style}）×${count}`;
+      const suffix = hiddenCount > 0 ? `+${hiddenCount}隐藏` : '';
+      return `${ring.label} r${round1(ring.radiusCells)}（${style}）×${count}${suffix}`;
     })
     .join(' · ');
 
@@ -97,19 +103,31 @@ export function MapStageReadout(props: MapStageReadoutProps) {
       </Space>
 
       <Space wrap data-testid="stage-points">
-        {points.map((point) => (
+        {shown.map((point) => (
           <Tag key={point.key} data-testid={`stage-point-${point.key}`}>
             {point.label} ({round1(point.world.x)}, {round1(point.world.y)})
           </Tag>
         ))}
       </Space>
 
+      {hidden.length > 0 ? (
+        <Space wrap data-testid="stage-hidden-points">
+          <Typography.Text type="secondary">隐藏（数据保留、不渲染）：</Typography.Text>
+          {hidden.map((point) => (
+            <Tag key={point.key} data-testid={`stage-hidden-${point.key}`}>
+              {point.label} ({round1(point.world.x)}, {round1(point.world.y)})
+            </Tag>
+          ))}
+        </Space>
+      ) : null}
+
       <Typography.Text type="secondary" data-testid="stage-points-note">
-        共 {points.length} 个点位（{peaks.length} 个八峰按 8 等分排在二环上、相位 {PEAK_PHASE_DEG}
-        ° ⇒ 错开半个扇区，把四个正方向让给 {gates.length} 座宗门门），每个点都画成直径 1 格的实心圆。
-        坐标是**世界口径**（原点 = 主峰、y 向上、单位 = 格），由「环 + 角度」算出来、不落库：
-        八峰的格点坐标**全是小数**（如 列 29.31 / 行 17.56），这正是它们不能被存成整数格点的原因。
-        滑杆只改本次会话的圆；定稿后把数字发我，我写进数据表。
+        共 {points.length} 个点位 = {shown.length} 个渲染 + {hidden.length} 个隐藏（隐藏位只关渲染、
+        数据仍在：以后启用它们只需去掉一个 hidden）。{peaks.length} 个八峰按 8 等分排在二环、相位{' '}
+        {PEAK_PHASE_DEG}°（错开半个扇区，四正方向让给 {gates.length} 座宗门门）；内环 8 等分里
+        四正是四院、四隅是预留位。每个点都画成直径 1 格的实心圆。坐标是**世界口径**（原点 = 主峰、
+        y 向上、单位 = 格），由「环 + 角度」算出来、不落库：八峰的格点坐标**全是小数**（如 列 29.31
+        / 行 17.56），这正是它们不能被存成整数格点的原因。滑杆只改本次会话的圆；定稿后把数字发我，我写进数据表。
       </Typography.Text>
     </div>
   );
