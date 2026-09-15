@@ -37,6 +37,16 @@ function round1(value: number): string {
   return String(Math.round(value * 10) / 10);
 }
 
+/**
+ * 两位小数 —— 说明里举的"格点是小数的例子"用它**现算**，不写死。
+ *
+ * 教训：这里原来硬写着「如 列 29.31 / 行 17.56」（那是 r=9 时的值）。数据一改，页面上就挂着
+ * 一句过期的假话 —— 而**没有任何东西会报错**。凡是"举例的数字"，都必须从当前数据算。
+ */
+function round2(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
 function Field(props: { name: string; value: string; testId: string }) {
   return (
     <span>
@@ -126,8 +136,10 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         数据仍在：以后启用它们只需去掉一个 hidden）。{peaks.length} 个八峰按 8 等分排在二环、相位{' '}
         {PEAK_PHASE_DEG}°（错开半个扇区，四正方向让给 {gates.length} 座宗门门）；内环 8 等分里
         四正是四院、四隅是预留位。每个点都画成直径 1 格的实心圆。坐标是**世界口径**（原点 = 主峰、
-        y 向上、单位 = 格），由「环 + 角度」算出来、不落库：八峰的格点坐标**全是小数**（如 列 29.31
-        / 行 17.56），这正是它们不能被存成整数格点的原因。滑杆只改本次会话的圆；定稿后把数字发我，我写进数据表。
+        y 向上、单位 = 格），由「环 + 角度」算出来、不落库：八峰的格点坐标**全是小数**（如 列{' '}
+        {round2(peaks[0]?.lattice.col ?? 0)} / 行 {round2(peaks[0]?.lattice.row ?? 0)}），
+        这正是它们不能被存成整数格点的原因。滑杆只改本次会话的圆；定稿后点上面的「复制环半径」按钮
+        导出，贴给开发者写回数据表。
       </Typography.Text>
     </div>
   );

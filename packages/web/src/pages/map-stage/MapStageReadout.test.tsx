@@ -106,11 +106,14 @@ describe('MapStageReadout', () => {
     const note = screen.getByTestId('stage-points-note');
     expect(note).toHaveTextContent('8 等分');
     expect(note).toHaveTextContent('错开半个扇区');
-    expect(note).toHaveTextContent('29.31');
+    // ⭐ 例子里的数字必须是**现算**的（原来写死 29.31，数据一改页面上就是一句过期的假话）：
+    // 只验"确实给了一个两位小数的例子 + 括号左边是列、右边是行"，不钉死具体数值
+    expect(note).toHaveTextContent(/如 列 \d+\.\d+ \/ 行 \d+\.\d+/);
     expect(note).toHaveTextContent('不落库');
     expect(note).toHaveTextContent('21 个点位 = 17 个渲染 + 4 个隐藏');
     expect(note).toHaveTextContent('四正是四院、四隅是预留位');
     expect(note).toHaveTextContent('滑杆只改本次会话');
+    expect(note).toHaveTextContent('复制环半径');
   });
 
   it('没有悬停 ⇒ 显示 —，而不是 0 / NaN / 空白', () => {

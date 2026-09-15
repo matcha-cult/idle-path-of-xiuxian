@@ -227,8 +227,9 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('stage-point-summit')).toHaveTextContent('主峰 (0, 0)');
     expect(screen.getByTestId('stage-point-gate_2')).toHaveTextContent(`宗门·北门 (0, ${GATE_RING_CELLS})`);
     expect(screen.getByTestId('stage-point-court_2')).toHaveTextContent(`四院·北 (0, ${COURT_RING_CELLS})`);
-    // 八峰的浮点坐标由 map-points 的夹具测试钉死，这里只验"标签 + 数值有两位小数"
-    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent(/八峰·一 \(-?\d+\.\d, -?\d+\.\d\)/);
+    // 八峰的浮点坐标由 map-points 的夹具测试钉死；这里只验"标签 + 数值格式"。
+    // 注意**不能**要求必须有小数点：半径取某些值时四舍五入后正好是整数（如 13 格 ⇒ 12）
+    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent(/八峰·一 \(-?\d+(\.\d)?, -?\d+(\.\d)?\)/);
     expect(screen.getByTestId('stage-hidden-inner_1')).toHaveTextContent('预留·东北 (');
   });
 
