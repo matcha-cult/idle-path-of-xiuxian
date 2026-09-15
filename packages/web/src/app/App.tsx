@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import { ErrorBoundary } from '@idle-path/ui-kit';
 import { useRootStore } from './root-context.js';
 import { ToastBridge } from '../components/ToastBridge.js';
 import { AppThemeToggle } from '../components/AppThemeToggle.js';
@@ -41,7 +42,13 @@ export const App = observer(function App() {
       ) : !root.session.hasCharacter ? (
         <CharacterCreatePage />
       ) : mapStage ? (
-        <MapStagePage />
+        // 地图舞台是**开发中的页面**，必须包一层 ErrorBoundary：否则渲染期/布局副作用里
+        // 的任何异常都会让 React 卸载整棵树 → 整页白屏、且用户拿不到任何错误文字
+        //（2026-09-15 实测：dev server 缓存住一份撕裂的模块，页面就只剩白色）。
+        // 包一层之后白屏变成一张可复制的错误卡片 —— 不是修复，是把"不可诊断"变成"可诊断"。
+        <ErrorBoundary title="地图舞台渲染出错（把这张卡片的内容发给我即可定位）">
+          <MapStagePage />
+        </ErrorBoundary>
       ) : shouldUseMapLab(window.location.search) ? (
         <MapLabPage />
       ) : (
