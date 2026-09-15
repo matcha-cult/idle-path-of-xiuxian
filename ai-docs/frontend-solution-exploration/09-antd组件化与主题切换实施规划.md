@@ -190,7 +190,7 @@ HUD 内建连接状态与一键换肤（游戏态不再用悬浮按钮）。
 > 分 6 组（theme/layout/pluggable/data/feedback/form/game）；**单测 225 例**（31 文件）全绿，
 > 覆盖率 statements/lines **99.54%**、functions **96.92%**、branches **95.81%**（门槛 90/90/85）；
 > 红线门禁 `test/hygiene.test.ts` **11 条**可执行（禁业务/mobx/node 依赖、禁内联 hex、禁 `!important`、
-> 禁组件内 `<style>`、禁 antd 静态反馈 API、每组件目录须有测试、一文件一组件、禁 default 导出、单文件 ≤200 行）；
+> 禁组件内 `<style>`、禁 antd 静态反馈 API、每组件目录须有测试、一文件一组件、禁 default 导出、单文件 ≤250 行）；
 > web 侧 `typecheck`/`build`/`test`（75 例，含真后端 e2e）零回归。
 > 已知偏差（接口不变，仅 v6 API 差异）与唯一 props 豁免见 `packages/ui-kit/README.md`。
 >
@@ -265,7 +265,7 @@ HUD 内建连接状态与一键换肤（游戏态不再用悬浮按钮）。
 
 ### 6.3 本项目新增/强化的硬规则（可检查）
 
-1. 单文件 ≤200 行（store/registry/常量表例外，需在文件头注明理由）；单文件 ≤1 个导出组件。
+1. 单文件 ≤250 行（store/registry/常量表例外，需在文件头注明理由；2026-09-15 用户决定由 200 上调，门禁见 packages/web/test/hygiene.test.ts 与 packages/ui-kit/test/hygiene.test.ts）；单文件 ≤1 个导出组件。
 2. `ui-kit` 组件禁止 import `@idle-path/*`、`mobx`、`node:*` → 由 `ui-kit` 源码红线测试 + `package.json` 不声明依赖双重保证。
 3. 组件 props ≤10；颜色/间距/圆角只来自 antd token，禁内联 hex、禁 `!important`、禁组件内 `<style>`。
 4. antd 反馈 API 一律 `App.useApp()`；禁 `message.*` / `Modal.confirm` 静态调用。

@@ -11,7 +11,9 @@
  * 2. 不得使用 `!important`；
  * 3. 不得在组件里注入 `<style>`；
  * 4. 不得使用 antd 静态反馈 API（`Modal.confirm` / `message.*` / `notification.*`）；
- * 5. 单文件 ≤200 行（store 与常量表按规划豁免；遗留大文件走棘轮）。
+ * 5. 单文件 ≤250 行（store 与常量表按规划豁免；遗留大文件走棘轮）。
+ *    250 是 2026-09-15 用户决定由 200 上调的；原值 200 是为了逼着拆巨型面板，
+ *    但对"数据表"这类天然会变长的文件过紧。
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -89,12 +91,12 @@ describe('红线 2/3/4 · 样式与反馈 API 纪律', () => {
 });
 
 describe('红线 5 · 单文件规模', () => {
-  it('非豁免文件 ≤200 行', () => {
+  it('非豁免文件 ≤250 行', () => {
     const tooLong = ALL.filter(
       (f) =>
         !LENGTH_EXEMPT.some((re) => re.test(f)) &&
         !(f in LEGACY_LARGE_FILES) &&
-        lines(f) > 200,
+        lines(f) > 250,
     ).map((f) => `${f}:${lines(f)}`);
     expect(tooLong).toEqual([]);
   });

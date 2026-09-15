@@ -16,7 +16,8 @@
  *    静态调用会脱离 ConfigProvider 上下文，导致主题与 locale 失效；
  * 6. 每个组件目录必须有同目录测试；
  * 7. 一个 `.tsx` 文件只导出一个组件；
- * 8. 单文件 ≤200 行。
+ * 8. 单文件 ≤250 行（2026-09-15 用户决定由 200 上调；原本是为逼着拆巨型面板，
+ *    200 对"数据表/常量表"这类天然会变长的文件过紧）。
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -129,8 +130,8 @@ describe('红线 6/7/8 · 结构与规模', () => {
     expect(SOURCE.filter((f) => /^export default/m.test(read(f)))).toEqual([]);
   });
 
-  it('单文件 ≤200 行', () => {
-    const tooLong = SOURCE.filter((f) => lines(f) > 200).map((f) => `${f}:${lines(f)}`);
+  it('单文件 ≤250 行', () => {
+    const tooLong = SOURCE.filter((f) => lines(f) > 250).map((f) => `${f}:${lines(f)}`);
     expect(tooLong).toEqual([]);
   });
 });
