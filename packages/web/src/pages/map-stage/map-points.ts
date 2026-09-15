@@ -29,10 +29,14 @@ export type MapPointKind = 'summit' | 'peak' | 'court' | 'gate';
 /** 环（轨道）：**半径与线型的口径只写在这里**。 */
 export interface MapRing {
   key: string;
+  /** 显示名（滑杆与读数上用**用户的词汇**：外环/二环/内环，避免各说各话） */
+  label: string;
   /** 环半径（格单位） */
   radiusCells: number;
   /** 画成虚线（视觉语言：把「宗门大阵圈」与「八峰轨道」区分开） */
   dashed?: boolean;
+  /** 半径**不可调**（中心 = 主峰，恒为 0；滑杆不给它，免得把中心拖出去） */
+  fixed?: boolean;
 }
 
 export interface MapPoint {
@@ -52,13 +56,15 @@ export const PEAK_RING_CELLS = 9;
 export const GATE_RING_CELLS = 10;
 
 /**
- * 环定义。主峰也建成一条**半径 0 的环**，是为了让所有点走**同一套代码** ——
- * 特殊分支越少，越不容易出现"主峰画了、峰忘了画"这种半成品（半径 0 的环由绘制层跳过）。
+ * 环定义，**从外到内**排列（与用户报环顺序一致：外环 → 二环 → 中心）。
+ * 主峰也建成一条**半径 0 的环**，是为了让所有点走**同一套代码** ——
+ * 特殊分支越少，越不容易出现"主峰画了、峰忘了画"这种半成品；
+ * 它的 `fixed` 让它不出现在滑杆里（中心不该被拖走），半径 0 的环也由绘制层跳过。
  */
 export const MAP_RINGS: readonly MapRing[] = [
-  { key: 'summit', radiusCells: 0 },
-  { key: 'peak', radiusCells: PEAK_RING_CELLS },
-  { key: 'gate', radiusCells: GATE_RING_CELLS, dashed: true },
+  { key: 'gate', label: '外环 · 四门', radiusCells: GATE_RING_CELLS, dashed: true },
+  { key: 'peak', label: '二环 · 八峰', radiusCells: PEAK_RING_CELLS },
+  { key: 'summit', label: '中心 · 主峰', radiusCells: 0, fixed: true },
 ];
 
 /** 功能峰数量（8 等分）。 */
@@ -77,11 +83,12 @@ export const GATE_COUNT = 4;
 export const PEAK_PHASE_DEG = 22.5;
 
 /**
- * 功能峰的名字：**按序号**，不按方位。
+ * 二环八峰的名字：**按序号**，不按方位。
  *
  * 为什么不用「东/东北/北…」：那是相位 0 的产物。相位改成 22.5° 后，每颗峰正好落在两个
  * 具名方位**之间**，继续叫「功能峰·东」就是错的 —— 名字跟着口径变，才不会骗人。
- * 正式名称以后由数据表给出，`key` 不受影响。
+ * 另外「功能峰」这个词在本图里指**内环那一层功能区（含四院）**，所以二环这 8 个点统一叫
+ * **八峰**，避免和用户自己的词汇打架。正式名称以后由数据表给出，`key` 不受影响。
  */
 const PEAK_LABELS = ['一', '二', '三', '四', '五', '六', '七', '八'] as const;
 
@@ -97,7 +104,7 @@ export const MAP_POINTS: readonly MapPoint[] = [
   ...ringAngles(PEAK_COUNT, PEAK_PHASE_DEG).map((angleDeg, index) => ({
     key: `peak_${index + 1}`,
     kind: 'peak' as const,
-    label: `功能峰·${PEAK_LABELS[index] ?? `#${index + 1}`}`,
+    label: `八峰·${PEAK_LABELS[index] ?? `#${index + 1}`}`,
     ring: 'peak',
     angleDeg,
   })),
@@ -124,6 +131,42 @@ export interface ResolvedMapPoint extends MapPoint {
 export function ringRadiusCells(ringKey: string, rings: readonly MapRing[] = MAP_RINGS): number | null {
   const ring = rings.find((r) => r.key === ringKey);
   return ring === undefined ? null : ring.radiusCells;
+}
+
+/** 滑杆范围（格）：0 … 半幅（42 格 ⇒ ±21；超过半幅环就画到网格外了）。 */
+export const RING_RADIUS_LIMITS = { min: 0, max: MAP_CELLS / 2, step: 0.5 } as const;
+
+/** 把半径夹进滑杆范围（拖动 / 手输 / 脏数据都不会越界）。非数 ⇒ 下限。 */
+export function clampRadius(value: number): number {
+  if (!Number.isFinite(value)) return RING_RADIUS_LIMITS.min;
+  return Math.min(RING_RADIUS_LIMITS.max, Math.max(RING_RADIUS_LIMITS.min, value));
+}
+
+/**
+ * 用滑杆值覆盖环半径（**纯函数**，不改原表）。
+ *
+ * 未知 key / 非数 ⇒ 该环保持默认（不猜、不把它拖到 0），`fixed` 的环（中心）直接忽略。
+ * 这样"调半径"永远只影响几何，不会悄悄改掉数据表本身 —— 定稿后再把数字写回数据表。
+ */
+export function withRingRadii(
+  overrides: Readonly<Record<string, number>>,
+  rings: readonly MapRing[] = MAP_RINGS,
+): MapRing[] {
+  return rings.map((ring) => {
+    const next = overrides[ring.key];
+    if (ring.fixed === true || next === undefined || !Number.isFinite(next)) return ring;
+    return { ...ring, radiusCells: clampRadius(next) };
+  });
+}
+
+/** 可以给滑杆的环（中心固定，不给）。 */
+export function adjustableRings(rings: readonly MapRing[] = MAP_RINGS): MapRing[] {
+  return rings.filter((ring) => ring.fixed !== true);
+}
+
+/** 默认半径表（滑杆的初始值；刷新即回到这里——持久化的位置是数据表本身）。 */
+export function defaultRingRadii(rings: readonly MapRing[] = MAP_RINGS): Record<string, number> {
+  return Object.fromEntries(rings.map((ring) => [ring.key, ring.radiusCells]));
 }
 
 /**

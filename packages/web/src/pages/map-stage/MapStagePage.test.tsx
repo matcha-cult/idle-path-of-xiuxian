@@ -1,7 +1,7 @@
 /**
  * `MapStagePage` 单测 —— 断言的是**这一页交付了什么**，而且刻意断言到"画布上真的调了哪些 arc"：
- * 42×42 网格、两条轨道（峰环 r9 实线 / 宗门大阵圈 r10 虚线）、13 个点
- * （1 主峰 + 8 功能峰错开 22.5° + 4 四门在正方向），以及坐标读数与点位读数。
+ * 42×42 网格、两条轨道（二环 r9 实线 / 外环 r10 虚线）、13 个点
+ * （1 主峰 + 8 八峰错开 22.5° + 4 四门在正方向）、三块读数、以及**滑杆真的能改半径并重画**。
  *
  * 为什么连 arc 都要断言：纯 canvas 在 DevTools 里没有 DOM，页面读数只覆盖"几何与环境"，
  * 而"环到底画没画、点落在哪"只能靠这一类调用次序/坐标断言兜住 —— 否则就要靠人在浏览器里数。
@@ -60,6 +60,9 @@ function fakeContext(): CanvasRenderingContext2D {
   } as unknown as CanvasRenderingContext2D;
 }
 
+/** 滑杆把手（文档顺序 = 外环、二环；中心固定没有滑杆）。 */
+const handles = (): Element[] => [...document.querySelectorAll('[role="slider"]')];
+
 beforeEach(() => {
   arcs = [];
   dashes = [];
@@ -78,14 +81,14 @@ afterEach(() => {
 });
 
 describe('MapStagePage', () => {
-  it('口径上屏：42 格 / 每轴 43 条线 / 半径 9 格轨道 / 8 等分 / 宗门大阵圈', () => {
+  it('口径上屏：42 格 / 每轴 43 条线 / 8 等分 / 错开半扇区 / 宗门大阵圈 / 滑杆提示', () => {
     render(<MapStagePage />);
     const intro = screen.getByText(/每轴 42 个小格子/);
     expect(intro).toHaveTextContent('每轴 43 条网格线');
-    expect(intro).toHaveTextContent('半径 9 格的轨道');
     expect(intro).toHaveTextContent('8 等分');
     expect(intro).toHaveTextContent('错开半个扇区');
     expect(intro).toHaveTextContent('宗门大阵圈');
+    expect(intro).toHaveTextContent('滑杆');
   });
 
   it('按 42 格算出整数格宽与画布尺寸（500×500 ⇒ 每格 10px、画布 472）', () => {
@@ -94,12 +97,12 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('canvas-grid').getAttribute('data-canvas-w')).toBe('472');
   });
 
-  it('⭐ 两条轨道：峰环 r9 ⇒ 90px 实线；宗门大阵圈 r10 ⇒ 100px 虚线（主峰 r0 不画）', () => {
+  it('⭐ 两条轨道：二环 r9 ⇒ 90px 实线；外环 r10 ⇒ 100px 虚线（中心 r0 不画）', () => {
     render(<MapStagePage />);
     expect(arcs).toContain('arc(236,236,90)');
     expect(arcs).toContain('arc(236,236,100)');
     expect(arcs).not.toContain('arc(236,236,0)');
-    // 只有门环画虚线
+    // 只有外环（宗门大阵圈）画虚线
     expect(dashes.filter((segments) => segments.length > 0)).toHaveLength(1);
   });
 
@@ -107,18 +110,45 @@ describe('MapStagePage', () => {
     render(<MapStagePage />);
     // 2 条环 + 13 个点 = 15 次 arc
     expect(arcs).toHaveLength(15);
-    // 主峰：世界原点
-    expect(arcs).toContain('arc(236,236,5)');
-    // 宗门·东门 (10,0) ⇒ 屏幕 (236+100, 236)
-    expect(arcs).toContain('arc(336,236,5)');
-    // 宗门·北门 (0,10) ⇒ 屏幕 y 减小（y 向上）
-    expect(arcs).toContain('arc(236,136,5)');
-    // 宗门·南门 (0,-10) ⇒ 屏幕 y 增大
-    expect(arcs).toContain('arc(236,336,5)');
-    // 功能峰·一 (8.315, 3.444) ⇒ 屏幕 (319.15, 201.56)：相位 22.5°，两个分量都不为零
+    expect(arcs).toContain('arc(236,236,5)'); // 主峰
+    expect(arcs).toContain('arc(336,236,5)'); // 宗门·东门 (10,0)
+    expect(arcs).toContain('arc(236,136,5)'); // 宗门·北门 (0,10)
+    expect(arcs).toContain('arc(236,336,5)'); // 宗门·南门 (0,-10)
+    // 八峰·一 (8.315, 3.444) ⇒ 屏幕 (319.15, 201.56)：相位 22.5°，两个分量都不为零
     expect(arcs.some((call) => /^arc\(319\.14\d+,201\.55\d+,5\)$/.test(call))).toBe(true);
-    // 功能峰·三 (112.5°) ⇒ 屏幕 (201.56, 152.85)
-    expect(arcs.some((call) => /^arc\(201\.55\d+,152\.85\d+,5\)$/.test(call))).toBe(true);
+    expect(arcs.some((call) => /^arc\(201\.55\d+,152\.85\d+,5\)$/.test(call))).toBe(true); // 八峰·三
+  });
+
+  it('⭐ 滑杆：默认值来自数据表（外环 10 / 二环 9），中心不给滑杆', () => {
+    render(<MapStagePage />);
+    expect(screen.getByTestId('ring-value-gate')).toHaveTextContent('10 格');
+    expect(screen.getByTestId('ring-value-peak')).toHaveTextContent('9 格');
+    expect(screen.queryByTestId('ring-value-summit')).toBeNull();
+    expect(handles()).toHaveLength(2);
+  });
+
+  it('⭐ 拖动滑杆（键盘一步）⇒ 半径、环、点位一起重画，读数同步', () => {
+    render(<MapStagePage />);
+    // 假上下文是**日志**（只追加），并不模拟"重画会清空画布"——所以只看这一帧新产生的那一段
+    const before = arcs.length;
+    // 二环把手 = 第 2 个；右方向键走一步（0.5 格）⇒ r = 9.5 ⇒ 95px
+    fireEvent.keyDown(handles()[1] as Element, { key: 'ArrowRight', keyCode: 39, which: 39 });
+    const frame = arcs.slice(before);
+
+    expect(frame).toContain('arc(236,236,95)');
+    expect(frame).not.toContain('arc(236,236,90)');
+    // 八峰·一 也跟着挪到 r=9.5、22.5° ⇒ 屏幕 (323.77, 199.65)
+    expect(frame.some((call) => /^arc\(323\.7\d+,199\.6\d+,5\)$/.test(call))).toBe(true);
+    // 读数报的是当前值，不是默认值
+    expect(screen.getByTestId('ring-value-peak')).toHaveTextContent('9.5 格');
+    expect(screen.getByTestId('stage-rings')).toHaveTextContent('二环 · 八峰 r9.5（实线）×8');
+  });
+
+  it('⭐ 外环滑杆独立生效（改一个环不影响另一个）', () => {
+    render(<MapStagePage />);
+    fireEvent.keyDown(handles()[0] as Element, { key: 'ArrowLeft', keyCode: 37, which: 37 });
+    expect(arcs).toContain('arc(236,236,95)'); // 外环 10 → 9.5
+    expect(arcs).toContain('arc(236,236,90)'); // 二环不动
   });
 
   it('读数端到端接通（onMetrics 真的把几何交给页面）', () => {
@@ -127,7 +157,8 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('stage-origin')).toHaveTextContent('(236, 236) px');
     expect(screen.getByTestId('stage-canvas')).toHaveTextContent('472 × 472 CSS');
     expect(screen.getByTestId('stage-lines')).toHaveTextContent('43 条');
-    expect(screen.getByTestId('stage-rings')).toHaveTextContent('相位 22.5°');
+    // 环读数用用户口径的名字（相位在下面的说明里）
+    expect(screen.getByTestId('stage-rings')).toHaveTextContent('外环 · 四门 r10（虚线）×4');
   });
 
   it('⭐ 13 个点位坐标全部上屏（可从页面直接核对相位与 8 等分）', () => {
@@ -135,7 +166,7 @@ describe('MapStagePage', () => {
     expect(screen.getByTestId('stage-points').children).toHaveLength(13);
     expect(screen.getByTestId('stage-point-summit')).toHaveTextContent('主峰 (0, 0)');
     expect(screen.getByTestId('stage-point-gate_2')).toHaveTextContent('宗门·北门 (0, 10)');
-    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent('功能峰·一 (8.3, 3.4)');
+    expect(screen.getByTestId('stage-point-peak_1')).toHaveTextContent('八峰·一 (8.3, 3.4)');
   });
 
   it('⭐ 鼠标移到某格 ⇒ 读数报出那一格；移出 ⇒ 回到 —', () => {

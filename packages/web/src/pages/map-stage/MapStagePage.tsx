@@ -3,8 +3,9 @@
  *
  * ## 这一页到目前画了什么
  * 1. 纵横 `MAP_CELLS` 个小格子的网格（鼠标移到哪一格就报出那一格）；
- * 2. 以中心为圆心、半径 `PEAK_RING_CELLS` 格的**轨道环**；
- * 3. 环上 **8 等分**定出的 8 个**功能峰** + 中心的**主峰** —— 9 个点都画成直径 1 格的实心圆。
+ * 2. 以中心为圆心、半径可**用滑杆调**的轨道环（外环 = 宗门大阵圈虚线 · 二环 = 八峰轨道）；
+ * 3. 中心主峰 + 二环上按 8 等分（相位 22.5°）的 8 个八峰 + 四正方向的 4 座宗门门 ——
+ *    共 13 个点，都画成直径 1 格的实心圆。
  *
  * ## 刻意不做什么
  * 不含任何地图业务数据（节点/连线/可交互对象/缩放拖拽）。用户的方式是「一步步引导」：
@@ -21,27 +22,40 @@ import { Typography, theme } from 'antd';
 import { CanvasGrid } from '@idle-path/ui-kit';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
 import { MapStageReadout } from './MapStageReadout.js';
+import { MapStageRingSliders } from './MapStageRingSliders.js';
 import {
-  GATE_RING_CELLS,
   MAP_CELLS,
+  MAP_POINTS,
   PEAK_COUNT,
   PEAK_PHASE_DEG,
-  PEAK_RING_CELLS,
+  adjustableRings,
+  defaultRingRadii,
   resolveMapPoints,
   toGridMarks,
   toGridRings,
+  withRingRadii,
 } from './map-points.js';
 
 export function MapStagePage() {
   const { token } = theme.useToken();
   const [hover, setHover] = useState<GridCell | null>(null);
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
+  /**
+   * 环半径的**会话态**（滑杆）。初始值 = 数据表里的默认值；刷新即回到默认。
+   * 调半径只影响这一份 state，不动数据表 —— 定稿后再把数字写回 `map-points.ts`。
+   */
+  const [ringRadii, setRingRadii] = useState<Record<string, number>>(() => defaultRingRadii());
 
-  // 点位是「静态表 + 纯函数派生」：算一次即可。useMemo 同时保证引用稳定，
+  const rings = useMemo(() => withRingRadii(ringRadii), [ringRadii]);
+  // 点位是「静态表 + 纯函数派生」：环变了就重算。useMemo 同时保证引用稳定，
   // 否则每次渲染都造新数组，会把画布的绘制 effect 白白打醒。
-  const points = useMemo(() => resolveMapPoints(), []);
-  const rings = useMemo(() => toGridRings(), []);
+  const points = useMemo(() => resolveMapPoints(MAP_POINTS, rings), [rings]);
+  const gridRings = useMemo(() => toGridRings(rings), [rings]);
   const marks = useMemo(() => toGridMarks(points), [points]);
+
+  const handleRingChange = (ringKey: string, radiusCells: number): void => {
+    setRingRadii((prev) => ({ ...prev, [ringKey]: radiusCells }));
+  };
 
   return (
     <div
@@ -57,13 +71,13 @@ export function MapStagePage() {
     >
       <div>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          地图 · 网格 / 轨道 / 功能峰 / 四门
+          地图 · 网格 / 轨道 / 八峰 / 四门
         </Typography.Title>
         <Typography.Text type="secondary">
           每轴 {MAP_CELLS} 个小格子（每轴 {MAP_CELLS + 1} 条网格线）；鼠标移到网格上会高亮，并在光标旁报出坐标。
-          主峰在中心；外面一圈半径 {PEAK_RING_CELLS} 格的轨道上按 8 等分排出 {PEAK_COUNT} 个功能峰（相位{' '}
-          {PEAK_PHASE_DEG}°，即错开半个扇区）；再外面一圈<span> </span>
-          {GATE_RING_CELLS} 格的虚线轨道是宗门大阵圈，四门在正北/正东/正南/正西。
+          主峰在中心；二环按 8 等分排出 {PEAK_COUNT} 个八峰（相位 {PEAK_PHASE_DEG}
+          ° ⇒ 错开半个扇区，把四个正方向让出来）；外环是宗门大阵圈（虚线），四门在正北/正东/正南/正西。
+          下面的滑杆可以直接调各环离中心多少格。
         </Typography.Text>
       </div>
 
@@ -83,13 +97,14 @@ export function MapStagePage() {
           value={hover}
           onHoverCell={setHover}
           onMetrics={setMetrics}
-          rings={rings}
+          rings={gridRings}
           marks={marks}
           label="地图网格"
         />
       </div>
 
-      <MapStageReadout hover={hover} metrics={metrics} points={points} />
+      <MapStageRingSliders rings={adjustableRings(rings)} onChange={handleRingChange} />
+      <MapStageReadout hover={hover} metrics={metrics} points={points} rings={rings} />
     </div>
   );
 }

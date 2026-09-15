@@ -11,8 +11,8 @@
  */
 import { Space, Tag, Typography, theme } from 'antd';
 import type { GridCell, GridMetrics } from '@idle-path/ui-kit';
-import { GATE_COUNT, GATE_RING_CELLS, PEAK_COUNT, PEAK_PHASE_DEG, PEAK_RING_CELLS } from './map-points.js';
-import type { ResolvedMapPoint } from './map-points.js';
+import { PEAK_PHASE_DEG } from './map-points.js';
+import type { MapRing, ResolvedMapPoint } from './map-points.js';
 
 export interface MapStageReadoutProps {
   /** 当前悬停格（受控，来自 `CanvasGrid` 的 `onHoverCell`） */
@@ -21,6 +21,8 @@ export interface MapStageReadoutProps {
   metrics: GridMetrics | null;
   /** 已解析的点位（含派生世界坐标与世界原点的格点口径） */
   points: readonly ResolvedMapPoint[];
+  /** 当前生效的环表（半径可能被滑杆改过 —— 读数必须报**当前值**，不是默认值） */
+  rings: readonly MapRing[];
 }
 
 const DASH = '—';
@@ -47,12 +49,23 @@ function Field(props: { name: string; value: string; testId: string }) {
 }
 
 export function MapStageReadout(props: MapStageReadoutProps) {
-  const { hover, metrics, points } = props;
+  const { hover, metrics, points, rings } = props;
   const { token } = theme.useToken();
   /** 几何读数只在「量出来且真的画得出网格」时才有意义；否则一律 `—`。 */
   const geom = metrics !== null && metrics.usable ? metrics : null;
   const peaks = points.filter((point) => point.kind === 'peak');
   const gates = points.filter((point) => point.kind === 'gate');
+  /**
+   * 环读数**从当前环表算**（不是硬编码常量）：滑杆一改，这里立刻跟着变 ——
+   * 否则读数会在调半径时骗人（那是比没有读数更糟的情况）。
+   */
+  const ringText = rings
+    .map((ring) => {
+      const count = points.filter((point) => point.ring === ring.key).length;
+      const style = ring.dashed === true ? '虚线' : '实线';
+      return `${ring.label} r${round1(ring.radiusCells)}（${style}）×${count}`;
+    })
+    .join(' · ');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: token.paddingXS }}>
@@ -80,11 +93,7 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         />
         <Field name="DPR" testId="stage-dpr" value={metrics === null ? DASH : String(metrics.dpr)} />
         <Field name="每轴线" testId="stage-lines" value={geom === null ? DASH : `${geom.axisLineCount} 条`} />
-        <Field
-          name="环"
-          testId="stage-rings"
-          value={`主峰 r0 · 功能峰 r${PEAK_RING_CELLS} ×${PEAK_COUNT}（相位 ${PEAK_PHASE_DEG}°）· 宗门门 r${GATE_RING_CELLS} ×${GATE_COUNT}`}
-        />
+        <Field name="环" testId="stage-rings" value={ringText} />
       </Space>
 
       <Space wrap data-testid="stage-points">
@@ -96,11 +105,11 @@ export function MapStageReadout(props: MapStageReadoutProps) {
       </Space>
 
       <Typography.Text type="secondary" data-testid="stage-points-note">
-        共 {points.length} 个点位（{peaks.length} 峰在 r={PEAK_RING_CELLS} 的环上按 8 等分、相位 {PEAK_PHASE_DEG}
-        ° ⇒ 错开半个扇区，把四个正方向让给 {gates.length} 座宗门门，门在 r={GATE_RING_CELLS}
-        的正方向上）；每个点都画成直径 1 格的实心圆。坐标是**世界口径**（原点 = 主峰、y 向上、单位 = 格），
-        由「环 + 角度」算出来、不落库：8 颗峰的格点坐标**全是小数**（如 列 29.31 / 行 17.56），
-        这正是它们不能被存成整数格点的原因。
+        共 {points.length} 个点位（{peaks.length} 个八峰按 8 等分排在二环上、相位 {PEAK_PHASE_DEG}
+        ° ⇒ 错开半个扇区，把四个正方向让给 {gates.length} 座宗门门），每个点都画成直径 1 格的实心圆。
+        坐标是**世界口径**（原点 = 主峰、y 向上、单位 = 格），由「环 + 角度」算出来、不落库：
+        八峰的格点坐标**全是小数**（如 列 29.31 / 行 17.56），这正是它们不能被存成整数格点的原因。
+        滑杆只改本次会话的圆；定稿后把数字发我，我写进数据表。
       </Typography.Text>
     </div>
   );

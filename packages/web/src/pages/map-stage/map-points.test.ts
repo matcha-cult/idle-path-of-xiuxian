@@ -19,10 +19,15 @@ import {
   PEAK_COUNT,
   PEAK_PHASE_DEG,
   PEAK_RING_CELLS,
+  RING_RADIUS_LIMITS,
+  adjustableRings,
+  clampRadius,
+  defaultRingRadii,
   resolveMapPoints,
   ringRadiusCells,
   toGridMarks,
   toGridRings,
+  withRingRadii,
 } from './map-points.js';
 import type { MapPoint, MapRing } from './map-points.js';
 
@@ -87,14 +92,14 @@ describe('8 等分（结构性性质，不看"差不多"）', () => {
 
   it('名字按序号（真名以后由数据表给，key 不变）', () => {
     expect(peaks.map((p) => p.label)).toEqual([
-      '功能峰·一',
-      '功能峰·二',
-      '功能峰·三',
-      '功能峰·四',
-      '功能峰·五',
-      '功能峰·六',
-      '功能峰·七',
-      '功能峰·八',
+      '八峰·一',
+      '八峰·二',
+      '八峰·三',
+      '八峰·四',
+      '八峰·五',
+      '八峰·六',
+      '八峰·七',
+      '八峰·八',
     ]);
     expect(peaks.map((p) => p.key)).toEqual([
       'peak_1',
@@ -183,7 +188,7 @@ describe('派生坐标（逐点核对）', () => {
 
   it('未知环的点退化为原点而不是抛错（防御脏数据）', () => {
     const bad: MapPoint = { key: 'x', kind: 'court', label: 'X', ring: 'nope', angleDeg: 0 };
-    const rings: readonly MapRing[] = [{ key: 'peak', radiusCells: 9 }];
+    const rings: readonly MapRing[] = [{ key: 'peak', label: '二环 · 八峰', radiusCells: 9 }];
     const [resolved] = resolveMapPoints([bad], rings);
     expect(resolved?.radiusCells).toBe(0);
     expect(resolved?.world).toEqual({ x: 0, y: 0 });
@@ -207,11 +212,74 @@ describe('交给绘制层的最小形状', () => {
     expect(marks[10]?.at).toEqual({ x: 0, y: 10 });
   });
 
-  it('rings 带半径 + 线型：主峰 0（绘制层跳过）、峰环 9 实线、门环 10 虚线', () => {
+  it('rings 带半径 + 线型：外环 r10 虚线、二环 r9 实线、中心 r0（绘制层跳过）', () => {
     expect(toGridRings()).toEqual([
+      { radiusCells: GATE_RING_CELLS, dashed: true },
+      { radiusCells: PEAK_RING_CELLS, dashed: false },
       { radiusCells: 0, dashed: false },
-      { radiusCells: 9, dashed: false },
-      { radiusCells: 10, dashed: true },
     ]);
+  });
+});
+
+describe('滑杆：环半径可调（会话态，不动数据表）', () => {
+  it('环表从外到内排列，且带用户口径的显示名（外环/二环/中心）', () => {
+    expect(MAP_RINGS.map((ring) => ring.key)).toEqual(['gate', 'peak', 'summit']);
+    expect(MAP_RINGS.map((ring) => ring.label)).toEqual(['外环 · 四门', '二环 · 八峰', '中心 · 主峰']);
+  });
+
+  it('只有可调的环给滑杆：中心（主峰）被排除', () => {
+    expect(adjustableRings().map((ring) => ring.key)).toEqual(['gate', 'peak']);
+  });
+
+  it('默认半径表 = 数据表里的值（刷新回到这里）', () => {
+    expect(defaultRingRadii()).toEqual({ gate: 10, peak: 9, summit: 0 });
+  });
+
+  it('⭐ 覆盖生效且**不改原表**（纯函数，滑杆调多久数据表都不动）', () => {
+    const overridden = withRingRadii({ peak: 12.5 });
+    expect(overridden.find((ring) => ring.key === 'peak')?.radiusCells).toBe(12.5);
+    expect(overridden.find((ring) => ring.key === 'gate')?.radiusCells).toBe(10);
+    expect(MAP_RINGS.find((ring) => ring.key === 'peak')?.radiusCells).toBe(9); // 原表没被改
+    expect(overridden).not.toBe(MAP_RINGS);
+  });
+
+  it('⭐ 中心（fixed）忽略覆盖 —— 主峰不该被拖走', () => {
+    const overridden = withRingRadii({ summit: 8 });
+    expect(overridden.find((ring) => ring.key === 'summit')?.radiusCells).toBe(0);
+  });
+
+  it('未知 key / 非数 ⇒ 该环保持默认（不猜、不拖到 0）', () => {
+    expect(withRingRadii({ nope: 5 }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
+    expect(withRingRadii({ peak: Number.NaN }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
+    expect(withRingRadii({ peak: Number.POSITIVE_INFINITY }).map((r) => r.radiusCells)).toEqual([10, 9, 0]);
+  });
+
+  it('半径夹在滑杆范围内（0 … 半幅）：越界值不会画出网格外的环', () => {
+    expect(RING_RADIUS_LIMITS).toEqual({ min: 0, max: 21, step: 0.5 });
+    expect(clampRadius(999)).toBe(21);
+    expect(clampRadius(-5)).toBe(0);
+    expect(clampRadius(Number.NaN)).toBe(0);
+    expect(withRingRadii({ peak: 999 }).find((r) => r.key === 'peak')?.radiusCells).toBe(21);
+    expect(withRingRadii({ gate: -3 }).find((r) => r.key === 'gate')?.radiusCells).toBe(0);
+  });
+
+  it('⭐ 覆盖后重算点位：半径变了，点的世界坐标跟着变（这就是"调半径"的整条链）', () => {
+    const [gate, peak] = withRingRadii({ peak: 10, gate: 14 });
+    const resolved = resolveMapPoints(MAP_POINTS, withRingRadii({ peak: 10, gate: 14 }));
+    const eastGate = resolved.find((point) => point.key === 'gate_1');
+    const firstPeak = resolved.find((point) => point.key === 'peak_1');
+    expect(gate?.radiusCells).toBe(14);
+    expect(peak?.radiusCells).toBe(10);
+    // 东门被拖到 r=14 ⇒ (14, 0)
+    expect(eastGate?.world).toEqual({ x: 14, y: 0 });
+    // 八峰·一 被拖到 r=10、仍在 22.5° ⇒ (9.239, 3.827)
+    expect(firstPeak?.world.x).toBeCloseTo(9.238795325, 9);
+    expect(firstPeak?.world.y).toBeCloseTo(3.826834324, 9);
+  });
+
+  it('滑杆给 4 位小数也不会有浮点渣（半径本身就是半格步长）', () => {
+    const overridden = withRingRadii({ peak: 9.5 });
+    const resolved = resolveMapPoints(MAP_POINTS, overridden);
+    expect(resolved.find((point) => point.key === 'peak_1')?.world.x).toBeCloseTo(8.777, 3);
   });
 });
