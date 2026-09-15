@@ -16,6 +16,12 @@ const RINGS = adjustableRings(); // 外环（门）、二环（峰）；中心�
 const handles = (container: HTMLElement): Element[] => [...container.querySelectorAll('[role="slider"]')];
 
 describe('MapStageRingSliders', () => {
+  it('⭐ 面板里带「复制环半径」按钮（把转录工作从用户手里接过来）', () => {
+    render(<MapStageRingSliders rings={RINGS} onChange={vi.fn()} />);
+    expect(screen.getByTestId('stage-ring-sliders')).toContainElement(screen.getByTestId('ring-export-button'));
+    expect(screen.getByTestId('ring-export-button')).toHaveTextContent('复制环半径');
+  });
+
   it('可调的环每个一行：显示名 + 当前半径（值来自环表，不硬编码）', () => {
     render(<MapStageRingSliders rings={RINGS} onChange={vi.fn()} />);
     expect(screen.getByTestId('ring-value-gate')).toHaveTextContent('10 格');

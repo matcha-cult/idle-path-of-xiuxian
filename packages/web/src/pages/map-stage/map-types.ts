@@ -24,6 +24,13 @@ export interface MapRing {
   dashed?: boolean;
   /** 半径**不可调**（中心 = 主峰，恒为 0；滑杆不给它，免得把中心拖出去） */
   fixed?: boolean;
+  /**
+   * 半径在数据表里的**常量名**（如 `GATE_RING_CELLS`）。
+   *
+   * 用途：滑杆面板的「复制环半径」按它生成 `export const … = …;` 这种**可整段贴回**的源码。
+   * 缺省（中心那种固定环）表示"这个半径不需要写回数据表"。
+   */
+  radiusConst?: string;
 }
 
 export interface MapPoint {

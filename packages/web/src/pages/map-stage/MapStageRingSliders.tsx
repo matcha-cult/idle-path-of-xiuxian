@@ -13,6 +13,7 @@
  * - 键盘可调（antd Slider 默认 `keyboard`）：左右方向键走一步，这也让 jsdom 能测它。
  */
 import { Slider, Typography, theme } from 'antd';
+import { MapStageRingExport } from './MapStageRingExport.js';
 import { RING_RADIUS_LIMITS } from './map-points.js';
 import type { MapRing } from './map-points.js';
 
@@ -29,9 +30,12 @@ export function MapStageRingSliders(props: MapStageRingSlidersProps) {
 
   return (
     <div data-testid="stage-ring-sliders" style={{ display: 'flex', flexDirection: 'column', gap: token.paddingXS }}>
-      <Typography.Text type="secondary">
-        环半径（格）— 拖动即可改本次会话的圆；满意后把数字发我，我写进数据表（刷新会回到默认值）
-      </Typography.Text>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: token.padding }}>
+        <Typography.Text type="secondary">
+          环半径（格）— 拖动即可改本次会话的圆；满意后点右侧按钮：会复制一段可直接贴回数据表的常量，并同时打到浏览器控制台（刷新会回到默认值）
+        </Typography.Text>
+        <MapStageRingExport rings={rings} />
+      </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.padding }}>
         {rings.map((ring) => (
           <div

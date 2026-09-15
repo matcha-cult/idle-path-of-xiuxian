@@ -39,9 +39,15 @@ export const GATE_RING_CELLS = 10;
  * 它的 `fixed` 让它不出现在滑杆里（中心不该被拖走），半径 0 的环也由绘制层跳过。
  */
 export const MAP_RINGS: readonly MapRing[] = [
-  { key: 'gate', label: '外环 · 四门', radiusCells: GATE_RING_CELLS, dashed: true },
-  { key: 'peak', label: '二环 · 八峰', radiusCells: PEAK_RING_CELLS },
-  { key: 'court', label: '内环 · 四院', radiusCells: COURT_RING_CELLS },
+  {
+    key: 'gate',
+    label: '外环 · 四门',
+    radiusCells: GATE_RING_CELLS,
+    dashed: true,
+    radiusConst: 'GATE_RING_CELLS',
+  },
+  { key: 'peak', label: '二环 · 八峰', radiusCells: PEAK_RING_CELLS, radiusConst: 'PEAK_RING_CELLS' },
+  { key: 'court', label: '内环 · 四院', radiusCells: COURT_RING_CELLS, radiusConst: 'COURT_RING_CELLS' },
   { key: 'summit', label: '中心 · 主峰', radiusCells: 0, fixed: true },
 ];
 

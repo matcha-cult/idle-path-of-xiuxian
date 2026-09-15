@@ -141,6 +141,11 @@ describe('MapStagePage', () => {
     expect(handles()).toHaveLength(3);
   });
 
+  it('⭐ 「复制环半径」按钮在页面上（点一下就把常量写进剪贴板 + 控制台）', () => {
+    render(<MapStagePage />);
+    expect(screen.getByTestId('ring-export-button')).toHaveTextContent('复制环半径');
+  });
+
   it('⭐ 拖动滑杆（键盘一步）⇒ 半径、环、点位一起重画，读数同步', () => {
     render(<MapStagePage />);
     // 假上下文是**日志**（只追加），并不模拟"重画会清空画布"——所以只看这一帧新产生的那一段
