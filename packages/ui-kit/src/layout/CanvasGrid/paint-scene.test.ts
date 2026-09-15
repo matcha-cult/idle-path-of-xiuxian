@@ -98,6 +98,8 @@ function scene(over: Partial<SceneInput> = {}): SceneInput {
     rings: [],
     marks: [],
     links: [],
+    hoverMarkKey: null,
+    selectedMarkKey: null,
     palette: PALETTE,
     ...over,
   };
@@ -317,5 +319,86 @@ describe('光标坐标标签', () => {
     const { ctx, calls } = recorder();
     paintScene(canvas, ctx, scene({ hover: { col: 0, row: 0 }, cursor: null }));
     expect(calls).not.toContain('fillText:0,0');
+  });
+
+  it('⭐ 悬停到**点**上时报名字（而不是格坐标）—— 想知道"这是哪儿"', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(
+      canvas,
+      ctx,
+      scene({
+        marks: [{ key: 'peak_1', label: '八峰·一', at: { x: 0, y: 0 }, radiusCells: 0.5 }],
+        hover: { col: 0, row: 0 },
+        hoverMarkKey: 'peak_1',
+        cursor: { x: 40, y: 40 },
+      }),
+    );
+    expect(calls).toContain('fillText:八峰·一');
+    expect(calls).not.toContain('fillText:0,0');
+  });
+
+  it('点没有 label ⇒ 退回格坐标（有总比没有好）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(
+      canvas,
+      ctx,
+      scene({
+        marks: [{ key: 'k', at: { x: 0, y: 0 }, radiusCells: 0.5 }],
+        hover: { col: 0, row: 0 },
+        hoverMarkKey: 'k',
+        cursor: { x: 40, y: 40 },
+      }),
+    );
+    expect(calls).toContain('fillText:0,0');
+  });
+});
+
+describe('点的聚焦圈（悬停 / 选中）', () => {
+  const marks = [
+    { key: 'a', label: 'A', at: { x: 0, y: 0 }, radiusCells: 0.5 }, // 屏幕 (36,36)，点半径 5
+    { key: 'b', label: 'B', at: { x: 1, y: 1 }, radiusCells: 0.5 }, // 屏幕 (46,26)
+  ];
+
+  it('⭐ 悬停 ⇒ 细圈；选中 ⇒ 粗圈；圈画在所有点之后（不被相邻点盖住）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(canvas, ctx, scene({ marks, hoverMarkKey: 'a', selectedMarkKey: 'b' }));
+
+    // 5 + 3 + 0.75 = 8.75（悬停）；5 + 3 + 1 = 9（选中）
+    expect(calls).toContain('arc(36,36,8.75)');
+    expect(calls).toContain('arc(46,26,9)');
+    // 两条聚焦圈都在**最后一个点**之后
+    const lastDot = calls.lastIndexOf('fill@mark');
+    expect(calls.indexOf('arc(36,36,8.75)')).toBeGreaterThan(lastDot);
+    expect(calls.indexOf('arc(46,26,9)')).toBeGreaterThan(lastDot);
+    // 悬停圈先于选中圈（同时存在时是双圈）
+    expect(calls.indexOf('arc(36,36,8.75)')).toBeLessThan(calls.indexOf('arc(46,26,9)'));
+  });
+
+  it('没有悬停/选中 ⇒ 一个聚焦圈都不画', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(canvas, ctx, scene({ marks }));
+    expect(countOf(calls, 'stroke@primary')).toBe(0);
+  });
+
+  it('key 不存在于当前 marks（数据换了）⇒ 忽略，不抛错', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(canvas, ctx, scene({ marks, hoverMarkKey: 'ghost', selectedMarkKey: 'ghost' }));
+    expect(countOf(calls, 'stroke@primary')).toBe(0);
+  });
+
+  it('没有 key 的点用下标当 key（无 key 数据也能被聚焦）', () => {
+    const { canvas } = sceneCanvas();
+    const { ctx, calls } = recorder();
+    paintScene(
+      canvas,
+      ctx,
+      scene({ marks: [{ at: { x: 0, y: 0 }, radiusCells: 0.5 }], selectedMarkKey: '0' }),
+    );
+    expect(calls).toContain('arc(36,36,9)');
   });
 });

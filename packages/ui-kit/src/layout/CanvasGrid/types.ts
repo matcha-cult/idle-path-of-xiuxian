@@ -46,6 +46,10 @@ export interface GridRing {
 
 /** 功能点（世界口径：位置以「格」为单位，原点在中心，y 向上）。 */
 export interface GridMark {
+  /** 稳定标识（悬停/点击回调带回来；缺省时退回数组下标 —— 两种都要能工作） */
+  key?: string;
+  /** 显示名（悬停时画在光标旁；缺省则退回格坐标） */
+  label?: string;
   at: WorldPoint;
   /** 点半径（格单位）。口径「直径 = 1 格」⇒ `0.5` —— 口径在数据里，不在组件里 */
   radiusCells: number;
@@ -80,6 +84,21 @@ export interface CanvasGridProps {
   marks?: readonly GridMark[];
   /** 连接线（图的边）：画在轨道之上、功能点之下（点永远盖住线头） */
   links?: readonly GridLink[];
+  /**
+   * **受控选中**的点 key（常驻聚焦圈；`null` = 没选中）。
+   *
+   * 与 `value`（高亮格）同一套思路：组件自己不存"选中了谁"，选中态属于业务；
+   * 这样点空白取消选中、或从右侧面板反向选中某个点，都只是改一个 prop。
+   */
+  selectedKey?: string | null;
+  /** **受控悬停**的点 key（瞬时聚焦圈）——与 `value`（高亮格）同理，组件不自己存 */
+  hoverKey?: string | null;
+  /** 悬停到某个点（移出 ⇒ `null`）；**只报变化**，与格子的 `onHoverCell` 各报各的 */
+  onHoverMark?: (key: string | null) => void;
+  /** 点击某个点（点空白 ⇒ `null`）；"点击"= 按下抬起位移不超过阈值，不会与以后的拖动打架 */
+  onMarkClick?: (key: string | null) => void;
+  /** 命中半径下限（CSS 像素）：太小的点也要点得着 */
+  markHitSlopPx?: number;
   /** 主线 / 轴标间隔（格） */
   majorStep?: number;
   /** 是否在光标旁画「列,行」标签 */

@@ -25,6 +25,10 @@ export interface MapStageReadoutProps {
   rings: readonly MapRing[];
   /** 当前生效的连接线（由规则算出；半径一改就变） */
   links: readonly ResolvedMapLink[];
+  /** 当前**悬停**的点 key（来自 `CanvasGrid` 的 `onHoverMark`） */
+  hoverMark: string | null;
+  /** 当前**选中**的点 key（来自 `CanvasGrid` 的 `onMarkClick`；点空白 ⇒ null） */
+  selectedMark: string | null;
 }
 
 const DASH = '—';
@@ -61,7 +65,7 @@ function Field(props: { name: string; value: string; testId: string }) {
 }
 
 export function MapStageReadout(props: MapStageReadoutProps) {
-  const { hover, metrics, points, rings, links } = props;
+  const { hover, metrics, points, rings, links, hoverMark, selectedMark } = props;
   const { token } = theme.useToken();
   /** 几何读数只在「量出来且真的画得出网格」时才有意义；否则一律 `—`。 */
   const geom = metrics !== null && metrics.usable ? metrics : null;
@@ -70,6 +74,17 @@ export function MapStageReadout(props: MapStageReadoutProps) {
   /** 渲染的 / 只在数据里的（读数把两类都列出来 —— 隐藏位要"看得见它存在"）。 */
   const shown = visiblePoints(points);
   const hidden = hiddenPoints(points);
+  /**
+   * 悬停 / 选中的点的**资料行**（这是"点成为可交互对象"之后要看得见的东西）：
+   * 名字 + key（我按 key 沟通/写数据）+ 世界坐标 + 格点口径 + 归属环。
+   */
+  const describePoint = (key: string | null): string => {
+    const point = key === null ? undefined : points.find((item) => item.key === key);
+    if (point === undefined) return DASH;
+    const world = `(${round1(point.world.x)}, ${round1(point.world.y)})`;
+    const lattice = `列 ${round2(point.lattice.col)} 行 ${round2(point.lattice.row)}`;
+    return `${point.label} [${point.key}] · 世界 ${world} · 格点 ${lattice} · 环 ${point.ring}`;
+  };
   /** 连接线读数：总数 + 按规则分组（规则名与条数都从当前边上算，滑杆一改跟着变）。 */
   const linkText = `${links.length} 条（${linkBreakdown(links)
     .map((item) => `${item.rule} ${item.count}`)
@@ -117,6 +132,12 @@ export function MapStageReadout(props: MapStageReadoutProps) {
         <Field name="每轴线" testId="stage-lines" value={geom === null ? DASH : `${geom.axisLineCount} 条`} />
         <Field name="环" testId="stage-rings" value={ringText} />
         <Field name="连接" testId="stage-links" value={linkText} />
+      </Space>
+
+      <Space wrap separator={<Typography.Text type="secondary">|</Typography.Text>}>
+        <Field name="悬停点" testId="stage-hover-mark" value={describePoint(hoverMark)} />
+        <Field name="选中点" testId="stage-selected-mark" value={describePoint(selectedMark)} />
+        <Typography.Text type="secondary">（鼠标移到点上会亮；点一下选中，点空白取消）</Typography.Text>
       </Space>
 
       <Space wrap data-testid="stage-points">

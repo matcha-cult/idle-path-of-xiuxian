@@ -32,6 +32,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { theme } from 'antd';
 import { canvasSize, cellAtPoint, cellLabel, fitCellPx, GRID_PAD_PX, gridCenter, lineCount, sameCell } from './geometry.js';
+import { hitTestMarks, isClickGesture, markKeyOf } from './hit-test.js';
 import type { GridCell, GridLayout } from './geometry.js';
 import { gridPalette } from './palette.js';
 import { paintScene } from './paint-scene.js';
@@ -64,6 +65,11 @@ export function CanvasGrid(props: CanvasGridProps) {
     rings = NO_RINGS,
     marks = NO_MARKS,
     links = NO_LINKS,
+    selectedKey = null,
+    hoverKey = null,
+    onHoverMark,
+    onMarkClick,
+    markHitSlopPx,
   } = props;
 
   const { token } = theme.useToken();
@@ -73,6 +79,10 @@ export function CanvasGrid(props: CanvasGridProps) {
   const [cursor, setCursor] = useState<GridPoint | null>(null);
   /** 上一次**已上报**的格子（hover 去重；不能用 `value` 代替，见文件头契约）。 */
   const reportedRef = useRef<GridCell | null>(null);
+  /** 上一次**已上报**的点（同样只报变化，否则上层状态会被 pointermove 刷爆）。 */
+  const reportedMarkRef = useRef<string | null>(null);
+  /** 按下时的位置：用来把"点击"从"拖动"里区分出来（以后加拖动时这里就派上用场）。 */
+  const pressedRef = useRef<GridPoint | null>(null);
 
   // 整图适配：格子取整数，几何变化才换对象（避免无关重渲染反复重画）
   const cellPx = fitCellPx({ availW: size.w, availH: size.h, rows, cols, pad: GRID_PAD_PX, minCellPx });
@@ -102,9 +112,11 @@ export function CanvasGrid(props: CanvasGridProps) {
       rings,
       marks,
       links,
+      hoverMarkKey: hoverKey,
+      selectedMarkKey: selectedKey,
       palette,
     });
-  }, [box, layout, dpr, majorStep, palette, rings, marks, links, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
+  }, [box, layout, dpr, majorStep, palette, rings, marks, links, hoverKey, selectedKey, showCursorLabel, value, cursor, token.fontFamily, token.colorText, token.colorBgContainer]);
 
   const metricsRef = useRef(onMetrics);
   useEffect(() => {
@@ -129,25 +141,68 @@ export function CanvasGrid(props: CanvasGridProps) {
     });
   }, [layout, box, cols, cellPx, dpr]);
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+  /** 画布内坐标（CSS 像素）：命中测试、光标标签、点击判定都用它。 */
+  const localPoint = (event: ReactPointerEvent<HTMLCanvasElement>): GridPoint | null => {
     const canvas = canvasRef.current;
-    if (canvas === null) return;
+    if (canvas === null) return null;
     const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    // 光标每次移动都要更新（标签跟着光标走），但同一格内**不重复上报** => 上层状态才不会被刷爆
-    setCursor((prev) => (prev !== null && prev.x === x && prev.y === y ? prev : { x, y }));
-    const next = cellAtPoint(x, y, layout);
-    if (sameCell(next, reportedRef.current)) return;
-    reportedRef.current = next;
-    onHoverCell?.(next);
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  /** 命中测试：点在画布坐标上命中了哪个 mark，返回它的 key（没命中 ⇒ null）。 */
+  const markKeyAt = (point: GridPoint): string | null => {
+    const center = gridCenter(layout);
+    if (center === null) return null;
+    const index = hitTestMarks({ ...point, marks, center, cellPx: layout.cellPx, slopPx: markHitSlopPx });
+    if (index === null) return null;
+    const mark = marks[index];
+    return mark === undefined ? null : markKeyOf(mark, index);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    const point = localPoint(event);
+    if (point === null) return;
+    // 光标每次移动都要更新（标签跟着光标走），但同一格/同一点内**不重复上报**
+    setCursor((prev) => (prev !== null && prev.x === point.x && prev.y === point.y ? prev : point));
+
+    const nextCell = cellAtPoint(point.x, point.y, layout);
+    if (!sameCell(nextCell, reportedRef.current)) {
+      reportedRef.current = nextCell;
+      onHoverCell?.(nextCell);
+    }
+
+    const nextMark = markKeyAt(point);
+    if (nextMark !== reportedMarkRef.current) {
+      reportedMarkRef.current = nextMark;
+      onHoverMark?.(nextMark);
+    }
   };
 
   const handlePointerLeave = (): void => {
     setCursor(null);
-    if (reportedRef.current === null) return;
-    reportedRef.current = null;
-    onHoverCell?.(null);
+    if (reportedRef.current !== null) {
+      reportedRef.current = null;
+      onHoverCell?.(null);
+    }
+    if (reportedMarkRef.current !== null) {
+      reportedMarkRef.current = null;
+      onHoverMark?.(null);
+    }
+  };
+
+  /** 按下位置留给抬起时判定"这是点击还是拖动"（以后加拖动时这里就派上用场）。 */
+  const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    pressedRef.current = localPoint(event);
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    const up = localPoint(event);
+    const down = pressedRef.current;
+    pressedRef.current = null;
+    // 位移超过阈值 ⇒ 是拖动（不是点击）：现在还没有拖动，但先判好，免得以后加拖动时
+    // "点一下就顺手选中/取消"这种幽灵 bug 混进来。
+    if (up === null || !isClickGesture(down, up)) return;
+    onMarkClick?.(markKeyAt(up));
   };
 
   return (
@@ -175,6 +230,8 @@ export function CanvasGrid(props: CanvasGridProps) {
         aria-label={`${label}：${rows} × ${cols} 格`}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
         style={{
           display: 'block',
           width: box.w,

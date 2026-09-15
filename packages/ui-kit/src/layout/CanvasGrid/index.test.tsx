@@ -210,6 +210,72 @@ describe('渲染与几何读数', () => {
   });
 });
 
+describe('点的交互（悬停 / 点击）', () => {
+  /** 2 格布局 + 格宽 24 ⇒ 点半径 12px（比命中下限 8px 大）；世界 (0,0) ⇒ (50,50)。 */
+  const MARKS = [
+    { key: 'a', label: 'A', at: { x: 0, y: 0 }, radiusCells: 0.5 },
+    { key: 'b', label: 'B', at: { x: 1, y: 1 }, radiusCells: 0.5 },
+  ];
+
+  it('⭐ 悬停到点上报 key；同一点内移动不重复；移到另一个点/空白各自上报', () => {
+    const onHoverMark = vi.fn();
+    render(<CanvasGrid rows={2} cols={2} marks={MARKS} onHoverMark={onHoverMark} />);
+    const canvas = screen.getByTestId('canvas-grid');
+
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 50 });
+    expect(onHoverMark).toHaveBeenLastCalledWith('a');
+    expect(onHoverMark).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerMove(canvas, { clientX: 55, clientY: 50 }); // 仍在 a 的命中圈内
+    expect(onHoverMark).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerMove(canvas, { clientX: 74, clientY: 26 }); // b
+    expect(onHoverMark).toHaveBeenLastCalledWith('b');
+
+    fireEvent.pointerMove(canvas, { clientX: 12, clientY: 12 }); // 空白处
+    expect(onHoverMark).toHaveBeenLastCalledWith(null);
+  });
+
+  it('⭐ 点击点上报 key；点空白上报 null（取消选择）', () => {
+    const onMarkClick = vi.fn();
+    render(<CanvasGrid rows={2} cols={2} marks={MARKS} onMarkClick={onMarkClick} />);
+    const canvas = screen.getByTestId('canvas-grid');
+
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 50 });
+    fireEvent.pointerUp(canvas, { clientX: 50, clientY: 50 });
+    expect(onMarkClick).toHaveBeenLastCalledWith('a');
+
+    fireEvent.pointerDown(canvas, { clientX: 12, clientY: 12 });
+    fireEvent.pointerUp(canvas, { clientX: 12, clientY: 12 });
+    expect(onMarkClick).toHaveBeenLastCalledWith(null);
+  });
+
+  it('⭐ 拖动不算点击（位移超过阈值 ⇒ 一次点击回调都不该有）', () => {
+    const onMarkClick = vi.fn();
+    render(<CanvasGrid rows={2} cols={2} marks={MARKS} onMarkClick={onMarkClick} />);
+    const canvas = screen.getByTestId('canvas-grid');
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 50 });
+    fireEvent.pointerUp(canvas, { clientX: 70, clientY: 50 });
+    expect(onMarkClick).not.toHaveBeenCalled();
+  });
+
+  it('⭐ 聚焦圈是**受控**的：hoverKey 细圈、selectedKey 粗圈（组件不自己存选中态）', () => {
+    render(<CanvasGrid rows={2} cols={2} marks={MARKS} hoverKey="a" selectedKey="b" />);
+    // 点半径 12px：悬停 12+3+0.75 = 15.75；选中 12+3+1 = 16
+    expect(rec.calls).toContain('arc(50,50,15.75)');
+    expect(rec.calls).toContain('arc(74,26,16)');
+  });
+
+  it('移出画布时把点的悬停也清掉（不留一个"永远停在某个点上"的状态）', () => {
+    const onHoverMark = vi.fn();
+    render(<CanvasGrid rows={2} cols={2} marks={MARKS} onHoverMark={onHoverMark} />);
+    const canvas = screen.getByTestId('canvas-grid');
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 50 });
+    fireEvent.pointerLeave(canvas);
+    expect(onHoverMark).toHaveBeenLastCalledWith(null);
+  });
+});
+
 describe('hover 上报（受控）', () => {
   it('落到哪一格就报哪一格；同一格内移动不重复上报', () => {
     const onHover = vi.fn();

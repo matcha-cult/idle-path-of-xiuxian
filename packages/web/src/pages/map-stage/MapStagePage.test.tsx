@@ -169,6 +169,45 @@ describe('MapStagePage', () => {
     expect(segments).toContain(`lineTo(${CENTER + COURT_RING_CELLS * CELL_PX},${CENTER})`);
   });
 
+  it('⭐ 悬停到点 ⇒ 读数报出它的名字；移到空白 ⇒ 回到 —', () => {
+    render(<MapStagePage />);
+    const canvas = screen.getByTestId('canvas-grid');
+    const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
+
+    fireEvent.pointerMove(canvas, { clientX: eastCourtX, clientY: CENTER });
+    expect(screen.getByTestId('stage-hover-mark')).toHaveTextContent('四院·东 [court_1]');
+
+    fireEvent.pointerMove(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
+    expect(screen.getByTestId('stage-hover-mark')).toHaveTextContent('—');
+  });
+
+  it('⭐ 点一下点 ⇒ 选中（画布出现常驻聚焦圈）；点空白 ⇒ 取消选中', () => {
+    render(<MapStagePage />);
+    const canvas = screen.getByTestId('canvas-grid');
+    const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
+
+    const before = arcs.length;
+    fireEvent.pointerDown(canvas, { clientX: eastCourtX, clientY: CENTER });
+    fireEvent.pointerUp(canvas, { clientX: eastCourtX, clientY: CENTER });
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('四院·东 [court_1]');
+    // 点半径 5px ⇒ 选中圈 5 + 3 + 1 = 9
+    expect(arcs.slice(before)).toContain(`arc(${eastCourtX},${CENTER},9)`);
+
+    // 点空白 ⇒ 取消选中（这是"点空白取消"的唯一入口）
+    fireEvent.pointerDown(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
+    fireEvent.pointerUp(canvas, { clientX: CENTER + 5, clientY: CENTER + 150 });
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('—');
+  });
+
+  it('⭐ 拖动（位移超过阈值）不会选中任何点 —— 点击与拖动不串', () => {
+    render(<MapStagePage />);
+    const canvas = screen.getByTestId('canvas-grid');
+    const eastCourtX = CENTER + COURT_RING_CELLS * CELL_PX;
+    fireEvent.pointerDown(canvas, { clientX: eastCourtX, clientY: CENTER });
+    fireEvent.pointerUp(canvas, { clientX: eastCourtX + 30, clientY: CENTER + 30 });
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('—');
+  });
+
   it('按 42 格算出整数格宽与画布尺寸（500×500 ⇒ 每格 10px、画布 472）', () => {
     render(<MapStagePage />);
     expect(screen.getByTestId('canvas-grid-root').getAttribute('data-cell-px')).toBe('10');

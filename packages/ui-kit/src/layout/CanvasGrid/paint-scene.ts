@@ -20,6 +20,7 @@
  */
 import { cellLabel, gridCenter } from './geometry.js';
 import type { GridCell, GridLayout } from './geometry.js';
+import { markKeyOf } from './hit-test.js';
 import type { GridPalette } from './palette.js';
 import { paintCursorLabel } from './paint-cursor-label.js';
 import { paintGrid } from './paint-grid.js';
@@ -28,6 +29,7 @@ import { paintGuideRing } from './paint-guide-ring.js';
 import { paintHoverCell } from './paint-hover-cell.js';
 import { paintLink } from './paint-link.js';
 import { paintMarkDot } from './paint-mark-dot.js';
+import { paintMarkFocus } from './paint-mark-focus.js';
 import type { GridLink, GridMark, GridPoint, GridRing } from './types.js';
 import { worldToScreen } from './world.js';
 
@@ -62,6 +64,9 @@ export interface SceneInput {
   marks: readonly GridMark[];
   /** 连接线（两端都是世界坐标） */
   links: readonly GridLink[];
+  /** 悬停 / 选中的点 key（`null` = 没有）；聚焦圈画在所有点之后 */
+  hoverMarkKey: string | null;
+  selectedMarkKey: string | null;
   palette: GridPalette;
 }
 
@@ -85,6 +90,8 @@ export function paintScene(
     rings,
     marks,
     links,
+    hoverMarkKey,
+    selectedMarkKey,
     palette,
   } = input;
 
@@ -131,11 +138,35 @@ export function paintScene(
         color: palette.mark,
       });
     }
+
+    // 聚焦圈画在**所有点之后**：圈是"套在点外面"的，不该被相邻的点盖住。
+    // 先悬停（细）后选中（粗）：两者同时存在时看到的是双圈，语义清楚。
+    const focusOn = (key: string | null, widthPx: number): void => {
+      if (key === null) return;
+      const index = marks.findIndex((mark, position) => markKeyOf(mark, position) === key);
+      const mark = marks[index];
+      if (mark === undefined) return;
+      const at = worldToScreen(mark.at, center, layout.cellPx);
+      paintMarkFocus(ctx, {
+        x: at.x,
+        y: at.y,
+        dotRadius: mark.radiusCells * layout.cellPx,
+        color: palette.accent,
+        widthPx,
+      });
+    };
+    focusOn(hoverMarkKey, 1.5);
+    focusOn(selectedMarkKey, 2);
   }
 
-  if (showCursorLabel && hover !== null && cursor !== null) {
+  // 光标标签：悬停到点了就报**名字**（想知道"这是哪儿"），否则报格坐标
+  const hoveredMark = hoverMarkKey === null
+    ? undefined
+    : marks[marks.findIndex((mark, position) => markKeyOf(mark, position) === hoverMarkKey)];
+  const labelText = hoveredMark?.label ?? (hover === null ? null : cellLabel(hover));
+  if (showCursorLabel && labelText !== null && cursor !== null) {
     paintCursorLabel(ctx, {
-      text: cellLabel(hover),
+      text: labelText,
       x: cursor.x,
       y: cursor.y,
       width: boxW,

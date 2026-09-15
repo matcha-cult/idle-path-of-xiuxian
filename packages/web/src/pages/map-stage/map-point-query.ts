@@ -7,7 +7,7 @@
  * 纯函数：同样的输入永远同样的输出，所以点位可以被单测逐点核对。
  */
 import { polarToWorld, worldToLattice } from '@idle-path/ui-kit';
-import type { WorldPoint } from '@idle-path/ui-kit';
+import type { GridMark, WorldPoint } from '@idle-path/ui-kit';
 import { MAP_CELLS, MAP_POINTS, MAP_RINGS, MARK_RADIUS_CELLS } from './map-catalog.js';
 import type { MapPoint, MapRing, ResolvedMapPoint } from './map-types.js';
 
@@ -75,9 +75,19 @@ export function hiddenPoints(points: readonly ResolvedMapPoint[]): ResolvedMapPo
   return points.filter((point) => point.hidden === true);
 }
 
-/** 供 `<CanvasGrid marks>` 用：世界坐标 + 半径（不含业务含义；**隐藏点在这里被滤掉**）。 */
-export function toGridMarks(points: readonly ResolvedMapPoint[]): { at: WorldPoint; radiusCells: number }[] {
-  return visiblePoints(points).map((point) => ({ at: point.world, radiusCells: MARK_RADIUS_CELLS }));
+/**
+ * 供 `<CanvasGrid marks>` 用：世界坐标 + 半径 + **key/label**（**隐藏点在这里被滤掉**）。
+ *
+ * 为什么要把 `key`/`label` 交给绘制层：点的悬停/点击回调要靠 `key` 才能回查到业务数据，
+ * 光标标签则直接用 `label` 显示名字（"这是哪儿"）。绘制层不认识业务的其它字段。
+ */
+export function toGridMarks(points: readonly ResolvedMapPoint[]): GridMark[] {
+  return visiblePoints(points).map((point) => ({
+    key: point.key,
+    label: point.label,
+    at: point.world,
+    radiusCells: MARK_RADIUS_CELLS,
+  }));
 }
 
 /** 供 `<CanvasGrid rings>` 用：半径 + 线型（半径 0 的环由绘制层跳过）。 */

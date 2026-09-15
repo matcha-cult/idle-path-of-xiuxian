@@ -240,6 +240,20 @@ describe('交给绘制层的最小形状', () => {
     expect(marks[13]?.at).toEqual({ x: COURT_RING_CELLS, y: 0 });
   });
 
+  it('⭐ marks 带上 key/label（悬停/点击要靠 key 回查业务数据，光标标签要显示名字）', () => {
+    const marks = toGridMarks(RESOLVED);
+    expect(marks[0]?.key).toBe('summit');
+    expect(marks[0]?.label).toBe('主峰');
+    expect(marks[3]?.key).toBe('peak_3');
+    expect(marks[3]?.label).toBe('八峰·三');
+    expect(marks[13]?.key).toBe('court_1');
+    // 每个 mark 的 key 都能在点位表里查到（回调回来的一定是有效 key）
+    const keys = new Set(MAP_POINTS.map((point) => point.key));
+    for (const mark of marks) {
+      expect(mark.key === undefined ? '' : keys.has(mark.key)).toBe(true);
+    }
+  });
+
   it('rings 带半径 + 线型：外环虚线、二环/内环实线、中心 r0（由绘制层跳过）', () => {
     expect(toGridRings()).toEqual([
       { radiusCells: GATE_RING_CELLS, dashed: true },

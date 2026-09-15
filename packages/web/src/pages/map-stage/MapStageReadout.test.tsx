@@ -36,7 +36,7 @@ const LINKS = resolveMapLinks(POINTS);
 describe('MapStageReadout', () => {
   it('把悬停格与几何印成可读文字（排查时可直接抄给开发者）', () => {
     render(
-      <MapStageReadout hover={{ col: 7, row: 3 }} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />,
+      <MapStageReadout hover={{ col: 7, row: 3 }} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />,
     );
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('列 07 / 行 03');
     expect(screen.getByTestId('stage-origin')).toHaveTextContent('(362, 362) px');
@@ -48,7 +48,7 @@ describe('MapStageReadout', () => {
   });
 
   it('⭐ 环读数用用户口径的名字 + 每个环挂几个点（外环/二环/内环/中心，虚实与隐藏都标出来）', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     const rings = screen.getByTestId('stage-rings');
     // 半径从数据表派生 ⇒ 以后调参不会让这条断言变红（读数要验的是"报的是当前值"，不是"值是多少"）
     expect(rings).toHaveTextContent(`外环 · 四门 r${GATE_RING_CELLS}（虚线）×4`);
@@ -59,7 +59,7 @@ describe('MapStageReadout', () => {
   });
 
   it('⭐ 连接读数：总数 + 按规则分组（总数从当前边派生，规则名是结构）', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     const links = screen.getByTestId('stage-links');
     expect(links).toHaveTextContent(`${LINKS.length} 条`);
     // 规则名与顺序来自 `MAP_LINK_RULES`（拓扑的唯一来源）
@@ -68,13 +68,53 @@ describe('MapStageReadout', () => {
     }
   });
 
+  it('⭐ 悬停点 / 选中点的资料行：名字 + key + 世界坐标 + 格点口径 + 归属环', () => {
+    render(
+      <MapStageReadout
+        hover={null}
+        metrics={METRICS}
+        points={POINTS}
+        rings={MAP_RINGS}
+        links={LINKS}
+        hoverMark="peak_1"
+        selectedMark="court_1"
+      />,
+    );
+    const hovered = screen.getByTestId('stage-hover-mark');
+    expect(hovered).toHaveTextContent('八峰·一 [peak_1]');
+    expect(hovered).toHaveTextContent('世界 (');
+    expect(hovered).toHaveTextContent('格点 列');
+    expect(hovered).toHaveTextContent('环 peak');
+
+    const selected = screen.getByTestId('stage-selected-mark');
+    expect(selected).toHaveTextContent('四院·东 [court_1]');
+    expect(selected).toHaveTextContent(`世界 (${COURT_RING_CELLS}, 0)`);
+    expect(selected).toHaveTextContent('环 court');
+  });
+
+  it('没有悬停/选中 ⇒ `—`；key 查不到（数据换了）也 ⇒ `—`，不抛错', () => {
+    render(
+      <MapStageReadout
+        hover={null}
+        metrics={METRICS}
+        points={POINTS}
+        rings={MAP_RINGS}
+        links={LINKS}
+        hoverMark={null}
+        selectedMark="ghost"
+      />,
+    );
+    expect(screen.getByTestId('stage-hover-mark')).toHaveTextContent('—');
+    expect(screen.getByTestId('stage-selected-mark')).toHaveTextContent('—');
+  });
+
   it('⭐ 环读数报的是**当前**半径：滑杆一改，读数立刻跟着变（否则读数会骗人）', () => {
     render(
       <MapStageReadout
         hover={null}
         metrics={METRICS}
         points={resolveMapPoints(undefined, withRingRadii({ peak: 12.5, gate: 14 }))}
-        rings={withRingRadii({ peak: 12.5, gate: 14 })} links={LINKS}
+        rings={withRingRadii({ peak: 12.5, gate: 14 })} links={LINKS} hoverMark={null} selectedMark={null}
       />,
     );
     expect(screen.getByTestId('stage-rings')).toHaveTextContent('外环 · 四门 r14（虚线）×4');
@@ -82,7 +122,7 @@ describe('MapStageReadout', () => {
   });
 
   it('⭐ 17 个渲染点位上屏（1 主峰 + 8 八峰 + 4 宗门门 + 4 四院），坐标是世界口径', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     expect(screen.getByTestId('stage-point-summit')).toHaveTextContent('主峰 (0, 0)');
     // 正方向点用数据表半径派生（整数，格式化不会变）；斜向点的浮点坐标由 map-points 的夹具测试钉死，
     // 这里只验"标签 + 括号里的数值格式"
@@ -95,7 +135,7 @@ describe('MapStageReadout', () => {
   });
 
   it('⭐ 4 个隐藏位单独一行：数据里在、但不渲染（读数是"看得见它存在"的唯一地方）', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     expect(screen.getByTestId('stage-hidden-points')).toHaveTextContent('隐藏');
     expect(screen.getByTestId('stage-hidden-inner_1')).toHaveTextContent('预留·东北 (');
     expect(screen.getByTestId('stage-hidden-inner_4')).toHaveTextContent('预留·东南 (');
@@ -105,7 +145,7 @@ describe('MapStageReadout', () => {
   });
 
   it('⭐ 四门落在四个正方向、八峰落在两个方位之间（相位 22.5° 的直观体现）', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     expect(screen.getByTestId('stage-point-gate_3')).toHaveTextContent(`宗门·西门 (-${GATE_RING_CELLS}, 0)`);
     expect(screen.getByTestId('stage-point-gate_4')).toHaveTextContent(`宗门·南门 (0, -${GATE_RING_CELLS})`);
     // 八峰的坐标**两个分量都不为零**（错开正方向的直接证据）；具体数值由夹具测试钉死
@@ -114,7 +154,7 @@ describe('MapStageReadout', () => {
   });
 
   it('说明里点明「环 + 角度」的存放口径、小数格点、隐藏位、以及滑杆只改会话', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     const note = screen.getByTestId('stage-points-note');
     expect(note).toHaveTextContent('8 等分');
     expect(note).toHaveTextContent('错开半个扇区');
@@ -129,12 +169,12 @@ describe('MapStageReadout', () => {
   });
 
   it('没有悬停 ⇒ 显示 —，而不是 0 / NaN / 空白', () => {
-    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('—');
   });
 
   it('还没量出尺寸（metrics=null）⇒ 几何全为 —，但 DPR 仍可报（它不是量出来的）', () => {
-    render(<MapStageReadout hover={null} metrics={null} points={POINTS} rings={MAP_RINGS} links={LINKS} />);
+    render(<MapStageReadout hover={null} metrics={null} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />);
     expect(screen.getByTestId('stage-origin')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('—');
     expect(screen.getByTestId('stage-canvas')).toHaveTextContent('—');
@@ -149,7 +189,7 @@ describe('MapStageReadout', () => {
         hover={null}
         metrics={{ ...METRICS, cellPx: 0, width: 0, height: 0, usable: false }}
         points={POINTS}
-        rings={MAP_RINGS} links={LINKS}
+        rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null}
       />,
     );
     expect(screen.getByTestId('stage-cell')).toHaveTextContent('—');
@@ -159,7 +199,7 @@ describe('MapStageReadout', () => {
 
   it('列/行都是两位补零（0 显示为 00，便于和轴标对齐着读）', () => {
     render(
-      <MapStageReadout hover={{ col: 0, row: 0 }} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} />,
+      <MapStageReadout hover={{ col: 0, row: 0 }} metrics={METRICS} points={POINTS} rings={MAP_RINGS} links={LINKS} hoverMark={null} selectedMark={null} />,
     );
     expect(screen.getByTestId('stage-hover')).toHaveTextContent('列 00 / 行 00');
   });

@@ -43,6 +43,13 @@ export function MapStagePage() {
   const [hover, setHover] = useState<GridCell | null>(null);
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
   /**
+   * 点的**悬停 / 选中**都是**会话态**（与环半径同类）：悬停瞬时、选中常驻。
+   * 画布是受控的（`hoverKey` / `selectedKey`），所以点空白取消选中、以后从右侧面板
+   * 反向选中某个点，都只是改这两个 state 之一。
+   */
+  const [hoverMark, setHoverMark] = useState<string | null>(null);
+  const [selectedMark, setSelectedMark] = useState<string | null>(null);
+  /**
    * 环半径的**会话态**（滑杆）。初始值 = 数据表里的默认值；刷新即回到默认。
    * 调半径只影响这一份 state，不动数据表 —— 定稿后再把数字写回 `map-points.ts`。
    */
@@ -85,6 +92,8 @@ export function MapStagePage() {
           内环也是 8 等分，其中<span> </span>
           四正是四院、四隅是**预留位**（数据保留、暂不渲染，读数里能看到它们存在）。
           连线（灰）按**规则**生成：主峰辐条 · 四院方环 · 峰-院就近 · 八峰环 · 峰-门就近。
+          <span> </span>
+          <Typography.Text strong>点可以交互</Typography.Text>：鼠标移到点上会亮出名字，点一下选中（点亮常驻圈），点空白取消。
           下面的滑杆可以直接调各环离中心多少格（连线会跟着变）。
         </Typography.Text>
       </div>
@@ -108,12 +117,24 @@ export function MapStagePage() {
           rings={gridRings}
           marks={marks}
           links={gridLinks}
+          hoverKey={hoverMark}
+          selectedKey={selectedMark}
+          onHoverMark={setHoverMark}
+          onMarkClick={setSelectedMark}
           label="地图网格"
         />
       </div>
 
       <MapStageRingSliders rings={adjustableRings(rings)} onChange={handleRingChange} />
-      <MapStageReadout hover={hover} metrics={metrics} points={points} rings={rings} links={links} />
+      <MapStageReadout
+        hover={hover}
+        metrics={metrics}
+        points={points}
+        rings={rings}
+        links={links}
+        hoverMark={hoverMark}
+        selectedMark={selectedMark}
+      />
     </div>
   );
 }
