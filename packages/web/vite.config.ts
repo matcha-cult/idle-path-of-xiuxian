@@ -3,8 +3,36 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 被 alias 到源码、但**位于 vite root 之外**的工作区包（`@idle-path/ui-kit`、
+ * `@idle-path/ionet-transport`）：它们由 `resolve.alias` 指到 `packages/<包名>/src`。
+ */
+const WORKSPACE_SRC = [
+  path.resolve(here, '../ui-kit/src'),
+  path.resolve(here, '../ionet-transport/src'),
+];
+
+/**
+ * 把工作区包的源码目录**显式加进 dev server 的文件监视**。
+ *
+ * 为什么必须显式加（2026-09-15 实测事故）：vite 的 root 是 `packages/web`，而
+ * `packages/ui-kit/src` 在 root 之外。改了 ui-kit 的**既有文件**后，dev server 不会
+ * invalidate 它的模块图，于是一直重放旧模块 —— 现象是「代码、单测、磁盘都对，
+ * 浏览器就是看不到新东西」：我报告"圆已经画好"，用户却看不到圆，白烧一轮排查。
+ * 只有"改老文件"才会这样（新文件首次从磁盘读），所以最难察觉。
+ */
+function watchWorkspaceSrc(): Plugin {
+  return {
+    name: 'idle-path:watch-workspace-src',
+    configureServer(server: ViteDevServer): void {
+      server.watcher.add(WORKSPACE_SRC);
+    },
+  };
+}
 
 // vitest 1.6 的 worker 数有两个坑，只设 maxWorkers 一定跑不起来（实测）：
 //   1. `maxWorkers` 只接受数字：'50%' 是 2.x 语法，`Number('50%')` → NaN，
@@ -22,7 +50,7 @@ const minWorkers = maxWorkers;
 const target = process.env.VITE_BACKEND_ORIGIN ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), watchWorkspaceSrc()],
   resolve: {
     alias: [
       // 直接消费 TypeScript 源码，避免必须先 build 各 workspace 包
